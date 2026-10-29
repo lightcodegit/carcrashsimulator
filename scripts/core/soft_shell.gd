@@ -206,7 +206,29 @@ func _plasticity_and_break() -> void:
 				plastic_event.emit(sp.zone, (pa + pb) * 0.5, absf(strain))
 
 func _collide_world(_h: float) -> void:
-	pass  # реализуется в Task 5
+	if space_state == null: return
+	for i in spec.points.size():
+		if not _dyn[i]: continue
+		# 1) свип prev -> pos против мира
+		if _pos[i] != _prev[i]:
+			var q := PhysicsRayQueryParameters3D.create(_prev[i], _pos[i])
+			q.collide_with_bodies = true; q.collide_with_areas = false
+			var hit := space_state.intersect_ray(q)
+			if not hit.is_empty():
+				var n: Vector3 = hit.normal
+				_pos[i] = hit.position + n * 0.01
+				var v := _pos[i] - _prev[i]
+				var vn := n * v.dot(n)
+				_prev[i] = _pos[i] - (v - vn * 1.2) * 0.85   # погасить нормаль, оставить касательную
+				continue
+		# 2) зонд вниз (точка уже внутри/под поверхностью после push-out)
+		var q2 := PhysicsRayQueryParameters3D.create(_pos[i] + Vector3(0, 0.05, 0), _pos[i] - Vector3(0, 0.2, 0))
+		q2.collide_with_bodies = true
+		var hit2 := space_state.intersect_ray(q2)
+		if not hit2.is_empty() and hit2.normal.y > 0.3:
+			_pos[i].y = hit2.position.y + 0.01
+			var v2 := _pos[i] - _prev[i]
+			_prev[i] = _pos[i] - Vector3(v2.x * 0.9, -maxf(0.0, -v2.y) * 0.2, v2.z * 0.9)
 
 func _sleep_check() -> void:
 	for i in spec.points.size():

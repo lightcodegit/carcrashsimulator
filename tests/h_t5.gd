@@ -13,14 +13,12 @@ func _ready() -> void:
 	var body := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var box := BoxShape3D.new()
 	box.size = Vector3(40, 1, 40); cs.shape = box
-	body.add_child(cs); body.global_position = Vector3(0, -0.5, 0)
-	add_child(body)
+	body.add_child(cs); add_child(body); body.global_position = Vector3(0, -0.5, 0)
 	# тонкая стена: грань x=6.0 (центр 6.1, толщина 0.2) — тест свип-рея на «дырявых» объектах
 	var wall := StaticBody3D.new()
 	var wcs := CollisionShape3D.new(); var wbox := BoxShape3D.new()
 	wbox.size = Vector3(0.2, 4, 8); wcs.shape = wbox
-	wall.add_child(wcs); wall.global_position = Vector3(6.1, 2, 0)
-	add_child(wall)
+	wall.add_child(wcs); add_child(wall); wall.global_position = Vector3(6.1, 2, 0)
 	await get_tree().process_frame
 	shell = SoftShell.new()
 	var p: VehicleParams = VehicleDB.get_params("sedan")

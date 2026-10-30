@@ -18,6 +18,7 @@ func bind_shell(shell: SoftShell) -> void:
 
 func reset() -> void:
 	_broken = [0, 0, 0, 0, 0]
+	if _totaled: totaled_changed.emit(false)
 	_totaled = false
 
 func report_breaks(zone: int, n: int) -> void:

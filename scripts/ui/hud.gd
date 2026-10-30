@@ -9,6 +9,7 @@ var _crash_until := 0
 var _bars: Array[ProgressBar] = []
 var _totaled_label: Label
 var _tip_label: Label
+var _tip_until := 0
 var _pause_label: Label
 
 func _ready() -> void:
@@ -85,6 +86,8 @@ func _process(_dt: float) -> void:
 	_speed_label.text = "%d км/ч" % int(_car.speed_kmh())
 	if _crash_label.visible and Time.get_ticks_msec() > _crash_until:
 		_crash_label.visible = false
+	if _tip_label.visible and _tip_until > 0 and Time.get_ticks_msec() > _tip_until:
+		_tip_label.visible = false
 	if _damage != null:
 		var hpz := _damage.hp_array()
 		for i in 5:

@@ -13,9 +13,9 @@ func _ready() -> void:
 	# пол: верх y=0
 	var body := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var box := BoxShape3D.new()
-	box.size = Vector3(40, 1, 40); cs.shape = box
-	body.add_child(cs); add_child(body); body.global_position = Vector3(0, -0.5, 0)
-	ObstacleField.add(Vector3(0, -0.5, 0), Vector3(20, 0.5, 20))
+	box.size = Vector3(40, 2, 40); cs.shape = box
+	body.add_child(cs); add_child(body); body.global_position = Vector3(0, -1, 0)
+	ObstacleField.add(Vector3(0, -1, 0), Vector3(20, 1, 20))
 	# тонкая стена: грань x=6.0 (центр 6.1, толщина 0.2) — тест свип-рея на «дырявых» объектах
 	var wall := StaticBody3D.new()
 	var wcs := CollisionShape3D.new(); var wbox := BoxShape3D.new()

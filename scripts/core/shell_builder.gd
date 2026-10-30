@@ -17,6 +17,9 @@ static func build(p: VehicleParams) -> ShellSpec:
 		var x := -half_l + float(s) / (S - 1) * p.length
 		var taper := clampf(1.0 - pow(absf(x) / half_l, 6.0) * 0.22, 0.78, 1.0)
 		var blend := _cabin_blend(x, p.cab_x0, p.cab_x1)
+		var topscale := 1.0
+		if x > p.cab_x1 + 0.01: topscale = p.hood_scale
+		elif x < p.cab_x0 - 0.01: topscale = p.trunk_scale
 		for i in P:
 			var th := float(i) / P * TAU
 			var cs := cos(th); var sn := sin(th)
@@ -24,7 +27,7 @@ static func build(p: VehicleParams) -> ShellSpec:
 			var se := 0.35
 			var csx := signf(cs) * pow(absf(cs), se)
 			var snx := signf(sn) * pow(absf(sn), se)
-			var y := body_cy + body_ry * csx * taper
+			var y := body_cy + body_ry * csx * taper * (topscale if cs > 0.0 else 1.0)
 			var z := body_rz * snx * taper
 			if cs > 0.0:
 				y = lerp(y, cab_cy + cab_ry * csx, blend)

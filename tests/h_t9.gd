@@ -11,9 +11,9 @@ func _ready() -> void:
 	ObstacleField.reset()
 	var body := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var box := BoxShape3D.new()
-	box.size = Vector3(200, 1, 200); cs.shape = box
-	body.add_child(cs); add_child(body); body.global_position = Vector3(0, -0.5, 0)
-	ObstacleField.add(Vector3(0, -0.5, 0), Vector3(100, 0.5, 100))
+	box.size = Vector3(200, 2, 200); cs.shape = box
+	body.add_child(cs); add_child(body); body.global_position = Vector3(0, -1, 0)
+	ObstacleField.add(Vector3(0, -1, 0), Vector3(100, 1, 100))
 	await get_tree().process_frame
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())

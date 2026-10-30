@@ -33,7 +33,7 @@ static func build(id: String) -> Dictionary:
 
 static func _arena() -> Dictionary:
 	var root := Node3D.new(); root.name = "Arena"
-	box(root, Vector3(0, -0.25, 0), Vector3(200, 0.5, 200), Color(0.55, 0.55, 0.57))
+	box(root, Vector3(0, -1.0, 0), Vector3(200, 2, 200), Color(0.55, 0.55, 0.57))
 	var wc := Color(0.35, 0.35, 0.38)
 	box(root, Vector3(0, 4, -100), Vector3(200, 8, 1), wc)
 	box(root, Vector3(0, 4, 100), Vector3(200, 8, 1), wc)
@@ -51,7 +51,7 @@ static func _arena() -> Dictionary:
 
 static func _town() -> Dictionary:
 	var root := Node3D.new(); root.name = "Town"
-	box(root, Vector3(0, -0.25, 0), Vector3(300, 0.5, 300), Color(0.42, 0.42, 0.45))
+	box(root, Vector3(0, -1.0, 0), Vector3(300, 2, 300), Color(0.42, 0.42, 0.45))
 	var rng := RandomNumberGenerator.new(); rng.seed = 20261029
 	for bx in 3:
 		for bz in 3:
@@ -66,7 +66,7 @@ static func _town() -> Dictionary:
 
 static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"
-	box(root, Vector3(0, -0.25, 0), Vector3(700, 0.5, 300), Color(0.32, 0.32, 0.34))
+	box(root, Vector3(0, -1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34))
 	box_vis(root, Vector3(280, 0.02, 0), Vector3(620, 0.03, 12), Color(0.15, 0.15, 0.17))
 	for side in [-1, 1]:
 		box(root, Vector3(280, 0.5, side * 7.0), Vector3(620, 1.0, 0.4), Color(0.8, 0.8, 0.85))

@@ -1,0 +1,26 @@
+extends Node3D
+var _f := 0
+var gm: GameManager
+func _ready() -> void:
+	GameContext.select("sport", "speedway")
+	gm = load("res://scenes/game.tscn").instantiate()
+	add_child(gm)
+	DirAccess.make_dir_recursive_absolute("res://tests/out")
+	await get_tree().process_frame
+func _physics_process(_dt: float) -> void:
+	_f += 1
+	# слоу-мо задано в РЕАЛЬНЫХ секундах, а headless с --fixed-fps идёт ~1000 кадров/с:
+	# фиксируем масштаб, иначе замер привязывается к скорости машины-хоста
+	Engine.time_scale = 1.0
+	if _f == 5: Input.action_press("throttle")
+	if _f in [100, 420, 1000, 1690]:
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("res://tests/out/s%d.png" % _f)
+	if _f == 1691:
+		var thru := 0
+		for i in gm.car.body.vertex_count():
+			if gm.car.body.vertex_world(i).x > 585.8: thru += 1
+		print("SPEED done thru_wall=%d y=%.1f dents=%d deform=%.2f x=%.1f" % [
+			thru, gm.car.chassis.global_position.y, gm.car.body.dent_count,
+			gm.car.body.deformation(), gm.car.chassis.global_position.x])
+		get_tree().quit(0)

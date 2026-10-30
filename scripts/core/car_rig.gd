@@ -5,16 +5,15 @@ signal impact(speed_kmh: float, point: Vector3, normal: Vector3)
 
 var params: VehicleParams
 var chassis: RigidBody3D
-var shell: SoftShell
+var body: DentBody
 var heading := 0.0
+var _world: World3D
 var _prev_speed := 0.0
 var _recent_speed := 0.0
+var _travel := Vector3.ZERO            # куда машина летела до удара: solver обнуляет velocity
 var _impact_cooldown := 0
 var _grounded := true
-var _susp: Array[float] = [0.0, 0.0, 0.0, 0.0]
-var _visual: Node3D
-var _wheel_pivots: Array[Node3D] = []
-var _wheel_meshes: Array[MeshInstance3D] = []
+var _roll := 0.0
 
 class ChassisBody extends RigidBody3D:
 	var rig: CarRig
@@ -24,6 +23,7 @@ class ChassisBody extends RigidBody3D:
 
 func build(p: VehicleParams, world: World3D) -> void:
 	params = p
+	_world = world
 	var ch := ChassisBody.new()
 	ch.rig = self
 	ch.mass = p.mass
@@ -42,59 +42,39 @@ func build(p: VehicleParams, world: World3D) -> void:
 	add_child(ch)
 	chassis = ch
 	chassis.body_entered.connect(_on_body_entered)
-	_visual = Node3D.new()
-	chassis.add_child(_visual)
-	var wmat := StandardMaterial3D.new()
-	wmat.albedo_color = Color(0.12, 0.12, 0.14); wmat.roughness = 0.9
-	for i in 4:
-		var piv := Node3D.new()
-		var mi := MeshInstance3D.new()
-		var geo := CylinderMesh.new()
-		geo.height = 0.3; geo.top_radius = 0.4; geo.bottom_radius = 0.4
-		mi.mesh = geo; mi.material_override = wmat
-		mi.rotation = Vector3(0, 0, PI * 0.5)
-		piv.add_child(mi); _visual.add_child(piv)
-		_wheel_pivots.append(piv); _wheel_meshes.append(mi)
-	var wx := params.length * 0.32
-	var wz := params.width * 0.5 - 0.02
-	var wy := -(params.height - 0.12) * 0.5 + 0.34
-	_wheel_pivots[0].position = Vector3(wx, wy, wz)
-	_wheel_pivots[1].position = Vector3(wx, wy, -wz)
-	_wheel_pivots[2].position = Vector3(-wx, wy, wz)
-	_wheel_pivots[3].position = Vector3(-wx, wy, -wz)
-	var inner := MeshInstance3D.new()
-	var ibm := BoxMesh.new()
-	ibm.size = Vector3(params.length * 0.96, params.height * 0.46, params.width * 0.66)
-	var im := StandardMaterial3D.new(); im.albedo_color = Color(0.14, 0.15, 0.18)
-	ibm.material = im; inner.mesh = ibm
-	inner.position = Vector3(0, -params.height * 0.12, 0)
-	chassis.add_child(inner)
-	shell = SoftShell.new()
-	add_child(shell)
-	shell.setup(ShellBuilder.build(p), chassis, p)
-	shell.velocity_getter = func() -> Vector3: return chassis.linear_velocity
-	shell.space_state = world.direct_space_state
+	body = DentBody.new()
+	chassis.add_child(body)
+	body.setup(p.model, p)
+	# кузов в DentBody стоит колёсами на локальном нуле: опускаем на низ коллайдера
+	body.position = Vector3(0, -p.collider_size().y * 0.5, 0)
 
 func _on_body_entered(_other: Node) -> void:
 	# скорость в момент события уже обнулена solver'ом — берём свежий пик
 	if _recent_speed < 28.0 or _impact_cooldown > 0: return
-	var v := chassis.linear_velocity
-	var n: Vector3 = Vector3(-cos(heading), 0.0, sin(heading))  # против направления машины (стена перед носом)
-	var point := chassis.global_position + Vector3(params.length * 0.5, 0.1, 0)
-	impact.emit(_recent_speed, point, n)
-	shell.apply_impact(point, n, _recent_speed / 3.6)
+	var d := _travel if _travel.length_squared() > 0.25 else Vector3(cos(heading), 0.0, -sin(heading))
+	var point := chassis.global_position + d * (params.length * 0.5) + Vector3(0, 0.1, 0)
+	impact.emit(_recent_speed, point, -d)
+	body.apply_impact(point, d, _recent_speed)   # d — внутрь кузова: поверхность мнётся по ходу движения
 	_impact_cooldown = 60
 
 func respawn(tf: Transform3D) -> void:
 	heading = tf.basis.get_euler().y
-	chassis.global_transform = tf
+	var rest_y := params.collider_size().y * 0.5 + 0.02
+	chassis.global_transform = Transform3D(Basis(Vector3.UP, heading), Vector3(tf.origin.x, rest_y, tf.origin.z))
 	chassis.linear_velocity = Vector3.ZERO
 	chassis.angular_velocity = Vector3.ZERO
-	_visual.rotation = Vector3.ZERO
-	shell.reset()
+	_recent_speed = 0.0
+	_prev_speed = 0.0
+	_travel = Vector3.ZERO
+	_impact_cooldown = 0
+	_roll = 0.0
+	if body != null: body.reset()
 
 func speed_kmh() -> float:
 	return chassis.linear_velocity.length() * 3.6
+
+func forward_speed_ms() -> float:
+	return chassis.linear_velocity.dot(Vector3(cos(heading), 0.0, -sin(heading)))
 
 func is_airborne() -> bool:
 	return not _grounded
@@ -121,7 +101,7 @@ func _chassis_physics(state: PhysicsDirectBodyState3D) -> void:
 		vf = clampf(vf, -vmax * 0.12, vmax)
 		var hand := Input.is_action_pressed("handbrake")
 		vl *= exp(-dt * (1.6 if hand else params.grip))
-		var steer := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")  # + = налево; Basis(UP,h): h>0 => fwd к -Z = влево
+		var steer := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")  # + = налево
 		var sf := clampf(1.25 - absf(vf) / vmax * 1.05, 0.22, 1.0)
 		var speed_gate := clampf(absf(vf) / 2.0, 0.0, 1.0)
 		heading += deg_to_rad(params.steer_rate_deg) * steer * sf * dt * speed_gate * (1.0 if vf >= 0.0 else -1.0)
@@ -131,43 +111,46 @@ func _chassis_physics(state: PhysicsDirectBodyState3D) -> void:
 	state.transform.basis = Basis(Vector3.UP, heading)
 	# позиционный клмп: рама не должна входить в статичные тела (custom_integrator не даёт штатного выталкивания)
 	var fwd_dir := Vector3(cos(heading), 0.0, -sin(heading))
-	var space := get_world_3d().direct_space_state
-	var nose := state.transform.origin + fwd_dir * (params.length * 0.5)
+	var space := _space()
+	var eye := state.transform.origin + Vector3(0, 0.2, 0)   # луч выше пола, чтобы не цеплять землю
 	var margin := params.length * 0.5 + 0.30 + vel.length() * 0.02
-	var q := PhysicsRayQueryParameters3D.create(state.transform.origin + Vector3(0, 0.2, 0), state.transform.origin + fwd_dir * (margin + 0.1) + Vector3(0, 0.2, 0))
+	var q := PhysicsRayQueryParameters3D.create(eye, eye + fwd_dir * (margin + 0.1))
 	q.exclude = [chassis.get_rid()]
 	var hit := space.intersect_ray(q)
-	if not hit.is_empty() and state.transform.origin.distance_to(hit.position) < params.length * 0.5 + 0.33:
-		var fixed_origin: Vector3 = hit.position - fwd_dir * (params.length * 0.5 + 0.03)
-		if fwd_dir.dot(fixed_origin - state.transform.origin) < 0.0:
-			state.transform.origin = fixed_origin
-			if vel.dot(fwd_dir) > 0.0:
-				vel -= fwd_dir * vel.dot(fwd_dir)
-				state.linear_velocity = vel
-		if _recent_speed > 28.0 and _impact_cooldown <= 0:
-			var cn: Vector3 = hit.normal
-			var cpoint: Vector3 = hit.position
-			impact.emit(_recent_speed, cpoint, cn)
-			shell.apply_impact(cpoint, cn, _recent_speed / 3.6)
-			_impact_cooldown = 60
+	if not hit.is_empty():
+		var d_fwd: float = (hit.position - eye).dot(fwd_dir)   # только проекция на курс: вертикаль луча не в счёт
+		if d_fwd < params.length * 0.5 + 0.33:
+			var push := params.length * 0.5 + 0.03 - d_fwd
+			if push > 0.0:
+				state.transform.origin -= fwd_dir * push   # горизонталью: иначе машина подпрыгивает и скачет вечно
+				if vel.dot(fwd_dir) > 0.0:
+					vel -= fwd_dir * vel.dot(fwd_dir)
+					state.linear_velocity = vel
+			if _recent_speed > 28.0 and _impact_cooldown <= 0:
+				impact.emit(_recent_speed, hit.position, hit.normal)
+				body.apply_impact(hit.position, -hit.normal, _recent_speed)
+				_impact_cooldown = 60
 	_prev_speed = vel.length() * 3.6
+	if vel.length_squared() > 1.0: _travel = vel.normalized()
 	_recent_speed = maxf(_recent_speed - 1.6, _prev_speed)  # распад ~95 км/ч за секунду
 	_impact_cooldown = maxi(_impact_cooldown - 1, 0)
 
 func _physics_process(dt: float) -> void:
-	var space := get_world_3d().direct_space_state
-	for i in 4:
-		var anchor := chassis.global_transform * _wheel_pivots[i].position + Vector3(0, 0.5, 0)
-		var q := PhysicsRayQueryParameters3D.create(anchor, anchor + Vector3(0, -1.2, 0))
+	if body == null or body.wheels.is_empty(): return
+	var space := _space()
+	var rest := 0.5 + body.wheel_radius
+	var exts: Array[float] = []
+	for w in body.wheels:
+		var wp := w.global_position
+		var from := wp + Vector3(0, 0.5, 0)
+		var q := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -1.4, 0))
 		q.exclude = [chassis.get_rid()]
 		var hit := space.intersect_ray(q)
-		var ext := 0.3 if hit.is_empty() else clampf(anchor.distance_to(hit.position) - 0.35, 0.0, 0.6)
-		_susp[i] = lerpf(_susp[i], ext, 0.25)
-		_wheel_meshes[i].position.y = -_susp[i]
-	var pitch: float = ((_susp[0] + _susp[1]) - (_susp[2] + _susp[3])) * 0.15
-	var roll: float = ((_susp[0] + _susp[2]) - (_susp[1] + _susp[3])) * 0.15
-	_visual.rotation.z = lerpf(_visual.rotation.z, pitch, 0.15)
-	_visual.rotation.x = lerpf(_visual.rotation.x, -roll, 0.15)
-	var steer_vis := (Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")) * 0.5
-	_wheel_pivots[0].rotation.y = steer_vis
-	_wheel_pivots[1].rotation.y = steer_vis
+		exts.append(0.35 if hit.is_empty() else clampf(from.distance_to(hit.position) - rest, -0.22, 0.35))
+	var steer_vis := (Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")) * 0.45
+	_roll += forward_speed_ms() * dt / maxf(0.05, body.wheel_radius)
+	body.pose_wheels(exts, steer_vis, _roll)
+
+func _space() -> PhysicsDirectSpaceState3D:
+	if _world != null: return _world.direct_space_state
+	return get_world_3d().direct_space_state

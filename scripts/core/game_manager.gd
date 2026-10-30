@@ -4,36 +4,36 @@ extends Node3D
 var car: CarRig
 var hud: HUD
 var camera: CameraRig
-var damage: DamageModel
 var effects: EffectsDirector
 var _spawn := Transform3D.IDENTITY
+var _bounds := AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320))
 var _top_crash := 0.0
 var _crashes := 0
 var _paused := false
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS   # Esc и «в меню» должны работать и на паузе
 	_setup_env()
 	var m: Dictionary = MapDB.build(GameContext.map_id)
 	_spawn = m.spawn
+	_bounds = m.bounds
 	add_child(m.root)
 	car = CarRig.new()
 	add_child(car)
 	car.build(VehicleDB.get_params(GameContext.car_id), get_world_3d())
-	damage = DamageModel.new()
-	damage.bind_shell(car.shell)
 	car.respawn(_spawn)
 	effects = EffectsDirector.new()
 	add_child(effects)
-	effects.attach(car, damage)
+	effects.attach(car)
 	camera = CameraRig.new()
 	add_child(camera)
 	camera.setup(car)
 	camera.make_current()
 	hud = HUD.new()
 	add_child(hud)
-	hud.bind(car, damage)
+	hud.bind(car)
+	hud.menu_requested.connect(_to_menu)
 	car.impact.connect(_on_impact)
-	damage.zone_hp_changed.connect(func(_z: int, _h: float): car.shell.set_zone_hp(damage.hp_array()))
 
 func _setup_env() -> void:
 	var we := WorldEnvironment.new()
@@ -47,6 +47,7 @@ func _setup_env() -> void:
 	env.sky = sky
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.glow_enabled = true
+	env.ssao_enabled = true
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
@@ -65,29 +66,36 @@ func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 		TimeScale.play_auto(0.3, 1.2)
 
 func _physics_process(_dt: float) -> void:
+	if _paused: return
 	TimeScale.set_hold(Input.is_action_pressed("slowmo"))
 	var pos := car.chassis.global_position
-	if pos.y < -60.0 or pos.length() > 400.0:
+	if pos.y < -60.0 or not _bounds.has_point(pos):
 		_respawn_now()
 		hud.show_tip("вылет за пределы — рестарт")
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("respawn"):
+	if event.is_action_pressed("pause"):
+		_set_paused(not _paused)
+	elif _paused:
+		return
+	elif event.is_action_pressed("respawn"):
 		_respawn_now()
 	elif event.is_action_pressed("cam_cycle"):
 		camera.cycle_mode()
-	elif event.is_action_pressed("pause"):
-		_set_paused(not _paused)
 
 func _respawn_now() -> void:
 	car.respawn(_spawn)
-	damage.reset()
 	hud.show_tip("")
-	car.shell.set_zone_hp([100.0, 100.0, 100.0, 100.0, 100.0])
 	TimeScale.set_hold(false)
 
 func _set_paused(v: bool) -> void:
 	_paused = v
+	if v: TimeScale.set_hold(false)
 	get_tree().paused = v
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS if v else Node.PROCESS_MODE_INHERIT
 	hud.set_paused(v)
+
+func _to_menu() -> void:
+	get_tree().paused = false
+	_paused = false
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")

@@ -9,9 +9,6 @@ func _ready() -> void:
 	await get_tree().process_frame
 func _physics_process(_dt: float) -> void:
 	_f += 1
-	# слоу-мо задано в РЕАЛЬНЫХ секундах, а headless с --fixed-fps идёт ~1000 кадров/с:
-	# фиксируем масштаб, иначе замер привязывается к скорости машины-хоста
-	Engine.time_scale = 1.0
 	if _f == 5: Input.action_press("throttle")
 	if _f in [100, 420, 1000, 1690]:
 		await RenderingServer.frame_post_draw

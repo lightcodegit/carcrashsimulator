@@ -1,15 +1,12 @@
 extends Node
-var _auto_until_ms := 0
+# Только ручное слоу-мо (Shift / кнопка B). Автоматического замедления на удар нет:
+# игра не должна останавливаться или растягивать время без команды игрока.
 var _held := false
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-func play_auto(factor: float, real_secs: float) -> void:
-	Engine.time_scale = factor
-	_auto_until_ms = Time.get_ticks_msec() + int(real_secs * 1000.0)
+
 func set_hold(flag: bool) -> void:
+	if _held == flag: return
 	_held = flag
-	if flag: Engine.time_scale = 0.3
-func _process(_d: float) -> void:
-	if Engine.time_scale == 1.0: return
-	if Time.get_ticks_msec() >= _auto_until_ms and not _held:
-		Engine.time_scale = 1.0
+	Engine.time_scale = 0.3 if flag else 1.0

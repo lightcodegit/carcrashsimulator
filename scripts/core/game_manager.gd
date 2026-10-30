@@ -46,24 +46,34 @@ func _setup_env() -> void:
 	sky.sky_material = p
 	env.sky = sky
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.05
 	env.glow_enabled = true
 	env.ssao_enabled = true
+	# небо как источник рассеянного света и отражений: иначе кузова в тени почти чёрные
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 1.0
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -30, 0)
 	sun.shadow_enabled = true
-	sun.light_energy = 1.2
+	sun.light_energy = 1.25
 	add_child(sun)
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-22, 150, 0)
+	fill.light_energy = 0.45
+	fill.light_color = Color(0.78, 0.85, 1.0)
+	add_child(fill)
 
+# Никакого баннера «УДАР» и автоматического слоу-мо: игра не должна останавливаться.
+# Удар уходит только в компактный журнал телеметрии и в лёгкий шейк камеры.
 func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 	_crashes += 1
 	_top_crash = maxf(_top_crash, speed_kmh)
-	hud.show_crash(speed_kmh)
+	hud.log_impact(speed_kmh)
 	hud.set_crash_stats(_crashes, _top_crash)
-	camera.add_trauma(clampf(speed_kmh / 90.0, 0.2, 1.0))
-	if speed_kmh > 60.0:
-		TimeScale.play_auto(0.3, 1.2)
+	camera.add_trauma(clampf(speed_kmh / 160.0, 0.12, 0.55))
 
 func _physics_process(_dt: float) -> void:
 	if _paused: return

@@ -72,12 +72,16 @@ static func prop(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: flo
 		push_warning("MapDB: ассет не найден " + path)
 		return null
 	var n: Node3D = ps.instantiate()
-	n.position = pos
+	n.name = path.get_file()
+	var local := _aabb_in(n)
 	n.rotation.y = rot_y
 	n.scale = Vector3.ONE * sc
+	# сажаем низ модели на pos.y: у зданий/конусов начало координат в основании,
+	# а у колёс и покрышек — в центре оси, поэтому без правки они levитируют или тонут
+	n.position = Vector3(pos.x, pos.y - local.position.y * sc, pos.z)
 	root.add_child(n)
 	if solid:
-		var w: AABB = n.transform * _aabb_in(n)
+		var w: AABB = n.transform * local
 		if w.size.length() > 0.05:
 			var body := StaticBody3D.new()
 			body.position = w.get_center()
@@ -128,11 +132,11 @@ static func _arena() -> Dictionary:
 	for k in 12:
 		prop(root, P + "cone.glb", Vector3(6 + k * 7.0, 0.0, 8.0), PROP, 0.0, false)
 		prop(root, P + "cone.glb", Vector3(6 + k * 7.0, 0.0, -8.0), PROP, 0.0, false)
-	for k in 5:
-		prop(root, P + "box.glb", Vector3(70 + (k % 3) * 1.4, 0.5 + float(k / 3) * 1.0, 20 + k * 1.3), PROP, 0.4 * k, true)
-	prop(root, P + "debris-tire.glb", Vector3(88, 0.42, -18), PROP * 1.2, 0.0, true)
-	prop(root, P + "debris-tire.glb", Vector3(90, 0.42, -16), PROP * 1.2, 0.7, true)
-	prop(root, P + "debris-bumper.glb", Vector3(76, 0.3, -22), PROP, 0.9, true)
+	for k in 4:
+		prop(root, P + "box.glb", Vector3(70.0 + k * 1.3, 0.0, 20.0 + k * 0.4), PROP, 0.4 * k, true)
+	prop(root, P + "debris-tire.glb", Vector3(88, 0.0, -18), PROP * 1.2, 0.0, true)
+	prop(root, P + "debris-tire.glb", Vector3(90, 0.0, -16), PROP * 1.2, 0.7, true)
+	prop(root, P + "debris-bumper.glb", Vector3(76, 0.0, -22), PROP, 0.9, true)
 	prop(root, CARS + "sedan.glb", Vector3(-40, 0.0, 30), 1.0, PI * 0.5, true)   # припаркованная мишень
 	prop(root, CARS + "race.glb", Vector3(-40, 0.0, 38), 1.0, PI * 0.5, true)
 	for k in 6:
@@ -206,15 +210,15 @@ static func _speedway() -> Dictionary:
 	for k in 8:
 		prop(root, P + "cone.glb", Vector3(-6 + k * 3.0, 0.0, 6.5 - k * 0.4), PROP, 0.0, false)
 	for k in 5:
-		prop(root, P + "debris-tire.glb", Vector3(560 + (k % 3) * 0.9, 0.42, -12 + k * 1.1), PROP * 1.2, 0.5 * k, true)
-	prop(root, P + "debris-bumper.glb", Vector3(548, 0.3, 10), PROP, 0.6, true)
-	prop(root, P + "debris-plate-a.glb", Vector3(552, 0.06, 12), PROP, 1.1, false)
+		prop(root, P + "debris-tire.glb", Vector3(560.0 + (k % 3) * 0.9, 0.0, -12.0 + k * 1.1), PROP * 1.2, 0.5 * k, true)
+	prop(root, P + "debris-bumper.glb", Vector3(548, 0.0, 10), PROP, 0.6, true)
+	prop(root, P + "debris-plate-a.glb", Vector3(552, 0.0, 12), PROP, 1.1, false)
 	for k in 14:
 		prop(root, A + "tree-large.glb", Vector3(-20 + k * 45.0, 0.0, -18.0), 8.0, 0.0, true)
 		prop(root, A + ("tree-large.glb" if k % 2 == 0 else "tree-small.glb"), Vector3(-20 + k * 45.0, 0.0, 18.0), 8.0, 0.0, true)
 	for k in 6:
-		prop(root, P + "box.glb", Vector3(-20 + k * 120.0, 0.5, -11.0), PROP, 0.3, true)
-		prop(root, P + "box.glb", Vector3(-20 + k * 120.0, 0.5, 11.0), PROP, 0.8, true)
+		prop(root, P + "box.glb", Vector3(-20 + k * 120.0, 0.0, -11.0), PROP, 0.3, true)
+		prop(root, P + "box.glb", Vector3(-20 + k * 120.0, 0.0, 11.0), PROP, 0.8, true)
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-10, 1.0, 0)),
 		"bounds": AABB(Vector3(-120, -30, -160), Vector3(780, 70, 320)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true}}

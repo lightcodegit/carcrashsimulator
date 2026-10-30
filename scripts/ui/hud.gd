@@ -53,8 +53,6 @@ var _speed_label: Label
 var _kmh_label: Label
 var _rows: Array[Label] = []
 var _row_vals: Array[Label] = []
-var _crash_label: Label
-var _crash_until := 0
 var _log_lines: Array[Label] = []
 var _log: Array[String] = []
 var _stat_top: Label
@@ -181,12 +179,7 @@ func _build_crash_log(root: Control) -> void:
 		_log_lines.append(l)
 
 func _build_banners(root: Control) -> void:
-	_crash_label = _label(Vector2(0, 132), 46)
-	_crash_label.size = Vector2(1600, 62)
-	_crash_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_crash_label.modulate = WARN
-	_crash_label.visible = false
-	root.add_child(_crash_label)
+	# никакого баннера «УДАР» поверх экрана: только подсказка и журнал в панели
 	_tip_label = _label(Vector2(0, 596), 22, DIM)
 	_tip_label.size = Vector2(1600, 32)
 	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -251,10 +244,7 @@ func bind(car: CarRig) -> void:
 	_gauge.accent = car.params.accent_color
 	_row_vals[4].text = "%.2f м" % car.params.length
 
-func show_crash(kmh: float) -> void:
-	_crash_label.text = "УДАР  %d КМ/Ч" % int(kmh)
-	_crash_label.visible = true
-	_crash_until = Time.get_ticks_msec() + 2200
+func log_impact(kmh: float) -> void:
 	_peak_g = 0.0
 	var secs := (Time.get_ticks_msec() - _start_ms) / 1000
 	_log.push_front("%02d:%02d   %3d км/ч" % [secs / 60, secs % 60, int(kmh)])
@@ -291,7 +281,5 @@ func _process(dt: float) -> void:
 	if _car.body != null:
 		_row_vals[2].text = str(_car.body.dent_count)
 		_row_vals[3].text = "%.3f м" % _car.body.max_depth
-	if _crash_label.visible and Time.get_ticks_msec() > _crash_until:
-		_crash_label.visible = false
 	if _tip_label.visible and _tip_until > 0 and Time.get_ticks_msec() > _tip_until:
 		_tip_label.visible = false

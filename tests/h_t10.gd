@@ -4,6 +4,23 @@ var _fails := 0
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
+func _collect_props(n: Node, out: Array) -> void:
+	if n is Node3D and String(n.name).ends_with(".glb"):
+		out.append(n)
+	for c in n.get_children():
+		_collect_props(c, out)
+
+func _local_aabb(n: Node3D) -> AABB:
+	var merged := AABB()
+	var first := true
+	for c in n.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null: continue
+		var g: AABB = mi.transform * mi.get_aabb()
+		if first: merged = g; first = false
+		else: merged = merged.merge(g)
+	return merged
+
 func _ready() -> void:
 	await get_tree().process_frame
 	for id in ["arena", "town", "speedway"]:

@@ -70,5 +70,8 @@ static func _speedway() -> Dictionary:
 		box(root, Vector3(280, 0.5, side * 7.0), Vector3(620, 1.0, 0.4), Color(0.8, 0.8, 0.85))
 	box(root, Vector3(585, 3, 0), Vector3(1.5, 6, 30), Color(0.55, 0.2, 0.2))
 	box(root, Vector3(40, 1.0, 0), Vector3(10, 0.5, 10), Color(0.95, 0.8, 0.2), Basis(Vector3(0, 0, 1), -deg_to_rad(18)))
+	for k in 6:
+		box(root, Vector3(-20 + k * 120, 1.2, -8.5), Vector3(0.6, 2.4, 0.6), Color(0.7, 0.7, 0.2))
+		box(root, Vector3(-20 + k * 120, 1.2, 8.5), Vector3(0.6, 2.4, 0.6), Color(0.7, 0.7, 0.2))
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-10, 1.0, 0)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true}}

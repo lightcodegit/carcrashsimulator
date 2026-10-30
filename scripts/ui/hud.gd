@@ -14,7 +14,7 @@ var _pause_label: Label
 func _ready() -> void:
 	layer = 10
 	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(root)
 	_speed_label = _label(Vector2(30, 30), 42)
 	root.add_child(_speed_label)

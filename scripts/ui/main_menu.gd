@@ -4,13 +4,13 @@ const CARS := [["Седан", "sedan"], ["Пикап", "pickup"], ["Спортк
 const MAPS := [["Арена", "arena"], ["Городок", "town"], ["Трасса", "speedway"]]
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var bg := ColorRect.new()
 	bg.color = Color(0.09, 0.1, 0.12)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var col := VBoxContainer.new()
-	col.anchor_left = 0.5; col.anchor_right = 0.5
+	col.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	col.offset_left = -220; col.offset_right = 220
 	col.offset_top = 120; col.offset_bottom = 620
 	col.add_theme_constant_override("separation", 18)

@@ -64,8 +64,8 @@ func build(p: VehicleParams, world: World3D) -> void:
 	_wheel_pivots[3].position = Vector3(-wx, wy, -wz)
 	var inner := MeshInstance3D.new()
 	var ibm := BoxMesh.new()
-	ibm.size = Vector3(params.length * 0.8, params.height * 0.5, params.width * 0.72)
-	var im := StandardMaterial3D.new(); im.albedo_color = Color(0.1, 0.1, 0.12)
+	ibm.size = Vector3(params.length * 0.96, params.height * 0.46, params.width * 0.66)
+	var im := StandardMaterial3D.new(); im.albedo_color = Color(0.14, 0.15, 0.18)
 	ibm.material = im; inner.mesh = ibm
 	inner.position = Vector3(0, -params.height * 0.12, 0)
 	chassis.add_child(inner)

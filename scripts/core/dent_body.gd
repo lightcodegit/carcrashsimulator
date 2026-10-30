@@ -125,13 +125,14 @@ func _build_deformable() -> void:
 	_colors.resize(_verts.size())
 	_colors.fill(Color.WHITE)
 	_build_weld()
-	_mat = StandardMaterial3D.new()
+	# материал автора (колormap, шероховатость) — дублируем и добавляем только vertex color
+	# для ободранных вмятин: собственный metallic затемнял кузов до чёрного
 	var base_mat: Material = src.surface_get_material(0)
 	if base_mat is StandardMaterial3D:
-		_mat.albedo_texture = (base_mat as StandardMaterial3D).albedo_texture
+		_mat = (base_mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+	else:
+		_mat = StandardMaterial3D.new()
 	_mat.vertex_color_use_as_albedo = true
-	_mat.roughness = 0.45
-	_mat.metallic = 0.25
 	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mesh = ArrayMesh.new()
 	body.mesh = _mesh

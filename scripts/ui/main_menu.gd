@@ -85,9 +85,10 @@ func _make_card(title_text: String, items: Array, x: float) -> Dictionary:
 	opt.custom_minimum_size = Vector2(0, 48)
 	for it in items: opt.add_item(it[0])
 	col.add_child(opt)
-	var desc := Label.new()
+	var desc := RichTextLabel.new()
 	desc.add_theme_font_size_override("font_size", 17)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.fit_content = true
 	desc.custom_minimum_size = Vector2(456, 120)
 	desc.bbcode_enabled = true
 	desc.modulate = Color(0.8, 0.85, 0.9)

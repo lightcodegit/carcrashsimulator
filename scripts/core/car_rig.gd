@@ -1,264 +1,271 @@
 class_name CarRig
 extends Node3D
+# Механика машины — штатный VehicleBody3D + VehicleWheel3D из Godot: подвеска на лучах,
+# сцепление шин, скольжение и торможение считаются движком. Сверху только аркадная
+# кривая тяги (иначе машина не достигает паспортной vmax) и детектор удара по потере
+# скорости — он же мнёт кузов.
 
 signal impact(speed_kmh: float, point: Vector3, normal: Vector3)
 
-# Поверхность, на которую можно заезжать: рампа, пол, пологий склон.
-const DRIVABLE_NORMAL_Y := 0.55
-# Касание быстрее этого — настоящий удар; медленнее машина просто скользит вдоль препятствия.
-const HARD_HIT_MS := 2.5
+const IMPACT_DECEL := 210.0        # км/ч за секунду (~6 g): резкое торможение, которое считаем ударом
 const IMPACT_MIN_KMH := 28.0
-const HANDBRAKE_GRIP := 1.05
-const HANDBRAKE_BRAKE := 0.55
-const HANDBRAKE_STEER := 1.45
-# На какую ступень можно заехать (бордюр 0.2 м, площадки) и как держаться земли.
-const STEP_UP := 0.55
-const RIDE_GAP := 0.005
-const GROUND_LIFT := 0.30
-const GROUND_DROP := 0.35
-const SUPPORT_NORMAL_Y := 0.35
+const IMPACT_WINDOW := 4           # тиков, за которые меряем потерю скорости
+const STEER_MAX_DEG := 30.0        # полный угол передних колёс на месте
+const LAT_ACCEL_CAP := 10.5        # м/с²: потолок бокового ускорения в повороте (~1.07 g)
+const SLIP_BASE := 2.2             # сцепление шины при grip=8 (см. VehicleParams.grip)
+const SLIP_HANDBRAKE := 1.2        # сцепление задних колёс на ручнике — отсюда занос
+const HANDBRAKE_BRAKE := 0.55      # доля тормозного усилия на ручнике
+const REVERSE_RATIO := 0.18        # задний ход — 18% от vmax
+const ESP_SLIDE_START := 0.15      # доля бокового скольжения, с которой включается ESP
+const ESP_DAMP := 5.0              # 1/с: насколько ESP гасит рыскание в заносе
+const YAW_DAMP := 0.35             # 1/с: фоновое затухание рыскания
+const AIR_ANGULAR_DAMP := 3.0      # 1/с: затухание вращения в полёте
+const COAST_DECEL := 1.8           # м/с² замедления на нейтрали (накат и движущее торможение)
+const AIR_DRAG := 0.008            # 1/с: сопротивление воздуха, гасит раскачку и даёт спад тяги к vmax
+const CLEARANCE := 0.22            # м: низ коллайдера над полом = высота ступени, которую машина переедет
+const SUSP_STIFFNESS := 120.0
+const SUSP_TRAVEL := 0.20
+const SUSP_DAMP_COMPRESS := 7.0
+const SUSP_DAMP_RELAX := 9.0
+const SUSP_MAX_G := 3.0            # предел силы подвески в единицах веса
+const GRIP_REF := 8.0
+const RECENT_DECAY := 96.0         # км/ч за секунду
+const YAW_OFFSET := PI * 0.5       # VehicleBody3D едет носом в +Z (проверено), а проект живёт в «+X вперёд»
 
 var params: VehicleParams
-var chassis: RigidBody3D
+var chassis: VehicleBody3D
 var body: DentBody
 var heading := 0.0
-var _world: World3D
-var _prev_speed := 0.0
+var _wheels: Array[VehicleWheel3D] = []
+var _slip_normal := SLIP_BASE
+var _wheelbase := 2.6
+var _traction_count := 0
+var _drive_scale := 0.25
+var _steer := 0.0
+var _roll: Array[float] = []
+var _mount_y: Array[float] = []
+var _susp_static := 0.0
+var _hist: Array[Vector3] = []
 var _recent_speed := 0.0
-var _impact_cooldown := 0
+var _impact_cooldown := 0.0
 var _grounded := true
-var _roll := 0.0
+var _prev_yaw := 0.0
+var _yaw_init := false
 
-class ChassisBody extends RigidBody3D:
-	var rig: CarRig
-
-	func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
-		rig._chassis_physics(state)
-
-func build(p: VehicleParams, world: World3D) -> void:
+func build(p: VehicleParams, _world: World3D) -> void:
 	params = p
-	_world = world
-	var ch := ChassisBody.new()
-	ch.rig = self
-	ch.mass = p.mass
-	ch.custom_integrator = true
-	ch.continuous_cd = true
+	chassis = VehicleBody3D.new()
+	chassis.mass = p.mass
+	chassis.contact_monitor = true
+	chassis.max_contacts_reported = 8
+	chassis.continuous_cd = true
+	chassis.can_sleep = false
+	# дефолтное затухание проекта (0.1) съедало треть vmax, поэтому в project.godot оно
+	# обнулено, а сопротивление воздуха задаём сами — на порядок слабее
+	chassis.linear_damp = AIR_DRAG
+	# Трение только у коробки кузова: скользкий борт не съедает скорость при касании стены
+	# (с 0.85 машина теряла почти половину). На шины это не влияет — там wheel_friction_slip.
 	var pm := PhysicsMaterial.new()
-	pm.friction = 0.0; pm.bounce = 0.0
-	ch.physics_material_override = pm
-	var col := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = p.collider_size()
-	col.shape = shape
-	ch.add_child(col)
-	add_child(ch)
-	chassis = ch
+	pm.friction = 0.15
+	pm.bounce = 0.0
+	chassis.physics_material_override = pm
+	add_child(chassis)
 	body = DentBody.new()
 	chassis.add_child(body)
 	body.setup(p.model, p)
-	# кузов в DentBody стоит колёсами на локальном нуле: опускаем на низ коллайдера
-	body.position = Vector3(0, -p.collider_size().y * 0.5, 0)
+	var wr := body.wheel_radius
+	# центр масс ниже линии осей: иначе VehicleBody3D валится на бок при первом же повороте
+	chassis.center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+	chassis.center_of_mass = Vector3(0, -wr * 0.55, 0)
+	# кузов стоит колёсами на локальном нуле: опускаем так, чтобы оси колёс легли в ноль рамы,
+	# и доворачиваем на -90°, чтобы его «+X вперёд» совпал с «+Z вперёд» у VehicleBody3D
+	body.position = Vector3(0, -wr, 0)
+	body.rotation.y = -YAW_OFFSET
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	# В раме длина машины лежит вдоль Z, ширина вдоль X. Коробка обязана описывать кузов
+	# целиком: с запасом 0.94 нос выступал на 9 см и при ударе проходил сквозь стену.
+	# Низ поднимаем на CLEARANCE над срезом колёс — иначе коробка трётся о пол и съедает
+	# 3.4 м/с² разгона; заодно это позволяет переезжать бордюр, а не упираться в него.
+	var col_bottom := -wr + CLEARANCE
+	var col_top := p.height - wr
+	shape.size = Vector3(p.width, col_top - col_bottom, p.length)
+	col.shape = shape
+	col.position = Vector3(0, (col_top + col_bottom) * 0.5, 0)
+	chassis.add_child(col)
+	var locals := body.wheel_local_positions()
+	_slip_normal = SLIP_BASE * p.grip / GRIP_REF
+	var x_max := -INF
+	var x_min := INF
+	for lp in locals:
+		x_max = maxf(x_max, lp.x)
+		x_min = minf(x_min, lp.x)
+	# база (межосевое расстояние) заметно короче длины кузова — именно она задаёт
+	# радиус поворота, поэтому ограничение угла считаем по ней
+	_wheelbase = maxf(0.5, x_max - x_min)
+	var rest := _suspension_rest(wr, locals.size())
+	# на сколько подвеска сжата на стоянке: из него считаем, как далеко колесо вышло из арки
+	var static_c := 9.81 / (maxf(1.0, float(locals.size())) * SUSP_STIFFNESS)
+	_susp_static = rest - static_c
+	for i in locals.size():
+		var w := VehicleWheel3D.new()
+		w.name = "Wheel%d" % i
+		w.position = body.transform * locals[i]
+		w.wheel_radius = wr
+		w.wheel_rest_length = rest
+		w.suspension_travel = SUSP_TRAVEL
+		w.suspension_stiffness = SUSP_STIFFNESS
+		w.suspension_max_force = p.mass * 9.8 * SUSP_MAX_G
+		w.wheel_friction_slip = _slip_normal
+		w.damping_compression = SUSP_DAMP_COMPRESS
+		w.damping_relaxation = SUSP_DAMP_RELAX
+		w.use_as_steering = body.wheel_is_front(i)
+		w.use_as_traction = true
+		w.wheel_roll_influence = 0.0   # визуальные колёса крутим сами из ассета
+		chassis.add_child(w)
+		_wheels.append(w)
+		_mount_y.append(w.position.y)
+		_roll.append(0.0)
+		if w.use_as_traction: _traction_count += 1
+	# engine_force и brake Godot прикладывает к каждому ведущему колесу отдельно
+	# (замерено: 4 колеса дают ровно 4·F/m), поэтому паспортные м/с² делим на их число
+	_drive_scale = 1.0 / maxf(1.0, float(_traction_count))
+
+# Статический ход подвески. В Godot луч колеса имеет длину rest+radius, но параметр
+# попадания нормируется на (2*radius+rest), поэтому равновесие наступает при
+# (R+L)·L/(2R+L) = g/(N·k). Решаем относительно L — тогда на стоянке колёса стоят
+# на земле, а не висят над ней и не тонут в ней.
+static func _suspension_rest(radius: float, wheel_count: int) -> float:
+	var c := 9.81 / (maxf(1.0, float(wheel_count)) * SUSP_STIFFNESS)
+	var b := radius - c
+	return 0.5 * (-b + sqrt(b * b + 8.0 * c * radius))
 
 func respawn(tf: Transform3D) -> void:
 	heading = tf.basis.get_euler().y
-	var rest_y := params.collider_size().y * 0.5 + 0.02
-	chassis.global_transform = Transform3D(Basis(Vector3.UP, heading), Vector3(tf.origin.x, rest_y, tf.origin.z))
+	var rest_y := body.wheel_radius + 0.02
+	chassis.global_transform = Transform3D(Basis(Vector3.UP, heading + YAW_OFFSET), Vector3(tf.origin.x, rest_y, tf.origin.z))
 	chassis.linear_velocity = Vector3.ZERO
 	chassis.angular_velocity = Vector3.ZERO
+	_steer = 0.0
 	_recent_speed = 0.0
-	_prev_speed = 0.0
-	_impact_cooldown = 0
-	_roll = 0.0
+	_hist.clear()
+	_impact_cooldown = 0.0
+	_yaw_init = false
+	for i in _roll.size(): _roll[i] = 0.0
 	if body != null: body.reset()
 
 func speed_kmh() -> float:
 	return chassis.linear_velocity.length() * 3.6
 
+func forward() -> Vector3:
+	return chassis.global_transform.basis.z
+
 func forward_speed_ms() -> float:
-	return chassis.linear_velocity.dot(Vector3(cos(heading), 0.0, -sin(heading)))
-
-func is_airborne() -> bool:
-	return not _grounded
-
-func _chassis_physics(state: PhysicsDirectBodyState3D) -> void:
-	# state.step, а не 1/physics_ticks_per_second: при Engine.time_scale Godot делает
-	# столько же тиков в секунду, но с уменьшенной дельтой. С жёстким dt машина
-	# разгонялась и тормозила на полной скорости даже в слоу-мо.
-	var dt: float = state.step
-	var vel := state.linear_velocity
-	vel += Vector3(0, -9.8, 0) * dt            # custom_integrator отключает штатную гравитацию
-	# опору ищем лучом, а не числом контактов: рама держится на зазоре RIDE_GAP над
-	# землёй, поэтому контактов может не быть вовсе, а газ при этом нужен
-	var fwd_axis := Vector3(cos(heading), 0.0, -sin(heading))
-	var support := _ground_probe(state.transform.origin, fwd_axis)
-	_grounded = support.on
-	if _grounded:
-		var fwd := Vector3(cos(heading), 0.0, -sin(heading))
-		var right := Vector3(sin(heading), 0.0, cos(heading))
-		var vf := vel.dot(fwd)
-		var vl := vel.dot(right)
-		var vmax := params.vmax_kmh / 3.6
-		var throttle := Input.get_action_strength("throttle") - Input.get_action_strength("brake")
-		if throttle > 0.0:
-			vf += params.accel_max * (1.0 - 0.75 * clampf(vf / vmax, 0.0, 1.0)) * throttle * dt
-		elif throttle < 0.0:
-			if vf > 0.5: vf = maxf(vf - params.brake_decel * dt, 0.0)
-			else: vf += params.accel_max * 0.35 * throttle * dt
-		if absf(throttle) < 0.01: vf *= exp(-dt * 0.8)   # накат/движущее торможение
-		vf = clampf(vf, -vmax * 0.12, vmax)
-		var hand := Input.is_action_pressed("handbrake")
-		if hand:
-			# ручник: тормозит и срывает боковое сцепление — занос вместо «ничего»
-			if vf > 0.0: vf = maxf(vf - params.brake_decel * HANDBRAKE_BRAKE * dt, 0.0)
-			vl *= exp(-dt * HANDBRAKE_GRIP)
-		else:
-			vl *= exp(-dt * params.grip)
-		var steer := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")  # + = налево
-		var sf := clampf(1.25 - absf(vf) / vmax * 1.05, 0.22, 1.0)
-		var speed_gate := clampf(absf(vf) / 2.0, 0.0, 1.0)
-		var drift := HANDBRAKE_STEER if hand else 1.0
-		heading += deg_to_rad(params.steer_rate_deg) * steer * sf * dt * speed_gate * drift * (1.0 if vf >= 0.0 else -1.0)
-		vel = fwd * vf + right * vl + Vector3(0.0, vel.y, 0.0)
-	state.linear_velocity = vel
-	state.angular_velocity = Vector3.ZERO
-	state.transform.basis = Basis(Vector3.UP, heading)
-	_apply_ground(state, support)
-	_clamp_and_impact(state)
-	_prev_speed = state.linear_velocity.length() * 3.6
-	_recent_speed = maxf(_recent_speed - 1.6, _prev_speed)  # распад ~95 км/ч за секунду
-	_impact_cooldown = maxi(_impact_cooldown - 1, 0)
-
-# Рама не должна входить в статичные тела (custom_integrator не даёт штатного выталкивания).
-# Проверяем 4 направления. Позиция выталкивается всегда, а скорость гасится и удар
-# регистрируется только при жёстком контакте: лёгкое касание не останавливает машину,
-# заезд на рампу не считается столкновением, приземление после прыжка — тоже.
-func _clamp_and_impact(state: PhysicsDirectBodyState3D) -> void:
-	var fwd := Vector3(cos(heading), 0.0, -sin(heading))
-	var right := Vector3(sin(heading), 0.0, cos(heading))
-	var vel := state.linear_velocity
-	var half_len := params.length * 0.5
-	var half_wid := params.width * 0.5
-	var axes := [[fwd, half_len], [-fwd, half_len], [right, half_wid], [-right, half_wid]]
-	var origin := state.transform.origin
-	var best_dir := Vector3.ZERO
-	var best_into := 0.0
-	var best_point := Vector3.ZERO
-	for cfg in axes:
-		var dir: Vector3 = cfg[0]
-		var half: float = cfg[1]
-		var r := _probe(origin, dir, half, vel)
-		if r.is_empty(): continue
-		var push: float = r.push
-		if push > 0.0:
-			origin -= dir * push
-			state.transform.origin = origin
-		var into: float = vel.dot(dir)
-		if into > best_into:
-			best_into = into
-			best_dir = dir
-			best_point = r.point
-	if best_into <= HARD_HIT_MS: return
-	vel -= best_dir * best_into
-	state.linear_velocity = vel
-	if _recent_speed > IMPACT_MIN_KMH and _impact_cooldown <= 0:
-		impact.emit(_recent_speed, best_point, -best_dir)
-		body.apply_impact(best_point, best_dir, _recent_speed)  # dir — внутрь кузова
-		_impact_cooldown = 60
-
-# Опора ищется тремя лучами (нос, центр, корма) и берётся самая высокая поверхность
-# в пределах STEP_UP. Один центральный луч видит ступень только когда коллайдер уже
-# упёрся в неё, поэтому машина не могла заехать на бордюр.
-func _ground_probe(origin: Vector3, fwd: Vector3) -> Dictionary:
-	var ride: float = params.collider_size().y * 0.5 + RIDE_GAP
-	var reach := ride + STEP_UP + 0.6
-	var limit := maxf(STEP_UP, GROUND_DROP)
-	var best := -INF
-	var along := params.length * 0.42
-	var offsets: Array[float] = [along, 0.0, -along]
-	for off in offsets:
-		var from := origin + fwd * off + Vector3(0, 0.30, 0)
-		var q := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -reach, 0))
-		q.exclude = [chassis.get_rid()]
-		var hit := _space().intersect_ray(q)
-		if hit.is_empty(): continue
-		var n: Vector3 = hit.normal
-		if n.y < SUPPORT_NORMAL_Y: continue        # стена или крутой склон, не опора
-		var top: float = hit.position.y
-		if absf(top + ride - origin.y) > limit: continue
-		best = maxf(best, top)
-	if best == -INF: return {"on": false, "dy": 0.0}
-	return {"on": true, "dy": best + ride - origin.y}
-
-# Держим раму на опоре: без этого контакт с полом даёт пилообразный прыжок на ~2.5 см
-# каждый кадр, а колёса как потомки шасси дёргаются вместе с ним. Заодно позволяет
-# заезжать на бордюры и площадки высотой до STEP_UP.
-func _apply_ground(state: PhysicsDirectBodyState3D, support: Dictionary) -> void:
-	if not support.on: return
-	var dy: float = support.dy
-	state.transform.origin.y += clampf(dy, -GROUND_LIFT, GROUND_LIFT)
-	if absf(dy) < 0.06:
-		var v := state.linear_velocity
-		state.linear_velocity = Vector3(v.x, 0.0, v.z)
-
-# Высота верха препятствия в точке контакта: нужна, чтобы отличить бордюр от стены.
-func _obstacle_top(p: Vector3) -> float:
-	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, 1.6, 0), p + Vector3(0, -0.6, 0))
-	q.exclude = [chassis.get_rid()]
-	var hit := _space().intersect_ray(q)
-	return -INF if hit.is_empty() else hit.position.y
-
-# Три луча вдоль dir поперёк кузова, берём ближайшее попадание. Одним центральным
-# лучом машина шириной 1.9 м промахивалась мимо отбойника, который начинался ровно
-# с её оси, хотя solver её останавливал: удар не регистрировался.
-# Пусто, если препятствия нет, оно пологое (рампа/пол), это низкая ступень (бордюр)
-# или до него далеко.
-func _probe(origin: Vector3, dir: Vector3, half: float, vel: Vector3) -> Dictionary:
-	var space := _space()
-	var fwd := Vector3(cos(heading), 0.0, -sin(heading))
-	var lateral := fwd.cross(Vector3.UP).normalized()
-	var forward_axis := absf(dir.dot(fwd)) > 0.7
-	var spread := lateral if forward_axis else fwd
-	var span := params.width if forward_axis else params.length
-	var margin := half + 0.25 + vel.length() * 0.012
-	var offsets: Array[float] = [-span * 0.32, 0.0, span * 0.32]
-	var hit := {}
-	var best_along := INF
-	for off in offsets:
-		var from := origin + Vector3(0, 0.2, 0) + spread * off   # выше пола, чтобы не цеплять землю
-		var q := PhysicsRayQueryParameters3D.create(from, from + dir * (margin + 0.1))
-		q.exclude = [chassis.get_rid()]
-		var h := space.intersect_ray(q)
-		if h.is_empty(): continue
-		var along: float = (h.position - from).dot(dir)
-		if along < best_along:
-			best_along = along
-			hit = h
-	if hit.is_empty(): return {}
-	var n: Vector3 = hit.normal
-	if n.y > DRIVABLE_NORMAL_Y: return {}       # на такую поверхность можно заезжать
-	if best_along >= half + 0.05: return {}
-	# низкое препятствие не стена: на бордюр и площадку заезжаем, а не упираемся
-	var car_bottom := origin.y - params.collider_size().y * 0.5
-	var point: Vector3 = hit.position
-	var top := _obstacle_top(point)
-	if top > -INF and top < car_bottom + STEP_UP: return {}
-	return {"point": point, "push": maxf(0.0, half + 0.03 - best_along)}
+	return chassis.linear_velocity.dot(forward())
 
 func _physics_process(dt: float) -> void:
-	if body == null or body.wheels.is_empty(): return
-	var space := _space()
-	var rest := 0.5 + body.wheel_radius
-	var exts: Array[float] = []
-	for w in body.wheels:
-		var from := w.global_position + Vector3(0, 0.5, 0)
-		var q := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -1.4, 0))
-		q.exclude = [chassis.get_rid()]
-		var hit := space.intersect_ray(q)
-		exts.append(0.35 if hit.is_empty() else clampf(from.distance_to(hit.position) - rest, -0.22, 0.35))
-	var steer_vis := (Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")) * 0.45
-	_roll += forward_speed_ms() * dt / maxf(0.05, body.wheel_radius)
-	body.pose_wheels(exts, steer_vis, _roll)
+	if chassis == null or _wheels.is_empty(): return
+	_update_heading()
+	_drive(dt)
+	_pose_wheels(dt)
+	_detect_impact(dt)
 
-func _space() -> PhysicsDirectSpaceState3D:
-	if _world != null: return _world.direct_space_state
-	return get_world_3d().direct_space_state
+func _drive(dt: float) -> void:
+	var throttle := Input.get_action_strength("throttle")
+	var brake_in := Input.get_action_strength("brake")
+	var hand := Input.is_action_pressed("handbrake")
+	var steer_in := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
+	var v := chassis.linear_velocity
+	var vf := v.dot(forward())
+	var vmax := params.vmax_kmh / 3.6
+	# тяга падает к vmax: штатной кривой момента в Godot 4.7 нет, а без этого
+	# машина разгонялась бы вечно
+	var pull := clampf(1.0 - pow(absf(vf) / vmax, 1.6), 0.0, 1.0)
+	var unit := params.mass * params.accel_max * _drive_scale
+	# brake в отличие от engine_force — импульс за тик (замерено: brake=98 даёт 18 м/с²),
+	# поэтому его приходится умножать на dt, иначе любое значение блокирует колёса намертво
+	var brake_unit := params.mass * params.brake_decel * _drive_scale * dt
+	# S — тормоз, пока машина катится вперёд, и задний ход, когда она почти встала
+	if brake_in > 0.0 and vf < 0.6:
+		var back := clampf(1.0 - absf(vf) / (vmax * REVERSE_RATIO), 0.0, 1.0)
+		chassis.engine_force = -brake_in * unit * 0.55 * back
+		chassis.brake = 0.0
+	else:
+		chassis.engine_force = throttle * unit * pull
+		chassis.brake = brake_in * brake_unit
+	if hand: chassis.brake += HANDBRAKE_BRAKE * brake_unit
+	# накат и движущее торможение. Именно brake, а не правка linear_velocity: запись
+	# скорости из _physics_process обнуляет импульсы подвески, и машина оседает на коллайдер
+	if throttle <= 0.0 and brake_in <= 0.0 and not hand:
+		chassis.brake = COAST_DECEL * params.mass * _drive_scale * dt
+	# Угол колёс ограничен сверху допустимым боковым ускорением: линейная зависимость
+	# от скорости не спасала — на 150 км/ч даже 7° требуют от шин 10 g, машина срывается
+	# в скольжение и «поворачивает» на 70° в секунду.
+	var lock := deg_to_rad(STEER_MAX_DEG)
+	var sp := absf(vf)
+	if sp > 2.0: lock = minf(lock, atan(LAT_ACCEL_CAP * _wheelbase / (sp * sp)))
+	_steer = move_toward(_steer, lock * steer_in, deg_to_rad(params.steer_rate_deg) * dt)
+	chassis.steering = _steer
+	# ручник срывает сцепление задних колёс: занос вместо «ничего»
+	_grounded = false
+	for w in _wheels:
+		w.wheel_friction_slip = SLIP_HANDBRAKE if (hand and not w.use_as_steering) else _slip_normal
+		if w.is_in_contact(): _grounded = true
+	# ESP: упрощённые шины Godot не гасят начатый занос — сорвавшуюся машину не поймать
+	# даже контррулём. Поэтому без ручника наращиваем затухание рыскания пропорционально
+	# тому, насколько сильно машина едет боком. Именно свойство angular_damp, а не правка
+	# angular_velocity: запись скорости из _physics_process ломает подвеску.
+	var side := v - forward() * vf
+	side.y = 0.0
+	var slide := 0.0 if hand else side.length() / maxf(2.0, absf(vf))
+	if _grounded:
+		chassis.angular_damp = YAW_DAMP + ESP_DAMP * clampf((slide - ESP_SLIDE_START) * 4.0, 0.0, 1.0)
+	else:
+		# в воздухе вращение гасим сильнее: прыжок должен заканчиваться приземлением
+		# на четыре колеса, а не кульбитом и ударом об угол
+		chassis.angular_damp = AIR_ANGULAR_DAMP
+
+# Удар — это резкое торможение, а не сам факт касания: поэтому заезд на рампу,
+# приземление после прыжка и лёгкое касание борта ударом не считаются. Меряем по окну
+# в несколько тиков: настоящая физика гасит скорость не мгновенно, как прежний
+# аркадный контроллер, и порог «за тик» не срабатывал вообще.
+func _detect_impact(dt: float) -> void:
+	var v := chassis.linear_velocity
+	_hist.append(v)
+	while _hist.size() > IMPACT_WINDOW + 1: _hist.pop_front()
+	_impact_cooldown = maxf(_impact_cooldown - dt, 0.0)
+	var hspeed := _hspeed(v)
+	var old: Vector3 = _hist[0]
+	var window := dt * float(_hist.size() - 1)
+	var decel := 0.0 if window <= 0.0 else (_hspeed(old) - hspeed) / window
+	if decel > IMPACT_DECEL and _recent_speed > IMPACT_MIN_KMH and _impact_cooldown <= 0.0:
+		var dv := old - v
+		if dv.length_squared() > 0.25:
+			var n := dv.normalized()                 # куда ушёл импульс — туда и мнётся кузов
+			var hx := absf(n.x) * params.length * 0.5 + absf(n.z) * params.width * 0.5
+			var point := chassis.global_position + n * hx + Vector3(0, 0.1, 0)
+			impact.emit(_recent_speed, point, -n)
+			body.apply_impact(point, n, _recent_speed)
+			_impact_cooldown = 1.0
+	_recent_speed = maxf(_recent_speed - RECENT_DECAY * dt, hspeed)
+
+func _hspeed(v: Vector3) -> float:
+	return Vector3(v.x, 0.0, v.z).length() * 3.6
+
+# Визуальные колёса ассета следят за физическими: ход подвески, угол поворота, качение.
+func _pose_wheels(dt: float) -> void:
+	for i in _wheels.size():
+		var w := _wheels[i]
+		# Godot сам двигает узел колеса вдоль подвески (get_suspension_travel() — это просто
+		# геттер свойства), поэтому ход берём из смещения узла относительно опоры
+		var drop: float = (_mount_y[i] - w.position.y) - _susp_static
+		_roll[i] = fposmod(_roll[i] + w.get_rpm() / 60.0 * TAU * dt, TAU)
+		body.set_wheel_pose(i, clampf(drop, -SUSP_TRAVEL, w.wheel_rest_length), w.get_steering(), _roll[i])
+
+# get_euler() отдаёт рыскание в [-π, π], поэтому heading разворачиваем по кратчайшей
+# дуге: иначе на полном круге он скачет на ±360° и ломает всё, что его сравнивает.
+func _update_heading() -> void:
+	var yaw := chassis.global_basis.get_euler().y - YAW_OFFSET
+	heading = yaw if not _yaw_init else heading + wrapf(yaw - _prev_yaw, -PI, PI)
+	_prev_yaw = yaw
+	_yaw_init = true

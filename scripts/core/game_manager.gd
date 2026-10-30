@@ -10,6 +10,7 @@ var _bounds := AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320))
 var _top_crash := 0.0
 var _crashes := 0
 var _paused := false
+var _flip := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # Esc и «в меню» должны работать и на паузе
@@ -75,13 +76,17 @@ func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 	hud.set_crash_stats(_crashes, _top_crash)
 	camera.add_trauma(clampf(speed_kmh / 160.0, 0.12, 0.55))
 
-func _physics_process(_dt: float) -> void:
+func _physics_process(dt: float) -> void:
 	if _paused: return
 	TimeScale.set_hold(Input.is_action_pressed("slowmo"))
 	var pos := car.chassis.global_position
 	if pos.y < -60.0 or not _bounds.has_point(pos):
 		_respawn_now()
 		hud.show_tip("вылет за пределы — рестарт")
+		return
+	# на настоящей подвеске машина может остаться на крыше и уже не поедет: подсказываем выход
+	_flip = 0.0 if car.chassis.global_basis.y.y > -0.2 else _flip + dt
+	if _flip > 1.0: hud.show_tip("машина на крыше — R для рестарта")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
@@ -94,6 +99,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera.cycle_mode()
 
 func _respawn_now() -> void:
+	_flip = 0.0
 	car.respawn(_spawn)
 	hud.show_tip("")
 	TimeScale.set_hold(false)

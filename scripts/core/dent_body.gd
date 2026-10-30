@@ -30,6 +30,7 @@ var width := 0.0
 var height := 0.0
 
 var _root: Node3D
+var _model: Node3D
 var _mesh: ArrayMesh
 var _mat: StandardMaterial3D
 var _verts := PackedVector3Array()
@@ -43,14 +44,29 @@ var _wheel_base_y: Array[float] = []
 var _body_xform := Transform3D()   # вершина кузова -> локальные координаты DentBody
 var _scale := 1.0
 
-# AABB импортированной модели в её собственных единицах (узел в дерево не добавляется).
-static func measure(scene_path: String) -> AABB:
+# Габариты импортированной модели в её собственных единицах и радиус колеса
+# (узел в дерево не добавляется).
+static func measure(scene_path: String) -> Dictionary:
 	var ps: PackedScene = load(scene_path)
-	if ps == null: return AABB()
+	if ps == null: return {"aabb": AABB(), "wheel_r": 0.0}
 	var n: Node3D = ps.instantiate()
 	var merged := _aabb_in(n)
+	var wb := _wheels_bounds(n)
 	n.free()
-	return merged
+	return {"aabb": merged, "wheel_r": wb.r, "wheel_bottom": wb.bottom}
+
+# Радиус колеса и низ колеса — по геометрии, а не «на глаз»: расхождение оставляло луч
+# подвески висеть над полом, и машина ложилась коллайдером на землю.
+static func _wheels_bounds(n: Node3D) -> Dictionary:
+	var r := 0.0
+	var bottom := INF
+	for c in n.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null or not String(c.name).to_lower().begins_with("wheel"): continue
+		var g: AABB = mi.transform * mi.get_aabb()
+		r = maxf(r, g.size.y * 0.5)
+		bottom = minf(bottom, g.position.y)
+	return {"r": r, "bottom": bottom}
 
 static func _aabb_in(n: Node3D) -> AABB:
 	var merged := AABB()
@@ -90,7 +106,9 @@ func setup(scene_path: String, p: VehicleParams) -> void:
 	length = merged.size.z * _scale
 	width = merged.size.x * _scale
 	height = merged.size.y * _scale
-	wheel_radius = 0.3 * _scale
+	var wb := _wheels_bounds(model)
+	wheel_radius = float(wb.r) * _scale
+	if wheel_radius < 0.01: wheel_radius = 0.3 * _scale
 	_root = Node3D.new()
 	_root.name = "ModelRoot"
 	add_child(_root)
@@ -98,7 +116,11 @@ func setup(scene_path: String, p: VehicleParams) -> void:
 	_root.rotation.y = PI * 0.5      # морда модели (+Z) -> +X (вперёд по соглашению проекта)
 	remove_child(model)
 	_root.add_child(model)
-	model.position = Vector3(-merged.get_center().x, -merged.position.y, -merged.get_center().z)
+	_model = model
+	# На y=0 ставим низ колёс, а не самую нижнюю точку модели: у Kenney ниже колёс ещё
+	# торчит геометрия, и подвеска из-за этого висела в 7 см над землёй.
+	var ground: float = merged.position.y if not is_finite(float(wb.bottom)) else float(wb.bottom)
+	model.position = Vector3(-merged.get_center().x, -ground, -merged.get_center().z)
 	for w in wheels:
 		_wheel_base_y.append(w.position.y)
 	body = body_mi
@@ -248,14 +270,29 @@ func _smooth_normals() -> PackedVector3Array:
 		nrm[i] = v.normalized() if v.length_squared() > 1e-12 else Vector3.UP
 	return nrm
 
-# Подвес, рулёжка и качение колёс ассета: exts — провис в метрах, steer — радианы, roll — накопленный угол.
-func pose_wheels(exts: Array[float], steer: float, roll: float) -> void:
-	for i in wheels.size():
-		var w := wheels[i]
-		var ext: float = exts[i] if i < exts.size() else 0.0
-		w.position.y = _wheel_base_y[i] - ext / _scale
-		var st := steer if front_wheels.has(w) else 0.0
-		w.rotation = Vector3(roll, st, 0.0)
+# Центры колёс ассета в локальных координатах DentBody (морда уже повёрнута в +X).
+# Центры колёс в локальных координатах DentBody. Именно центры геометрии, а не origins
+# узлов: у Kenney меш колеса смещён относительно своего узла на 6 см, и физическое колесо
+# из-за этого повисало над землёй вместе с лучом подвески.
+func wheel_local_positions() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	if _model == null: return out
+	var xf := _root.transform * _model.transform
+	for w in wheels:
+		var g: AABB = xf * (w.transform * w.get_aabb())
+		out.append(g.get_center())
+	return out
+
+func wheel_is_front(i: int) -> bool:
+	return i < wheels.size() and front_wheels.has(wheels[i])
+
+# Поза визуального колеса: drop — насколько колесо вышло из арки (метры),
+# steer — угол поворота, roll — накопленный угол качения.
+func set_wheel_pose(i: int, drop: float, steer: float, roll: float) -> void:
+	if i >= wheels.size(): return
+	var w := wheels[i]
+	w.position.y = _wheel_base_y[i] - drop / _scale
+	w.rotation = Vector3(roll, steer if front_wheels.has(w) else 0.0, 0.0)
 
 # Точка над кузовом в локальных координатах шасси: fraction — доля длины от носа.
 func hood_point(fraction: float, clearance: float) -> Vector3:
@@ -267,7 +304,7 @@ func hood_point(fraction: float, clearance: float) -> Vector3:
 		if absf(p.x - tx) > tol: continue
 		best = maxf(best, p.y)
 	if best == -INF: best = height * 0.55
-	return position + Vector3(tx, best + clearance, 0.0)
+	return transform * Vector3(tx, best + clearance, 0.0)
 
 func model_scale() -> float:
 	return _scale

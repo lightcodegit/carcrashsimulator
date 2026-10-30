@@ -55,7 +55,7 @@ func _initialize() -> void:
 	check(city.size() >= 8, "city assets present (%d)" % city.size())
 	check(props.size() >= 3, "prop assets present (%d)" % props.size())
 	for path in city + props:
-		var a := DentBody.measure(path)
+		var a: AABB = DentBody.measure(path).aabb
 		check(a.size.length() > 0.1, "%s has a sane AABB (%s)" % [path.get_file(), str(a.size)])
 		check(a.position.y > -0.35, "%s sits on the ground plane (%.2f)" % [path.get_file(), a.position.y])
 	check(FileAccess.file_exists("res://assets/LICENSE-kenney-car-kit.txt"), "CC0 license file shipped")

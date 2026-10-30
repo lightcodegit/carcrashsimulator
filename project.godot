@@ -25,6 +25,12 @@ InputRouter="*res://scripts/autoload/InputRouter.gd"
 window/size/viewport_width=1600
 window/size/viewport_height=900
 
+[physics]
+
+; VehicleBody3D игнорирует linear_damp самого тела и всегда берёт этот дефолт:
+; 0.1 съедал треть vmax. Сопротивление среды машина моделирует сама (COAST_DECEL).
+3d/default_linear_damp=0.0
+
 [rendering]
 
 anti_aliasing/quality/msaa_3d=2

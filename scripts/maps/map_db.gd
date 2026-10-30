@@ -39,11 +39,13 @@ static func wedge(root: Node3D, origin: Vector3, length: float, height: float, w
 		Vector3(0, 0, -width * 0.5), Vector3(length, 0, -width * 0.5), Vector3(length, height, -width * 0.5),
 		Vector3(0, 0, width * 0.5), Vector3(length, 0, width * 0.5), Vector3(length, height, width * 0.5)])
 	var tris := PackedInt32Array([0, 1, 2,  3, 5, 4,  0, 1, 5,  0, 5, 3,  0, 3, 4,  0, 4, 1,  1, 4, 5,  1, 5, 2])
-	var shape := ConcavePolygonShape3D.new()
 	var faces := PackedVector3Array()
 	for t in range(0, tris.size(), 3):
 		faces.append(pts[tris[t]]); faces.append(pts[tris[t + 1]]); faces.append(pts[tris[t + 2]])
-	shape.set_faces(faces)
+	# клин выпуклый: convex-призма даёт ровное касание, а concave-трёхсетка цепляла машину
+	# внутренними рёбрами и раскручивала её в воздухе на 50°
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = pts
 	var cs := CollisionShape3D.new(); cs.shape = shape; cs.position = Vector3.ZERO
 	body.add_child(cs)
 	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)

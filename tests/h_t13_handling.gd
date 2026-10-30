@@ -16,6 +16,7 @@ var _phase_frame := 0
 var _brush_speed := 0.0
 var _hb_speed := 0.0
 var _done := {}
+var _hold := 0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -29,6 +30,7 @@ func _enter(phase: String, spawn: Transform3D) -> void:
 	_phase = phase
 	_phase_frame = 0
 	_impacts = 0
+	_hold = 0
 	car.respawn(spawn)
 
 func _ready() -> void:
@@ -65,7 +67,8 @@ func _physics_process(_dt: float) -> void:
 				once("A1", _ramp_impacts == 0, "A1 заезд на рампу и прыжок не дают удара (%d)" % _ramp_impacts)
 				once("A2", _max_y > 1.5, "A2 машина поднялась по рампе (max y=%.2f)" % _max_y)
 				once("A3", car.body.dent_count == 0, "A3 рампа не мнёт кузов (%d)" % car.body.dent_count)
-			if _phase_frame > 1200 or (p.x > 87.0 and car.speed_kmh() < 20.0):
+			if p.x > 87.0 and car.speed_kmh() < 20.0: _hold += 1
+			if _phase_frame > 1200 or _hold > 6:
 				Input.action_release("throttle")
 				once("B1", _impacts > 0, "B1 удар в стену зарегистрирован (%d)" % _impacts)
 				once("B2", car.body.dent_count > 0, "B2 стена помяла кузов (%d)" % car.body.dent_count)

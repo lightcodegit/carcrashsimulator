@@ -20,11 +20,15 @@ static func build(p: VehicleParams) -> ShellSpec:
 		for i in P:
 			var th := float(i) / P * TAU
 			var cs := cos(th); var sn := sin(th)
-			var y := body_cy + body_ry * cs * taper
-			var z := body_rz * sn * taper
+			# суперэллипс: скруглённый параллелепипед вместо яйца
+			var se := 0.35
+			var csx := signf(cs) * pow(absf(cs), se)
+			var snx := signf(sn) * pow(absf(sn), se)
+			var y := body_cy + body_ry * csx * taper
+			var z := body_rz * snx * taper
 			if cs > 0.0:
-				y = lerp(y, cab_cy + cab_ry * cs, blend)
-				z = lerp(z, cab_rz * sn, blend)
+				y = lerp(y, cab_cy + cab_ry * csx, blend)
+				z = lerp(z, cab_rz * snx, blend)
 			spec.points.append(Vector3(x, maxf(y, p.gc * 0.4) + spec.y_off, z))
 			spec.zones.append(_zone_for(x, cs, sn, blend, half_l))
 	var nose_idx := spec.points.size()

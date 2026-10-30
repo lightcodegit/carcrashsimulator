@@ -55,12 +55,19 @@ func build(p: VehicleParams, world: World3D) -> void:
 		piv.add_child(mi); _visual.add_child(piv)
 		_wheel_pivots.append(piv); _wheel_meshes.append(mi)
 	var wx := params.length * 0.32
-	var wz := params.width * 0.5 - 0.16
+	var wz := params.width * 0.5 - 0.02
 	var wy := -(params.height - 0.12) * 0.5 + 0.34
 	_wheel_pivots[0].position = Vector3(wx, wy, wz)
 	_wheel_pivots[1].position = Vector3(wx, wy, -wz)
 	_wheel_pivots[2].position = Vector3(-wx, wy, wz)
 	_wheel_pivots[3].position = Vector3(-wx, wy, -wz)
+	var inner := MeshInstance3D.new()
+	var ibm := BoxMesh.new()
+	ibm.size = Vector3(params.length * 0.8, params.height * 0.5, params.width * 0.72)
+	var im := StandardMaterial3D.new(); im.albedo_color = Color(0.1, 0.1, 0.12)
+	ibm.material = im; inner.mesh = ibm
+	inner.position = Vector3(0, -params.height * 0.12, 0)
+	chassis.add_child(inner)
 	shell = SoftShell.new()
 	add_child(shell)
 	shell.setup(ShellBuilder.build(p), chassis, p)

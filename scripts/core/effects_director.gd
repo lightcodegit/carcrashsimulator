@@ -42,17 +42,15 @@ func _mk_particles(color: Color, amount: int, one_shot: bool) -> CPUParticles3D:
 	p.amount = amount; p.lifetime = 1.4; p.one_shot = one_shot
 	p.emitting = false; p.explosiveness = 0.9 if one_shot else 0.0
 	p.local_coords = false
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, 1, 0); pm.spread = 30.0
-	pm.initial_velocity_min = 1.5; pm.initial_velocity_max = 4.0
-	pm.gravity = Vector3(0, -1.5, 0)
-	p.process_material = pm
+	p.direction = Vector3(0, 1, 0); p.spread = 30.0
+	p.initial_velocity_min = 1.5; p.initial_velocity_max = 4.0
+	p.gravity = Vector3(0, -1.5, 0)
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.albedo_color = color
 	var q := QuadMesh.new(); q.size = Vector2(0.18, 0.18); q.material = m
-	p.draw_pass_1 = q
+	p.mesh = q
 	return p
 
 func _on_impact(speed_kmh: float, point: Vector3, _normal: Vector3) -> void:

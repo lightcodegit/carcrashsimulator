@@ -25,7 +25,10 @@ func _ready() -> void:
 	await get_tree().physics_frame
 
 func _nose() -> Vector3:
-	return car.chassis.global_position + Vector3(car.params.length * 0.5 - 0.05, 0.0, 0.0)
+	return _nose_of(car)
+
+func _nose_of(c: CarRig) -> Vector3:
+	return c.chassis.global_position + Vector3(c.params.length * 0.5 - 0.05, 0.0, 0.0)
 
 func _physics_process(_dt: float) -> void:
 	_frame += 1
@@ -69,13 +72,14 @@ func _physics_process(_dt: float) -> void:
 	check(moved_near > 20, "B8 зона удара сдвинулась (%d вершин)" % moved_near)
 	check(b.moved_vertex_count(0.01) > 20, "B9 счётчик сдвинутых вершин (%d)" % b.moved_vertex_count(0.01))
 
-	# C) монотонность по скорости: на второй машине удар сильнее мнёт
+	# C) монотонность по скорости: вторая машина стоит отдельно (иначе solver
+	# выталкивает её из первого коллайдера и удар приходится мимо кузова)
 	var car2 := CarRig.new()
 	add_child(car2)
 	car2.build(VehicleDB.get_params("sedan"), get_world_3d())
-	car2.respawn(Transform3D(Basis.IDENTITY, Vector3(0, 1.0, 0)))
+	car2.respawn(Transform3D(Basis.IDENTITY, Vector3(24.0, 1.0, 0)))
 	await get_tree().physics_frame
-	car2.body.apply_impact(_nose(), Vector3(1, 0, 0), 150.0)
+	car2.body.apply_impact(_nose_of(car2), Vector3(1, 0, 0), 150.0)
 	check(car2.body.max_depth > b.max_depth, "C1 faster hit dents deeper (%.3f > %.3f)" % [car2.body.max_depth, b.max_depth])
 	check(car2.body.deformation() > def60, "C2 faster hit deforms more (%.3f > %.3f)" % [car2.body.deformation(), def60])
 	car2.queue_free()

@@ -24,6 +24,8 @@ var _prev: Array[Vector3] = []
 var _rest_local: Array[Vector3] = []
 var _dyn: Array[bool] = []
 var _still: Array[int] = []
+var _slow: Array[int] = []
+var _age: Array[int] = []
 var _adj: Array = []                       # Array[PackedInt32Array] spring indices per point
 var _spring_on := PackedByteArray()
 var _spring_rest := PackedFloat64Array()
@@ -32,6 +34,8 @@ var _dyn_count := 0
 var _mesh: MeshInstance3D
 var _mat: StandardMaterial3D
 var _zone_hp: Array[float] = [100.0, 100.0, 100.0, 100.0, 100.0]
+var _active: PackedInt32Array = PackedInt32Array()
+var _active_dirty := false
 var _sim_ms_sum := 0.0
 var _sim_frames := 0
 
@@ -39,10 +43,10 @@ func setup(s: ShellSpec, ch: Node3D, p: VehicleParams) -> void:
 	spec = s; chassis = ch; params = p
 	_pos.resize(s.points.size()); _prev.resize(s.points.size())
 	_rest_local.assign(s.points)
-	_dyn.resize(s.points.size()); _still.resize(s.points.size())
+	_dyn.resize(s.points.size()); _still.resize(s.points.size()); _slow.resize(s.points.size()); _age.resize(s.points.size())
 	_adj.clear()
 	for i in s.points.size():
-		_adj.append(PackedInt32Array()); _dyn[i] = false; _still[i] = 0
+		_adj.append(PackedInt32Array()); _dyn[i] = false; _still[i] = 0; _slow[i] = 0; _age[i] = 0
 	_spring_on.resize(s.springs.size()); _spring_on.fill(1)
 	_spring_rest.resize(s.springs.size())
 	for k in s.springs.size():
@@ -64,6 +68,7 @@ func _physics_process(dt: float) -> void:
 func sim_step(dt: float) -> float:
 	var t0 := Time.get_ticks_usec()
 	if _dyn_count > 0 and chassis != null:
+		if _active_dirty: _rebuild_active()
 		var h := dt / float(SUBSTEPS)
 		for _s in SUBSTEPS:
 			_integrate(h)
@@ -100,7 +105,7 @@ func _pt(i: int) -> Vector3:
 
 func _wake(i: int, base_vel: Vector3) -> void:
 	if _dyn[i]: return
-	_dyn[i] = true; _dyn_count += 1; _still[i] = 0
+	_dyn[i] = true; _dyn_count += 1; _still[i] = 0; _slow[i] = 0; _age[i] = 0; _active_dirty = true
 	_pos[i] = _chassis_xform() * _rest_local[i]
 	_prev[i] = _pos[i] - base_vel / 60.0 / float(SUBSTEPS)
 
@@ -148,8 +153,17 @@ func _endpoint(k: int, which: int) -> int:
 	var sp: Spring = spec.springs[k]
 	return sp.a if which == 0 else sp.b
 
-func _relax() -> void:
+func _rebuild_active() -> void:
+	_active = PackedInt32Array()
 	for k in spec.springs.size():
+		if _spring_on[k] == 0: continue
+		var sp: Spring = spec.springs[k]
+		if _dyn[sp.a] or (sp.b >= 0 and _dyn[sp.b]): _active.append(k)
+	_active_dirty = false
+
+func _relax() -> void:
+	for _ai in _active.size():
+		var k: int = _active[_ai]
 		if _spring_on[k] == 0: continue
 		var sp: Spring = spec.springs[k]
 		var pa := _pt(sp.a)
@@ -182,7 +196,8 @@ func _break_strain_for(ty: int) -> float:
 		_: return params.break_strain
 
 func _plasticity_and_break() -> void:
-	for k in spec.springs.size():
+	for _ai in _active.size():
+		var k: int = _active[_ai]
 		if _spring_on[k] == 0: continue
 		var sp: Spring = spec.springs[k]
 		var pa := _pt(sp.a)
@@ -205,10 +220,31 @@ func _plasticity_and_break() -> void:
 			if randi() % 8 == 0:
 				plastic_event.emit(sp.zone, (pa + pb) * 0.5, absf(strain))
 
+const _EJECT_DIRS: Array[Vector3] = [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]
+
+func _eject_inside(i: int) -> void:
+	# точка застряла внутри тела: свип её не ловит. Ищем exit-грань (нормаль по направлению луча) и выталкиваем к ближайшей.
+	var best_d := INF
+	var best_dir := Vector3.ZERO
+	for d in _EJECT_DIRS:
+		var q := PhysicsRayQueryParameters3D.create(_pos[i], _pos[i] + d * 0.6)
+		q.collide_with_bodies = true
+		var hit := space_state.intersect_ray(q)
+		if hit.is_empty(): continue
+		var n: Vector3 = hit.normal
+		if n.dot(d) < 0.5: continue  # не exit-грань (не изнутри)
+		if hit.distance < best_d:
+			best_d = hit.distance; best_dir = d
+	if best_d < INF:
+		_pos[i] += best_dir * (best_d + 0.02)
+		_prev[i] = _pos[i]
+
 func _collide_world(_h: float) -> void:
 	if space_state == null: return
 	for i in spec.points.size():
 		if not _dyn[i]: continue
+		_age[i] += 1
+		if _age[i] == 120: _eject_inside(i)
 		# 1) свип prev -> pos против мира
 		if _pos[i] != _prev[i]:
 			var q := PhysicsRayQueryParameters3D.create(_prev[i], _pos[i])
@@ -234,13 +270,14 @@ func _sleep_check() -> void:
 	for i in spec.points.size():
 		if not _dyn[i]: continue
 		var v := (_pos[i] - _prev[i]) * 60.0 * float(SUBSTEPS)
-		if v.length() < 0.04:
+		if v.length() < 0.35:  # выше гравитационного приращения и микродрожжака релаксации
 			_still[i] += 1
-			if _still[i] >= SLEEP_FRAMES:
-				_rest_local[i] = _chassis_xform().affine_inverse() * _pos[i]
-				_dyn[i] = false; _dyn_count -= 1
 		else:
 			_still[i] = 0
+		_slow[i] = 0 if v.length() > 0.8 else _slow[i] + 1
+		if _still[i] >= SLEEP_FRAMES or _slow[i] >= 240 or _age[i] >= 360:  # 4 с дрейфа / 6 с в dynamic -> сон (предохранитель от застрявших в телах точек)
+			_rest_local[i] = _chassis_xform().affine_inverse() * _pos[i]
+			_dyn[i] = false; _dyn_count -= 1
 
 func _rebuild_mesh() -> void:
 	var st := SurfaceTool.new()
@@ -255,6 +292,12 @@ func _rebuild_mesh() -> void:
 	st.index()
 	_mesh.mesh = st.commit()
 
+func debug_dyn() -> void:
+	for i in spec.points.size():
+		if _dyn[i]:
+			var v := (_pos[i] - _prev[i]) * 120.0
+			print("DYN pt "+str(i)+" v="+str(v.length())+" zone="+str(spec.zones[i])+" pos="+str(_pos[i]))
+
 func point_count() -> int: return spec.points.size()
 func point_world(i: int) -> Vector3: return _pt(i)
 func dyn_count() -> int: return _dyn_count
@@ -265,7 +308,7 @@ func get_broken_total() -> int:
 
 func reset() -> void:
 	for i in spec.points.size():
-		_dyn[i] = false; _still[i] = 0; _rest_local[i] = spec.points[i]
+		_dyn[i] = false; _still[i] = 0; _slow[i] = 0; _rest_local[i] = spec.points[i]
 	_dyn_count = 0
 	_spring_on.fill(1)
 	for k in spec.springs.size(): _spring_rest[k] = spec.springs[k].rest

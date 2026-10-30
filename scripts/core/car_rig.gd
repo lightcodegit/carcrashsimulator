@@ -8,6 +8,8 @@ var chassis: RigidBody3D
 var shell: SoftShell
 var heading := 0.0
 var _prev_speed := 0.0
+var _recent_speed := 0.0
+var _impact_cooldown := 0
 var _grounded := true
 var _susp: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var _visual: Node3D
@@ -65,12 +67,14 @@ func build(p: VehicleParams, world: World3D) -> void:
 	shell.space_state = world.direct_space_state
 
 func _on_body_entered(_other: Node) -> void:
-	if _prev_speed < 28.0: return
+	# скорость в момент события уже обнулена solver'ом — берём свежий пик
+	if _recent_speed < 28.0 or _impact_cooldown > 0: return
 	var v := chassis.linear_velocity
-	var n: Vector3 = -v.normalized() if v.length_squared() > 0.04 else Vector3.UP
-	var point := chassis.global_position - n * 0.3
-	impact.emit(_prev_speed, point, n)
-	shell.apply_impact(point, n, _prev_speed / 3.6)
+	var n: Vector3 = Vector3(-cos(heading), 0.0, sin(heading))  # против направления машины (стена перед носом)
+	var point := chassis.global_position + Vector3(params.length * 0.5, 0.1, 0)
+	impact.emit(_recent_speed, point, n)
+	shell.apply_impact(point, n, _recent_speed / 3.6)
+	_impact_cooldown = 60
 
 func respawn(tf: Transform3D) -> void:
 	heading = tf.basis.get_euler().y
@@ -104,6 +108,7 @@ func _chassis_physics(state: PhysicsDirectBodyState3D) -> void:
 		elif throttle < 0.0:
 			if vf > 0.5: vf = maxf(vf - params.brake_decel * dt, 0.0)
 			else: vf += params.accel_max * 0.35 * throttle * dt
+		if absf(throttle) < 0.01: vf *= exp(-dt * 0.8)   # накат/движущее торможение
 		vf = clampf(vf, -vmax * 0.12, vmax)
 		var hand := Input.is_action_pressed("handbrake")
 		vl *= exp(-dt * (1.6 if hand else params.grip))
@@ -116,6 +121,8 @@ func _chassis_physics(state: PhysicsDirectBodyState3D) -> void:
 	state.angular_velocity = Vector3.ZERO
 	state.transform.basis = Basis(Vector3.UP, heading)
 	_prev_speed = vel.length() * 3.6
+	_recent_speed = maxf(_recent_speed - 1.6, _prev_speed)  # распад ~95 км/ч за секунду
+	_impact_cooldown = maxi(_impact_cooldown - 1, 0)
 
 func _physics_process(dt: float) -> void:
 	var space := get_world_3d().direct_space_state

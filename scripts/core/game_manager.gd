@@ -59,6 +59,7 @@ func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 	_crashes += 1
 	_top_crash = maxf(_top_crash, speed_kmh)
 	hud.show_crash(speed_kmh)
+	hud.set_crash_stats(_crashes, _top_crash)
 	camera.add_trauma(clampf(speed_kmh / 90.0, 0.2, 1.0))
 	if speed_kmh > 60.0:
 		TimeScale.play_auto(0.3, 1.2)

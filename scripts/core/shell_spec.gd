@@ -6,3 +6,4 @@ var springs: Array = []            # Spring[]
 var triangles := PackedInt32Array()
 var chassis_nodes: Array[Vector3] = []
 var zone_spring_totals: Array[int] = [0, 0, 0, 0, 0]
+var y_off := 0.0   # сдвиг локальных координат клетки: начало координат = центр коллайдера шасси

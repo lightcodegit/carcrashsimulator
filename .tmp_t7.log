@@ -1,3 +1,183 @@
 Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 
-ALL PASS
+BE# 1 @StaticBody3D@3 recent=8.39600076675415
+CLMP d=3.05693411827087 m=2.97798221588135 x=56.4496154785156
+CLMP d=2.65960741043091 m=2.97937450408936 x=56.8479232788086
+CLMP d=2.26146650314331 m=2.98076404571533 x=57.2473945617676
+CLMP d=1.8627462387085 m=2.98215084075928 x=57.648021697998
+CLMP d=2.23895025253296 m=2.50653373241425 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.50980039954186 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.51306706666946 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.51633373379707 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.51960040092468 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.5228670668602 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.52613373279572 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.52940039873123 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.53266706466675 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.53593373060226 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.53920039653778 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.54246706485748 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.50401469796896 x=57.2700004577637
+BE# 2 @StaticBody3D@3 recent=64.1375282287598
+CLMP d=2.23701238632202 m=2.50569244801998 x=57.2719459533691
+CLMP d=2.23895025253296 m=2.50653301715851 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.50979968428612 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.51306635141373 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.51633301854134 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.51959968566895 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.52286635160446 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.52613301753998 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.52939968347549 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.53266634941101 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.53593301534653 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.53919968128204 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.54246634960175 x=57.2700004577637
+CLMP d=2.23895025253296 m=2.50401469826698 x=57.2700004577637
+BE# 3 @StaticBody3D@3 recent=41.7375282287598
+BE# 4 @StaticBody3D@3 recent=19.3375282287598
+BE# 5 @StaticBody3D@3 recent=6.04394292831421
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt320 hits=1 chassis_null=false first=@StaticBody3D@5:<StaticBody3D#30081549811>
+SOLIDCHK pt167 hits=0 chassis_null=false
+SOLIDCHK pt167 hits=0 chassis_null=false
+SOLIDCHK pt167 hits=0 chassis_null=false
+SOLIDCHK pt167 hits=0 chassis_null=false
+SOLIDCHK pt112 hits=0 chassis_null=false
+SOLIDCHK pt112 hits=0 chassis_null=false
+SOLIDCHK pt112 hits=0 chassis_null=false
+SOLIDCHK pt112 hits=0 chassis_null=false
+SOLIDCHK pt96 hits=0 chassis_null=false
+SOLIDCHK pt96 hits=0 chassis_null=false
+SOLIDCHK pt94 hits=0 chassis_null=false
+SOLIDCHK pt96 hits=0 chassis_null=false
+SOLIDCHK pt110 hits=0 chassis_null=false
+SOLIDCHK pt111 hits=0 chassis_null=false
+SOLIDCHK pt127 hits=0 chassis_null=false
+SOLIDCHK pt129 hits=0 chassis_null=false
+SOLIDCHK pt94 hits=0 chassis_null=false
+SOLIDCHK pt96 hits=0 chassis_null=false
+SOLIDCHK pt110 hits=0 chassis_null=false
+SOLIDCHK pt111 hits=0 chassis_null=false
+SOLIDCHK pt127 hits=0 chassis_null=false
+SOLIDCHK pt129 hits=0 chassis_null=false
+SOLIDCHK pt110 hits=0 chassis_null=false
+SOLIDCHK pt6 hits=0 chassis_null=false
+SOLIDCHK pt12 hits=0 chassis_null=false
+SOLIDCHK pt62 hits=0 chassis_null=false
+SOLIDCHK pt94 hits=0 chassis_null=false
+SOLIDCHK pt111 hits=0 chassis_null=false
+SOLIDCHK pt127 hits=0 chassis_null=false
+SOLIDCHK pt129 hits=0 chassis_null=false
+SOLIDCHK pt6 hits=0 chassis_null=false
+SOLIDCHK pt12 hits=0 chassis_null=false
+SOLIDCHK pt62 hits=0 chassis_null=false
+SOLIDCHK pt94 hits=0 chassis_null=false
+SOLIDCHK pt111 hits=0 chassis_null=false
+SOLIDCHK pt127 hits=0 chassis_null=false
+SOLIDCHK pt129 hits=0 chassis_null=false
+SOLIDCHK pt6 hits=0 chassis_null=false
+SOLIDCHK pt12 hits=0 chassis_null=false
+SOLIDCHK pt62 hits=0 chassis_null=false
+SOLIDCHK pt143 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt6 hits=0 chassis_null=false
+SOLIDCHK pt12 hits=0 chassis_null=false
+SOLIDCHK pt62 hits=0 chassis_null=false
+SOLIDCHK pt143 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt46 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt125 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt143 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt46 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt125 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt143 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt30 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt46 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt125 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt30 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt46 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt125 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt10 hits=0 chassis_null=false
+SOLIDCHK pt26 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt27 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt30 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt40 hits=0 chassis_null=false
+SOLIDCHK pt55 hits=0 chassis_null=false
+SOLIDCHK pt56 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt10 hits=0 chassis_null=false
+SOLIDCHK pt26 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt27 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt30 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt40 hits=0 chassis_null=false
+SOLIDCHK pt55 hits=0 chassis_null=false
+SOLIDCHK pt56 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt9 hits=0 chassis_null=false
+SOLIDCHK pt10 hits=0 chassis_null=false
+SOLIDCHK pt26 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt27 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt28 hits=0 chassis_null=false
+SOLIDCHK pt40 hits=0 chassis_null=false
+SOLIDCHK pt42 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt43 hits=0 chassis_null=false
+SOLIDCHK pt55 hits=0 chassis_null=false
+SOLIDCHK pt56 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt9 hits=0 chassis_null=false
+SOLIDCHK pt10 hits=0 chassis_null=false
+SOLIDCHK pt26 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt27 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt28 hits=0 chassis_null=false
+SOLIDCHK pt40 hits=0 chassis_null=false
+SOLIDCHK pt42 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt43 hits=0 chassis_null=false
+SOLIDCHK pt55 hits=0 chassis_null=false
+SOLIDCHK pt56 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt9 hits=0 chassis_null=false
+SOLIDCHK pt28 hits=0 chassis_null=false
+SOLIDCHK pt42 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt43 hits=0 chassis_null=false
+SOLIDCHK pt9 hits=0 chassis_null=false
+SOLIDCHK pt28 hits=0 chassis_null=false
+SOLIDCHK pt42 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt43 hits=0 chassis_null=false
+SOLIDCHK pt7 hits=0 chassis_null=false
+SOLIDCHK pt25 hits=0 chassis_null=false
+SOLIDCHK pt41 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt54 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt7 hits=0 chassis_null=false
+SOLIDCHK pt25 hits=0 chassis_null=false
+SOLIDCHK pt41 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt54 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt7 hits=0 chassis_null=false
+SOLIDCHK pt25 hits=0 chassis_null=false
+SOLIDCHK pt29 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt41 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt54 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt7 hits=0 chassis_null=false
+SOLIDCHK pt25 hits=0 chassis_null=false
+SOLIDCHK pt29 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt41 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt54 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt24 hits=0 chassis_null=false
+SOLIDCHK pt24 hits=0 chassis_null=false
+SOLIDCHK pt24 hits=0 chassis_null=false
+SOLIDCHK pt24 hits=0 chassis_null=false
+SOLIDCHK pt84 hits=0 chassis_null=false
+SOLIDCHK pt84 hits=0 chassis_null=false
+SOLIDCHK pt84 hits=0 chassis_null=false
+SOLIDCHK pt84 hits=0 chassis_null=false
+SOLIDCHK pt153 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt153 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt153 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+SOLIDCHK pt153 hits=1 chassis_null=false first=@RigidBody3D@8:<RigidBody3D#30215767546>
+DYN pt 22 v=0.00001430511475 zone=0 pos=(55.33443, 0.472059, 0.513769)
+DYN pt 29 v=0.00450574792922 zone=0 pos=(55.29617, 0.976062, -0.569358)
+DYN pt 38 v=0.00047959483345 zone=0 pos=(55.74613, 1.006172, 0.815556)
+DYN pt 54 v=0.0001740292355 zone=2 pos=(55.74362, 0.644805, 0.624912)
+DYN pt 77 v=0.0 zone=3 pos=(55.99528, 1.125361, -0.861978)
+DYN pt 320 v=0.0 zone=4 pos=(59.67739, 0.659998, 0.0)
+FAIL: damaged cage settles to sleep (6)
+FAILS 1

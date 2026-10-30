@@ -12,6 +12,7 @@ func _ready() -> void:
 	box.size = Vector3(1400, 1, 60); cs.shape = box
 	var pm := PhysicsMaterial.new(); pm.friction = 0.0; body.physics_material_override = pm
 	body.add_child(cs); add_child(body); body.global_position = Vector3(600, -0.5, 0)
+	ObstacleField.add(Vector3(600, -0.5, 0), Vector3(700, 0.5, 30))
 	await get_tree().process_frame
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())

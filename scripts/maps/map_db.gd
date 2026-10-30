@@ -7,6 +7,7 @@ static func _mat(color: Color, rough := 0.7) -> StandardMaterial3D:
 	return m
 
 static func box(root: Node3D, pos: Vector3, size: Vector3, color: Color, rot: Basis = Basis.IDENTITY) -> StaticBody3D:
+	if rot == Basis.IDENTITY: ObstacleField.add(pos, size * 0.5)
 	var body := StaticBody3D.new()
 	body.position = pos; body.basis = rot
 	var cs := CollisionShape3D.new(); var sh := BoxShape3D.new()
@@ -24,6 +25,7 @@ static func box_vis(root: Node3D, pos: Vector3, size: Vector3, color: Color) -> 
 	return mi
 
 static func build(id: String) -> Dictionary:
+	ObstacleField.reset()
 	match id:
 		"town": return _town()
 		"speedway": return _speedway()

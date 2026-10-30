@@ -39,7 +39,7 @@ func _process(dt: float) -> void:
 	match _mode:
 		0:
 			var fwd := _car.chassis.global_transform.basis.x
-			var want := target - fwd * 8.0 + Vector3(0, 3.2, 0)
+			var want := target - fwd * 5.0 + Vector3(0, 1.9, 0)
 			var space := get_world_3d().direct_space_state
 			var q := PhysicsRayQueryParameters3D.create(target + Vector3(0, 1.2, 0), want)
 			q.collide_with_bodies = true

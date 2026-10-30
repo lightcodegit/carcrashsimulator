@@ -44,22 +44,23 @@ func build(p: VehicleParams, world: World3D) -> void:
 	_visual = Node3D.new()
 	chassis.add_child(_visual)
 	var wmat := StandardMaterial3D.new()
-	wmat.albedo_color = Color(0.08, 0.08, 0.08)
+	wmat.albedo_color = Color(0.12, 0.12, 0.14); wmat.roughness = 0.9
 	for i in 4:
 		var piv := Node3D.new()
 		var mi := MeshInstance3D.new()
 		var geo := CylinderMesh.new()
-		geo.height = 0.26; geo.top_radius = 0.34; geo.bottom_radius = 0.34
+		geo.height = 0.3; geo.top_radius = 0.4; geo.bottom_radius = 0.4
 		mi.mesh = geo; mi.material_override = wmat
 		mi.rotation = Vector3(0, 0, PI * 0.5)
 		piv.add_child(mi); _visual.add_child(piv)
 		_wheel_pivots.append(piv); _wheel_meshes.append(mi)
 	var wx := params.length * 0.32
-	var wz := (params.width - 0.5) * 0.5
-	_wheel_pivots[0].position = Vector3(wx, 0, wz)
-	_wheel_pivots[1].position = Vector3(wx, 0, -wz)
-	_wheel_pivots[2].position = Vector3(-wx, 0, wz)
-	_wheel_pivots[3].position = Vector3(-wx, 0, -wz)
+	var wz := params.width * 0.5 - 0.16
+	var wy := -(params.height - 0.12) * 0.5 + 0.34
+	_wheel_pivots[0].position = Vector3(wx, wy, wz)
+	_wheel_pivots[1].position = Vector3(wx, wy, -wz)
+	_wheel_pivots[2].position = Vector3(-wx, wy, wz)
+	_wheel_pivots[3].position = Vector3(-wx, wy, -wz)
 	shell = SoftShell.new()
 	add_child(shell)
 	shell.setup(ShellBuilder.build(p), chassis, p)
@@ -120,6 +121,27 @@ func _chassis_physics(state: PhysicsDirectBodyState3D) -> void:
 	state.linear_velocity = vel
 	state.angular_velocity = Vector3.ZERO
 	state.transform.basis = Basis(Vector3.UP, heading)
+	# позиционный клмп: рама не должна входить в статичные тела (custom_integrator не даёт штатного выталкивания)
+	var fwd_dir := Vector3(cos(heading), 0.0, -sin(heading))
+	var space := get_world_3d().direct_space_state
+	var nose := state.transform.origin + fwd_dir * (params.length * 0.5)
+	var margin := params.length * 0.5 + 0.30 + vel.length() * 0.02
+	var q := PhysicsRayQueryParameters3D.create(state.transform.origin + Vector3(0, 0.2, 0), state.transform.origin + fwd_dir * (margin + 0.1) + Vector3(0, 0.2, 0))
+	q.exclude = [chassis.get_rid()]
+	var hit := space.intersect_ray(q)
+	if not hit.is_empty() and state.transform.origin.distance_to(hit.position) < params.length * 0.5 + 0.33:
+		var fixed_origin: Vector3 = hit.position - fwd_dir * (params.length * 0.5 + 0.03)
+		if fwd_dir.dot(fixed_origin - state.transform.origin) < 0.0:
+			state.transform.origin = fixed_origin
+			if vel.dot(fwd_dir) > 0.0:
+				vel -= fwd_dir * vel.dot(fwd_dir)
+				state.linear_velocity = vel
+		if _recent_speed > 28.0 and _impact_cooldown <= 0:
+			var cn: Vector3 = hit.normal
+			var cpoint: Vector3 = hit.position
+			impact.emit(_recent_speed, cpoint, cn)
+			shell.apply_impact(cpoint, cn, _recent_speed / 3.6)
+			_impact_cooldown = 60
 	_prev_speed = vel.length() * 3.6
 	_recent_speed = maxf(_recent_speed - 1.6, _prev_speed)  # распад ~95 км/ч за секунду
 	_impact_cooldown = maxi(_impact_cooldown - 1, 0)

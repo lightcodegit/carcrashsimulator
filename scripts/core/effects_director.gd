@@ -30,6 +30,7 @@ func attach(car: CarRig, damage: DamageModel) -> void:
 	_fire_light.light_color = Color(1.0, 0.45, 0.1)
 	_fire_light.visible = false
 	add_child(_fire_light)
+	if get_parent(): get_parent().remove_child(self)
 	car.chassis.add_child(self)
 	position = Vector3.ZERO
 	_car.shell.spring_burst.connect(func(_z): _refresh())

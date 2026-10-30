@@ -6,8 +6,8 @@ extends Resource
 @export var accel_max := 7.0
 @export var vmax_kmh := 160.0
 @export var brake_decel := 22.0
-@export var steer_rate_deg := 38.0
-@export var grip := 8.0
+@export var steer_rate_deg := 190.0   # скорость набора угла передних колёс, °/с
+@export var grip := 8.0             # множитель сцепления шин (wheel_friction_slip)
 @export var width := 1.8                # целевая ширина: по ней DentBody считает равномерный масштаб
 @export var accent_color := Color(0.8, 0.25, 0.2)
 # производные от модели — заполняет DentBody.setup(), руками не задавать

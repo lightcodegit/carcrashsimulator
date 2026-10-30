@@ -37,9 +37,12 @@ func _physics_process(_dt: float) -> void:
 			check(wa.size.z < wa.size.y * 0.75, "ось колеса поперёк машины (шина %.2f тоньше диаметра %.2f)" % [wa.size.z, wa.size.y])
 			check(absf(wa.size.y * 0.5 - b.wheel_radius) < 0.03, "радиус колеса совпадает с params (%.3f vs %.3f)" % [wa.size.y * 0.5, b.wheel_radius])
 			check(absf(wa.size.x * 0.5 - b.wheel_radius) < 0.03, "колесо круглое в продольной плоскости (%.3f)" % (wa.size.x * 0.5))
-			check(absf(wa.position.y) < 0.03, "колесо касается пола (низ на %.3f)" % wa.position.y)
 		Input.action_press("steer_left")
 	if _frame == 30:
+		# подвеска VehicleBody3D оседает несколько тиков, поэтому высоту меряем не сразу
+		for w in car.body.wheels:
+			var wa: AABB = w.global_transform * w.get_aabb()
+			check(absf(wa.position.y) < 0.03, "колесо касается пола (низ на %.3f)" % wa.position.y)
 		var f0 := car.body.front_wheels[0].rotation.y
 		var back := car.body.wheels[0]
 		for w in car.body.wheels:

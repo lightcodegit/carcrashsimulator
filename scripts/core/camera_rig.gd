@@ -49,7 +49,7 @@ func _process(dt: float) -> void:
 	var look := target + Vector3(0, 0.6, 0)
 	match _mode:
 		0:
-			var fwd := _car.chassis.global_transform.basis.x
+			var fwd := _car.forward()
 			var speed := _car.chassis.linear_velocity.length()
 			var back := 5.0 + minf(speed, 60.0) * 0.045     # на скорости отъезжаем дальше
 			var up := 1.9 + minf(speed, 60.0) * 0.010
@@ -78,8 +78,9 @@ func _process(dt: float) -> void:
 			_look_at(look)
 		1:
 			var hp: Vector3 = _car.body.hood_point(0.30, 0.14)
-			global_position = _car.chassis.global_transform * hp + shake * 0.3
-			_look_at(_car.chassis.global_transform * (hp + Vector3(12.0, -0.45, 0.0)))
+			var eye := _car.chassis.global_transform * hp
+			global_position = eye + shake * 0.3
+			_look_at(eye + _car.forward() * 12.0 + Vector3(0, -0.45, 0))
 		2:
 			var o := Vector3(cos(_orbit_yaw) * cos(_orbit_pitch), sin(_orbit_pitch), sin(_orbit_yaw) * cos(_orbit_pitch))
 			global_position = target + o * _orbit_dist + shake

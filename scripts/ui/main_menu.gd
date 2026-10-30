@@ -266,7 +266,7 @@ func _load_car(id: String) -> void:
 	if ps == null: return
 	_car_node = ps.instantiate()
 	_pivot.add_child(_car_node)
-	var a := DentBody.measure(p.model)
+	var a: AABB = DentBody.measure(p.model).aabb
 	var s := 2.6 / maxf(0.001, a.size.z)          # нормируем длину модели в превью
 	_car_node.scale = Vector3.ONE * s
 	_car_node.position = Vector3(-a.get_center().x * s, -a.position.y * s, -a.get_center().z * s)

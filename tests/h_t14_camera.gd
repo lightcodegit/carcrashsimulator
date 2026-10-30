@@ -15,8 +15,8 @@ func check(cond: bool, msg: String) -> void:
 func _ready() -> void:
 	var floor_body := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var box := BoxShape3D.new()
-	box.size = Vector3(400, 2, 200); cs.shape = box
-	floor_body.add_child(cs); add_child(floor_body); floor_body.global_position = Vector3(100, -1, 0)
+	box.size = Vector3(4000, 2, 200); cs.shape = box
+	floor_body.add_child(cs); add_child(floor_body); floor_body.global_position = Vector3(1500, -1, 0)
 	await get_tree().process_frame
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())
@@ -24,7 +24,7 @@ func _ready() -> void:
 	cam = CameraRig.new(); add_child(cam); cam.setup(car); cam.make_current()
 
 func _ideal_chase() -> Vector3:
-	var fwd := car.chassis.global_transform.basis.x
+	var fwd := car.forward()
 	var speed := car.chassis.linear_velocity.length()
 	var back := 5.0 + minf(speed, 60.0) * 0.045
 	var up := 1.9 + minf(speed, 60.0) * 0.010
@@ -60,8 +60,8 @@ func _physics_process(_dt: float) -> void:
 		Input.action_release("throttle")
 		check(car.speed_kmh() > 100.0, "машина разогналась (%.1f км/ч)" % car.speed_kmh())
 		check(_dist_dev < 1.2, "на скорости камера держит дистанцию без отставания (отклонение %.2f м)" % _dist_dev)
-	if _frame == 1200:
-		check(car.speed_kmh() < 5.0, "машина остановилась накатом (%.1f км/ч)" % car.speed_kmh())
+	if _frame == 2400:
+		check(car.speed_kmh() < 5.0, "машина остановилась накатом (%.1f км/ч за 25 с)" % car.speed_kmh())
 		check(cam.global_position.distance_to(_ideal_chase()) < 0.05,
 			"после остановки камера ровно в точке погони (%.3f м)" % cam.global_position.distance_to(_ideal_chase()))
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

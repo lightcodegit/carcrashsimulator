@@ -54,13 +54,20 @@ func _mk_particles(color: Color, amount: int, one_shot: bool) -> CPUParticles3D:
 	p.mesh = q
 	return p
 
+var _spark_until := 0
+var _shard_until := 0
+
 func _on_impact(speed_kmh: float, point: Vector3, _normal: Vector3) -> void:
 	if speed_kmh < 15.0: return
+	if Time.get_ticks_msec() < _spark_until: return
+	_spark_until = Time.get_ticks_msec() + 80
 	_sparks.global_position = point
 	_sparks.emitting = false
 	_sparks.emitting = true
 
 func _on_plastic(zone: int, world_pos: Vector3, _energy: float) -> void:
+	if Time.get_ticks_msec() < _shard_until: return
+	_shard_until = Time.get_ticks_msec() + 150
 	if zone == Zones.ROOF or zone == Zones.LEFT or zone == Zones.RIGHT:
 		_shards.global_position = world_pos
 		_shards.emitting = false

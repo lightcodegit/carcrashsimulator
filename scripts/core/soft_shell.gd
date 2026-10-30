@@ -7,7 +7,7 @@ signal plastic_event(zone: int, world_pos: Vector3, energy: float)
 const SUBSTEPS := 2
 const RELAX := 3
 const DAMP := 0.985
-const MAX_PT_SPEED := 25.0
+const MAX_PT_SPEED := 14.0
 const YIELD := 0.05
 const YIELD_C := 0.08
 const SLEEP_FRAMES := 90
@@ -117,9 +117,9 @@ func _point_vel_at(_r_local: Vector3) -> Vector3:
 	return velocity_getter.call()
 
 func apply_impact(world_pos: Vector3, dir: Vector3, speed_ms: float) -> void:
-	var R := 0.7 + minf(speed_ms, 40.0) * 0.012
-	var crush_vel := minf(16.0, speed_ms * 0.4)
-	var crush_off := minf(0.08, speed_ms * 0.004)   # малый прогиб: урон делает crush_vel, а не телепорт в стену
+	var R := 0.7 + minf(speed_ms, 40.0) * 0.008
+	var crush_vel := minf(12.0, speed_ms * 0.4)
+	var crush_off := minf(0.25, speed_ms * 0.012)   # глубина первичного прогиба растёт со скоростью
 	var v_ch := _point_vel_at(Vector3.ZERO)
 	var R2 := R * R
 	wake_count_at_impact = 0
@@ -189,6 +189,7 @@ func _relax() -> void:
 			Spring.BEND: kk = 0.35
 			_: kk = minf(1.0, 0.95 * params.k_anchor)
 		var corr := delta * (1.0 - rest / len) * kk
+		if corr.length() > 0.12: corr = corr.normalized() * 0.12  # кламп: один шаг не даёт взрыва
 		if sp.type == Spring.ANCHOR:
 			if _dyn[sp.a]: _pos[sp.a] += corr
 		elif _dyn[sp.a] and _dyn[sp.b]:
@@ -277,6 +278,9 @@ func _sleep_check() -> void:
 		if _still[i] >= SLEEP_FRAMES or _slow[i] >= 240 or _age[i] >= 360:  # 4 с дрейфа / 6 с в dynamic -> сон
 			var e := ObstacleField.project_out(_pos[i])
 			_pos[i] = e; _prev[i] = e
+			var orig: Vector3 = _chassis_xform() * spec.points[i]
+			if _pos[i].distance_squared_to(orig) > params.length * params.length:
+				_pos[i] = orig  # не запекать мусорные позиции (шипы)
 			_rest_local[i] = _chassis_xform().affine_inverse() * _pos[i]
 			_dyn[i] = false; _dyn_count -= 1
 

@@ -81,6 +81,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _respawn_now() -> void:
 	car.respawn(_spawn)
 	damage.reset()
+	hud.show_tip("")
 	car.shell.set_zone_hp([100.0, 100.0, 100.0, 100.0, 100.0])
 	TimeScale.set_hold(false)
 

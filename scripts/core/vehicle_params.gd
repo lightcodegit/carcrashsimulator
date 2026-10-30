@@ -21,5 +21,8 @@ extends Resource
 @export var k_anchor := 1.2
 @export var break_strain := 0.22
 @export var shell_color := Color.RED
+@export var hood_scale := 0.85   # высота носа относительно борта
+@export var trunk_scale := 0.9   # высота кормы
+@export var wheel_r := 0.36
 func collider_size() -> Vector3:
 	return Vector3(length * 0.92, height - 0.12, width * 0.9)

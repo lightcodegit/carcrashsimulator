@@ -30,6 +30,7 @@ func build(p: VehicleParams, world: World3D) -> void:
 	ch.custom_integrator = true
 	ch.contact_monitor = true
 	ch.max_contacts_reported = 8
+	ch.continuous_cd = true
 	var pm := PhysicsMaterial.new()
 	pm.friction = 0.0; pm.bounce = 0.0
 	ch.physics_material_override = pm

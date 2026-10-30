@@ -15,10 +15,12 @@ func _ready() -> void:
 				await get_tree().physics_frame
 			check(gm.car != null and gm.car.chassis != null, "%s/%s car built" % [map_id, car_id])
 			check(gm.hud != null and gm.camera != null, "%s/%s hud+camera" % [map_id, car_id])
-			gm.damage.report_breaks(Zones.FRONT, 40)
-			check(gm.damage.hp(Zones.FRONT) < 100.0, "%s/%s damage applied" % [map_id, car_id])
+			var nose := gm.car.chassis.global_position + Vector3(gm.car.params.length * 0.5, 0, 0)
+			gm.car.body.apply_impact(nose, Vector3(1, 0, 0), 90.0)
+			check(gm.car.body.dent_count > 0, "%s/%s dent applied" % [map_id, car_id])
+			check(gm.car.body.deformation() > 0.05, "%s/%s body deformed (%.2f м)" % [map_id, car_id, gm.car.body.deformation()])
 			gm._respawn_now()
-			check(gm.damage.hp(Zones.FRONT) == 100.0, "%s/%s respawn restored hp" % [map_id, car_id])
+			check(gm.car.body.dent_count == 0 and gm.car.body.deformation() < 1e-6, "%s/%s respawn restored body" % [map_id, car_id])
 			gm.queue_free()
 			await get_tree().process_frame
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

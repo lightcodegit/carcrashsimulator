@@ -1,53 +1,66 @@
 extends Node3D
+# Колёса из ассета и непроходимость: ось колеса поперёк машины, колёса стоят на земле,
+# передние поворачивают, рама и кузов не проходят сквозь тонкую стену.
 var _fails := 0
 var _frame := 0
-var shell: SoftShell
-var chassis: Node3D
-var floor_top_y := 0.0
+var car: CarRig
+var wall_x := 6.0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
 func _ready() -> void:
-	ObstacleField.reset()
-	# пол: верх y=0
-	var body := StaticBody3D.new()
+	var floor_body := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var box := BoxShape3D.new()
-	box.size = Vector3(40, 2, 40); cs.shape = box
-	body.add_child(cs); add_child(body); body.global_position = Vector3(0, -1, 0)
-	ObstacleField.add(Vector3(0, -1, 0), Vector3(20, 1, 20))
-	# тонкая стена: грань x=6.0 (центр 6.1, толщина 0.2) — тест свип-рея на «дырявых» объектах
+	box.size = Vector3(60, 2, 60); cs.shape = box
+	floor_body.add_child(cs); add_child(floor_body); floor_body.global_position = Vector3(0, -1, 0)
+	# тонкая стена: грань x = 6.0
 	var wall := StaticBody3D.new()
 	var wcs := CollisionShape3D.new(); var wbox := BoxShape3D.new()
 	wbox.size = Vector3(0.2, 4, 8); wcs.shape = wbox
 	wall.add_child(wcs); add_child(wall); wall.global_position = Vector3(6.1, 2, 0)
-	ObstacleField.add(Vector3(6.1, 2, 0), Vector3(0.1, 2, 4))
 	await get_tree().process_frame
-	shell = SoftShell.new()
-	var p: VehicleParams = VehicleDB.get_params("sedan")
-	add_child(shell)
-	chassis = Node3D.new()
-	add_child(chassis)
-	# шасси: нос (local x=2.35) в 5.95 — ровно перед стеной
-	chassis.global_position = Vector3(3.6, 2.5, 0)
-	shell.setup(ShellBuilder.build(p), chassis, p)
-	shell.space_state = get_world_3d().direct_space_state
-	# dir — outward normal стены (от стены к машине) = -X; точки полетят +X (внутрь стены)
-	shell.apply_impact(Vector3(6.0, 3.17, 0), Vector3(-1, 0, 0), 30.0)
-	# и вниз к полу: dir = +Y (нормаль пола), точки полетят -Y
-	shell.apply_impact(chassis.global_position + Vector3(0, 0.13, 0), Vector3(0, 1, 0), 30.0)
+	car = CarRig.new(); add_child(car)
+	car.build(VehicleDB.get_params("sedan"), get_world_3d())
+	car.respawn(Transform3D(Basis.IDENTITY, Vector3(-14.0, 1.0, 0)))
 
 func _physics_process(_dt: float) -> void:
 	_frame += 1
+	if _frame == 6:
+		var b := car.body
+		check(b.wheels.size() == 4, "четыре колеса (%d)" % b.wheels.size())
+		check(b.front_wheels.size() == 2, "два передних (%d)" % b.front_wheels.size())
+		for w in b.wheels:
+			# колесо ассета — ArrayMesh: проверяем по мировому AABB.
+			# Машина смотрит в +X, значит ось колеса — мировая Z (тонкая), а диаметр — по X и Y.
+			var wa: AABB = w.global_transform * w.get_aabb()
+			check(wa.size.z < wa.size.y * 0.75, "ось колеса поперёк машины (шина %.2f тоньше диаметра %.2f)" % [wa.size.z, wa.size.y])
+			check(absf(wa.size.y * 0.5 - b.wheel_radius) < 0.03, "радиус колеса совпадает с params (%.3f vs %.3f)" % [wa.size.y * 0.5, b.wheel_radius])
+			check(absf(wa.size.x * 0.5 - b.wheel_radius) < 0.03, "колесо круглое в продольной плоскости (%.3f)" % (wa.size.x * 0.5))
+			check(absf(wa.position.y) < 0.03, "колесо касается пола (низ на %.3f)" % wa.position.y)
+		Input.action_press("steer_left")
+	if _frame == 30:
+		var f0 := car.body.front_wheels[0].rotation.y
+		var back := car.body.wheels[0]
+		for w in car.body.wheels:
+			if not car.body.front_wheels.has(w): back = w
+		check(absf(f0) > 0.05, "переднее колесо повернулось (%.3f рад)" % f0)
+		check(absf(back.rotation.y) < 0.01, "заднее колесо не поворачивается (%.3f)" % back.rotation.y)
+		Input.action_release("steer_left")
+		Input.action_press("throttle")
 	if _frame == 240:
-		var below_floor := 0; var behind_wall := 0
-		for i in shell.point_count():
-			var wp := shell.point_world(i)
-			if not wp.is_finite(): check(false, "NaN at %d" % i); break
-			if wp.y < floor_top_y - 0.02: below_floor += 1
-			if wp.x > 6.25: behind_wall += 1
-		check(below_floor == 0, "no point under floor (%d)" % below_floor)
-		check(behind_wall == 0, "no point through wall (%d)" % behind_wall)
-		check(shell.broken_by_zone[Zones.FRONT] > 0, "wall crash damaged front (%d)" % shell.broken_by_zone[Zones.FRONT])
+		Input.action_release("throttle")
+		check(car.chassis.global_position.x < wall_x, "рама не прошла сквозь стену (%.2f)" % car.chassis.global_position.x)
+		check(car.speed_kmh() < 12.0, "машина остановилась о стену (%.1f км/ч)" % car.speed_kmh())
+		check(car.body.dent_count > 0, "удар о стену помял кузов (%d)" % car.body.dent_count)
+		var below := 0; var thru := 0; var bad := 0
+		for i in car.body.vertex_count():
+			var w := car.body.vertex_world(i)
+			if not w.is_finite(): bad += 1
+			if w.y < -0.05: below += 1
+			if w.x > wall_x + 0.15: thru += 1
+		check(bad == 0, "все вершины конечны (%d)" % bad)
+		check(below == 0, "кузов не ушёл под пол (%d)" % below)
+		check(thru == 0, "кузов не прошёл сквозь стену (%d)" % thru)
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 		get_tree().quit(0 if _fails == 0 else 1)

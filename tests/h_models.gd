@@ -1,7 +1,6 @@
 extends Node3D
 var _f := 0
 func _ready() -> void:
-	ObstacleField.reset()
 	var body := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var box := BoxShape3D.new()
 	box.size = Vector3(100, 2, 100); cs.shape = box
@@ -21,6 +20,13 @@ func _ready() -> void:
 		var car := CarRig.new(); add_child(car)
 		car.build(VehicleDB.get_params(ids[i]), get_world_3d())
 		car.respawn(Transform3D(Basis(Vector3.UP, -PI / 2), Vector3(-4 + i * 4, 0.8, 0)))
+	for c in get_children():
+		var rig := c as CarRig
+		if rig == null or rig.body == null: continue
+		print("MODEL %s L=%.2f W=%.2f H=%.2f wheel_r=%.2f verts=%d tris=%d wheels=%d front=%d" % [
+			rig.params.car_id, rig.params.length, rig.params.width, rig.params.height,
+			rig.body.wheel_radius, rig.body.vertex_count(), rig.body.triangle_count(),
+			rig.body.wheels.size(), rig.body.front_wheels.size()])
 	var cam := Camera3D.new(); add_child(cam); cam.position = Vector3(11, 3.0, 11)
 	cam.look_at(Vector3(0, 0.7, 0), Vector3.UP); cam.make_current()
 

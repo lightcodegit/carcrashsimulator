@@ -49,15 +49,13 @@ func _process(dt: float) -> void:
 			global_position = global_position.lerp(want, w) + shake
 			_look_at(look)
 		1:
-			global_position = _car.chassis.global_transform * Vector3(0.2, _hood_y(), 0) + shake * 0.3
-			_look_at(_car.chassis.global_transform * Vector3(10, 0.4, 0))
+			var hp: Vector3 = _car.body.hood_point(0.30, 0.14)
+			global_position = _car.chassis.global_transform * hp + shake * 0.3
+			_look_at(_car.chassis.global_transform * (hp + Vector3(12.0, -0.45, 0.0)))
 		2:
 			var o := Vector3(cos(_orbit_yaw) * cos(_orbit_pitch), sin(_orbit_pitch), sin(_orbit_yaw) * cos(_orbit_pitch))
 			global_position = target + o * _orbit_dist + shake
 			_look_at(look)
-
-func _hood_y() -> float:
-	return _car.params.gc + _car.params.body_h + _car.params.roof_h * 0.55
 
 func _look_at(p: Vector3) -> void:
 	if (p - global_position).length_squared() < 1e-6: return

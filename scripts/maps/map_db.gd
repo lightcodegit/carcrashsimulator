@@ -4,6 +4,8 @@ extends RefCounted
 # деревьев, заборов, конусов и ящиков + процедурные коробки для пола, стен и рамп.
 
 const A := "res://assets/city/"
+const R := "res://assets/racing/"
+const ROAD_Y := -0.2      # плиты дорог Kenney Racing Kit высотой 0.2: топим, чтобы верх был на y = 0
 const P := "res://assets/props/"
 const CARS := "res://assets/cars/"
 const PROP := 1.3          # единый масштаб пропов относительно моделей машин
@@ -54,6 +56,49 @@ static func wedge(root: Node3D, origin: Vector3, length: float, height: float, w
 	body.position = origin
 	root.add_child(body)
 	return body
+
+static func _mesh_faces(m: Mesh) -> PackedVector3Array:
+	var faces := PackedVector3Array()
+	for s in m.get_surface_count():
+		var arr := m.surface_get_arrays(s)
+		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var ix: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		if ix.size() >= 3:
+			for t in range(0, ix.size(), 3):
+				faces.append(v[ix[t]]); faces.append(v[ix[t + 1]]); faces.append(v[ix[t + 2]])
+		else:
+			for q in v: faces.append(q)
+	return faces
+
+# Сегмент Kenney Racing Kit. road => плита топится на ROAD_Y, чтобы полотно легло на y = 0.
+# solid => статичный trimesh-коллайдер по геометрии сегмента (рампы и отбойники честные).
+static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, solid: bool, road := false) -> MeshInstance3D:
+	var m: Mesh = load(R + name + ".obj")
+	if m == null:
+		push_warning("MapDB: сегмент трассы не найден " + name)
+		return null
+	var mi := MeshInstance3D.new()
+	mi.mesh = m
+	mi.name = "kit:" + name
+	mi.position = pos + Vector3(0, ROAD_Y if road else 0.0, 0)
+	mi.rotation.y = deg_to_rad(rot_y_deg)
+	root.add_child(mi)
+	if solid:
+		var body := StaticBody3D.new()
+		body.position = mi.position
+		body.rotation.y = mi.rotation.y
+		var cs := CollisionShape3D.new()
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(_mesh_faces(m))
+		# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
+		# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
+		shape.backface_collision = true
+		cs.shape = shape
+		body.add_child(cs)
+		var pm := PhysicsMaterial.new(); pm.friction = 0.0
+		body.physics_material_override = pm
+		root.add_child(body)
+	return mi
 
 static func _aabb_in(n: Node3D) -> AABB:
 	var merged := AABB(); var first := true
@@ -116,31 +161,43 @@ static func _arena() -> Dictionary:
 	box(root, Vector3(0, 4, 100), Vector3(200, 8, 1), wc)
 	box(root, Vector3(-100, 4, 0), Vector3(1, 8, 200), wc)
 	box(root, Vector3(100, 4, 0), Vector3(1, 8, 200), wc)
-	# разметка испытательного полигона
-	for k in 20:
-		box_vis(root, Vector3(-90 + k * 9.5, 0.02, 0), Vector3(5.0, 0.02, 0.4), Color(0.85, 0.85, 0.88))
-	box_vis(root, Vector3(30, 0.02, 0), Vector3(0.4, 0.02, 60), Color(0.9, 0.75, 0.2))
-	# столбы, отбойники, краш-блок
-	box(root, Vector3(60, 4, -10), Vector3(0.8, 8, 0.8), Color(0.75, 0.7, 0.2))
-	box(root, Vector3(60, 4, 10), Vector3(0.8, 8, 0.8), Color(0.75, 0.7, 0.2))
-	for i in 3:
-		box(root, Vector3(20 + i * 8, 0.7, -25), Vector3(0.4, 1.4, 8), Color(0.9, 0.3, 0.2))
-	box(root, Vector3(82, 1, 0), Vector3(3, 2, 3), Color(0.6, 0.2, 0.2))
-	box(root, Vector3(0, 4, 99.0), Vector3(60, 8, 1), Color(0.3, 0.3, 0.33))
-	wedge(root, Vector3(38, 0.0, 25), 14, 3.2, 8, Color(0.95, 0.8, 0.2))
-	# конусы вдоль полосы разгона и ящики на площадке
-	for k in 12:
-		prop(root, P + "cone.glb", Vector3(6 + k * 7.0, 0.0, 8.0), PROP, 0.0, false)
-		prop(root, P + "cone.glb", Vector3(6 + k * 7.0, 0.0, -8.0), PROP, 0.0, false)
+	# испытательная петля: outbound по z = 0, разворот, return по z = -20
+	for k in 5:
+		kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, 5), 90, false, true)
+	kit(root, "roadHalfCircle", Vector3(60, 0, 5), 90, false, true)
+	for k in 5:
+		kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, false, true)
+	# трамплин вместо одной плиты outbound и лежачий полицейский на return
+	kit(root, "roadRamp", Vector3(20, 0, 5), 90, true, true)
+	kit(root, "roadBump", Vector3(-30, 0, -15), 90, true, true)
+	for k in 8:
+		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, 16), 90, false)
+		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, -26), 90, false)
+	# отбойники по внешнему и внутреннему краю петли
+	for k in 10:
+		kit(root, "barrierWhite", Vector3(-40.0 + k * 10.0, 0, 4.9), 0, true)
+		kit(root, "barrierWhite", Vector3(-40.0 + k * 10.0, 0, -26.1), 0, true)
 	for k in 4:
-		prop(root, P + "box.glb", Vector3(70.0 + k * 1.3, 0.0, 20.0 + k * 0.4), PROP, 0.4 * k, true)
-	prop(root, P + "debris-tire.glb", Vector3(88, 0.0, -18), PROP * 1.2, 0.0, true)
-	prop(root, P + "debris-tire.glb", Vector3(90, 0.0, -16), PROP * 1.2, 0.7, true)
-	prop(root, P + "debris-bumper.glb", Vector3(76, 0.0, -22), PROP, 0.9, true)
-	prop(root, CARS + "sedan.glb", Vector3(-40, 0.0, 30), 1.0, PI * 0.5, true)   # припаркованная мишень
-	prop(root, CARS + "race.glb", Vector3(-40, 0.0, 38), 1.0, PI * 0.5, true)
-	for k in 6:
-		street_lamp(root, Vector3(-60 + k * 24.0, 0, -60), 1.0)
+		kit(root, "barrierRed", Vector3(44.0 + k * 2.5, 0, 4.9), 0, true)
+	# боксы, трибуны и обвес полигона
+	kit(root, "pitsGarage", Vector3(-60, 0, 9.5), 0, true)
+	kit(root, "pitsOffice", Vector3(-60, 0, 21.0), 0, true)
+	kit(root, "tent", Vector3(-72, 0, 10), 0, true)
+	for k in 2:
+		kit(root, "grandStand", Vector3(-20.0 + k * 11.0, 0, -34.0), 0, true)
+	kit(root, "overheadLights", Vector3(-6, 0, 6.3), 90, true)
+	for k in 3:
+		kit(root, "lightRed", Vector3(-30.0 + k * 30.0, 0, 8.5), 0, true)
+		kit(root, "flagCheckers", Vector3(-24.0 + k * 30.0, 0, 6.6), 0, false)
+	kit(root, "billboard", Vector3(70, 0, -34.0), 0, true)
+	kit(root, "radarEquipment", Vector3(78, 0, 12.0), 0, true)
+	# слалом из пилонов и краш-блок в конце прямой
+	for k in 5:
+		kit(root, "pylon", Vector3(-14.0 + k * 6.0, 0, 2.6 * (1 if k % 2 == 0 else -1)), 0, true)
+	box(root, Vector3(82, 1, 0), Vector3(3, 2, 3), Color(0.6, 0.2, 0.2))
+	for k in 4:
+		kit(root, "treeLarge", Vector3(-80.0 + k * 50.0, 0, 40.0), 0, true)
+		kit(root, "treeSmall", Vector3(-60.0 + k * 50.0, 0, -50.0), 0, true)
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(0, 1.0, 0)),
 		"bounds": AABB(Vector3(-110, -30, -110), Vector3(220, 70, 220)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true}}
@@ -149,11 +206,13 @@ static func _town() -> Dictionary:
 	var root := Node3D.new(); root.name = "Town"
 	box(root, Vector3(0, -1.0, 0), Vector3(300, 2, 300), Color(0.42, 0.42, 0.45))
 	var rng := RandomNumberGenerator.new(); rng.seed = 20261029
-	# улицы: главная вдоль z = -24, поперечная вдоль x = 0
-	box_vis(root, Vector3(0, 0.02, -24), Vector3(300, 0.03, 14), Color(0.16, 0.16, 0.18))
-	box_vis(root, Vector3(0, 0.02, 36), Vector3(300, 0.03, 12), Color(0.16, 0.16, 0.18))
-	box_vis(root, Vector3(0, 0.03, -24), Vector3(300, 0.02, 0.35), Color(0.85, 0.82, 0.4))
+	# улицы из плит Racing Kit: главная вдоль z = -24 и вторая вдоль z = 36
+	for k in 14:
+		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, false, true)
+		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, 41), 90, false, true)
+	kit(root, "roadStart", Vector3(-140, 0, -17.7), 90, true, true)   # арка на въезде в город
 	for k in 24:
+		box_vis(root, Vector3(-140 + k * 12.0, 0.03, -24), Vector3(6.0, 0.02, 0.3), Color(0.85, 0.82, 0.4))
 		box_vis(root, Vector3(-140 + k * 12.0, 0.03, 36), Vector3(6.0, 0.02, 0.3), Color(0.85, 0.82, 0.4))
 	# тротуары
 	for z in [-32.5, -15.5, 29.0, 43.0]:
@@ -179,10 +238,16 @@ static func _town() -> Dictionary:
 		prop(root, A + "planter.glb", Vector3(-100.0 + k * 28.0, 0.0, -18.5), 3.2, 0.0, true)
 	for k in 10:
 		prop(root, A + "fence-1x4.glb", Vector3(-120.0 + k * 26.0, 0.0, 52.0), 4.0, 0.0, true)
-	# фонари и припаркованные машины
+	# фонари из набора трассы и припаркованные машины
 	for k in 9:
-		street_lamp(root, Vector3(-120.0 + k * 30.0, 0, -33.5), 1.0)
-		street_lamp(root, Vector3(-105.0 + k * 30.0, 0, 30.0), -1.0)
+		kit(root, "lightColored", Vector3(-120.0 + k * 30.0, 0, -33.5), 0, true)
+		kit(root, "lightColored", Vector3(-105.0 + k * 30.0, 0, 30.0), 180, true)
+	for k in 5:
+		kit(root, "billboard", Vector3(-100.0 + k * 50.0, 0, -36.0), 0, true)
+		kit(root, "fenceStraight", Vector3(-110.0 + k * 40.0, 0, 27.0), 0, true)
+	for k in 6:
+		kit(root, "barrierWhite", Vector3(-90.0 + k * 30.0, 0, -16.0), 0, true)
+		kit(root, "pylon", Vector3(-80.0 + k * 30.0, 0, 20.0), 0, true)
 	var parked: Array[String] = [CARS + "sedan.glb", CARS + "truck.glb", CARS + "race.glb"]
 	for k in 6:
 		prop(root, parked[k % parked.size()], Vector3(-90.0 + k * 26.0, 0.0, -20.0), 1.0, PI * 0.5, true)
@@ -193,32 +258,44 @@ static func _town() -> Dictionary:
 static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"
 	box(root, Vector3(280, -1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34))
-	box_vis(root, Vector3(280, 0.02, 0), Vector3(620, 0.03, 14), Color(0.14, 0.14, 0.16))
-	for k in 50:
-		box_vis(root, Vector3(-20 + k * 12.0, 0.03, 0), Vector3(6.0, 0.02, 0.3), Color(0.9, 0.9, 0.92))
-	for side in [-1, 1]:
-		box(root, Vector3(280, 0.5, side * 8.0), Vector3(620, 1.0, 0.4), Color(0.8, 0.8, 0.85))
-		# отбойники с чередованием цвета
-		for k in 40:
-			var c := Color(0.85, 0.2, 0.18) if k % 2 == 0 else Color(0.9, 0.9, 0.92)
-			box_vis(root, Vector3(-10 + k * 15.0, 0.75, side * 8.0), Vector3(15.0, 0.5, 0.42), c)
-	box(root, Vector3(585, 3, 0), Vector3(1.5, 6, 30), Color(0.55, 0.2, 0.2))
-	for k in 8:
-		box_vis(root, Vector3(584.1, 0.6 + k * 0.7, -14 + k * 4.0), Vector3(0.2, 0.7, 4.0), Color(0.9, 0.9, 0.92) if k % 2 == 0 else Color(0.85, 0.2, 0.18))
-	wedge(root, Vector3(30, 0.0, 0), 12, 2.2, 10, Color(0.95, 0.8, 0.2))
-	# конусы на старте, покрышки и обломки у стены, деревья за трассой
-	for k in 8:
-		prop(root, P + "cone.glb", Vector3(-6 + k * 3.0, 0.0, 6.5 - k * 0.4), PROP, 0.0, false)
-	for k in 5:
-		prop(root, P + "debris-tire.glb", Vector3(560.0 + (k % 3) * 0.9, 0.0, -12.0 + k * 1.1), PROP * 1.2, 0.5 * k, true)
-	prop(root, P + "debris-bumper.glb", Vector3(548, 0.0, 10), PROP, 0.6, true)
-	prop(root, P + "debris-plate-a.glb", Vector3(552, 0.0, 12), PROP, 1.1, false)
+	# полотно из плит Kenney Racing Kit (10 x 20), дорога вдоль +X, центр по z = 0
+	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, true, true)          # стартовая арка
+	for k in 31:
+		kit(root, "roadStraightLong", Vector3(k * 20.0, 0, 5), 90, false, true)
+	# обочины-газон у старта и пит-лейна
 	for k in 14:
-		prop(root, A + "tree-large.glb", Vector3(-20 + k * 45.0, 0.0, -18.0), 8.0, 0.0, true)
-		prop(root, A + ("tree-large.glb" if k % 2 == 0 else "tree-small.glb"), Vector3(-20 + k * 45.0, 0.0, 18.0), 8.0, 0.0, true)
-	for k in 6:
-		prop(root, P + "box.glb", Vector3(-20 + k * 120.0, 0.0, -11.0), PROP, 0.3, true)
-		prop(root, P + "box.glb", Vector3(-20 + k * 120.0, 0.0, 11.0), PROP, 0.8, true)
+		kit(root, "grass", Vector3(-20.0 + k * 10.0, 0.02, 16), 90, false)
+		kit(root, "grass", Vector3(-20.0 + k * 10.0, 0.02, -6), 90, false)
+	# отбойники вдоль всей трассы по обе стороны
+	for k in 64:
+		kit(root, "barrierWall", Vector3(-20.0 + k * 10.0, 0, 4.9), 0, true)
+		kit(root, "barrierWall", Vector3(-20.0 + k * 10.0, 0, -6.13), 0, true)
+	# трамплин из дорожного сегмента: поднимается вдоль +X на 2.5 м
+	kit(root, "roadRamp", Vector3(30, 0, 5), 90, true, true)
+	# пит-лейн, трибуны и обвес трассы
+	for k in 4:
+		kit(root, "pitsGarage", Vector3(60.0 + k * 11.0, 0, 9.5), 0, true)
+	kit(root, "pitsOffice", Vector3(106, 0, 9.5), 0, true)
+	for k in 3:
+		kit(root, "grandStand", Vector3(150.0 + k * 11.0, 0, -16.5), 180, true)
+	kit(root, "tent", Vector3(120, 0, 14), 0, true)
+	kit(root, "tentLong", Vector3(190, 0, 14), 0, true)
+	for k in 5:
+		kit(root, "billboard", Vector3(240.0 + k * 60.0, 0, -13.0), 0, true)
+		kit(root, "lightRed", Vector3(260.0 + k * 60.0, 0, 8.0), 0, true)
+	for k in 4:
+		kit(root, "flagCheckers", Vector3(2.0, 0, 6.6 + k * 2.2), 0, false)
+		kit(root, "fenceStraight", Vector3(300.0 + k * 10.0, 0, 9.0), 0, true)
+	kit(root, "overheadLights", Vector3(-6, 0, 6.3), 90, true)
+	kit(root, "radarEquipment", Vector3(420, 0, 10.5), 0, true)
+	kit(root, "roadBump", Vector3(240, 0, 5), 90, true, true)
+	for k in 10:
+		kit(root, "treeLarge", Vector3(-10.0 + k * 65.0, 0, -20.0), 0, true)
+		kit(root, "pylon", Vector3(-14.0 + k * 22.0, 0, 3.2 * (1 if k % 2 == 0 else -1)), 0, true)
+	# финиш: бетонная стена краш-теста
+	box(root, Vector3(585, 3, 0), Vector3(1.5, 6, 30), Color(0.55, 0.2, 0.2))
+	for k in 5:
+		kit(root, "barrierRed", Vector3(578.0, 0, -5.0 + k * 2.5), 0, true)
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-10, 1.0, 0)),
 		"bounds": AABB(Vector3(-120, -30, -160), Vector3(780, 70, 320)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true}}

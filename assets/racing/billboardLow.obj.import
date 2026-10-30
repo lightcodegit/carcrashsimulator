@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://cphp6xotqsn2o"
+path="res://.godot/imported/billboardLow.obj-8a179359535a8129eb2c1b633a97034c.mesh"
+
+[deps]
+
+files=["res://.godot/imported/billboardLow.obj-8a179359535a8129eb2c1b633a97034c.mesh"]
+
+source_file="res://assets/racing/billboardLow.obj"
+dest_files=["res://.godot/imported/billboardLow.obj-8a179359535a8129eb2c1b633a97034c.mesh", "res://.godot/imported/billboardLow.obj-8a179359535a8129eb2c1b633a97034c.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

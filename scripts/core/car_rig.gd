@@ -207,25 +207,42 @@ func _obstacle_top(p: Vector3) -> float:
 	var hit := _space().intersect_ray(q)
 	return -INF if hit.is_empty() else hit.position.y
 
-# Луч из центра рамы вдоль dir. Пусто, если препятствия нет, оно пологое (рампа/пол),
-# это низкая ступень (бордюр) или до него далеко. Иначе — точка контакта и выталкивание.
+# Три луча вдоль dir поперёк кузова, берём ближайшее попадание. Одним центральным
+# лучом машина шириной 1.9 м промахивалась мимо отбойника, который начинался ровно
+# с её оси, хотя solver её останавливал: удар не регистрировался.
+# Пусто, если препятствия нет, оно пологое (рампа/пол), это низкая ступень (бордюр)
+# или до него далеко.
 func _probe(origin: Vector3, dir: Vector3, half: float, vel: Vector3) -> Dictionary:
 	var space := _space()
-	var eye := origin + Vector3(0, 0.2, 0)      # выше пола, чтобы не цеплять землю
+	var fwd := Vector3(cos(heading), 0.0, -sin(heading))
+	var lateral := fwd.cross(Vector3.UP).normalized()
+	var forward_axis := absf(dir.dot(fwd)) > 0.7
+	var spread := lateral if forward_axis else fwd
+	var span := params.width if forward_axis else params.length
 	var margin := half + 0.25 + vel.length() * 0.012
-	var q := PhysicsRayQueryParameters3D.create(eye, eye + dir * (margin + 0.1))
-	q.exclude = [chassis.get_rid()]
-	var hit := space.intersect_ray(q)
+	var offsets: Array[float] = [-span * 0.32, 0.0, span * 0.32]
+	var hit := {}
+	var best_along := INF
+	for off in offsets:
+		var from := origin + Vector3(0, 0.2, 0) + spread * off   # выше пола, чтобы не цеплять землю
+		var q := PhysicsRayQueryParameters3D.create(from, from + dir * (margin + 0.1))
+		q.exclude = [chassis.get_rid()]
+		var h := space.intersect_ray(q)
+		if h.is_empty(): continue
+		var along: float = (h.position - from).dot(dir)
+		if along < best_along:
+			best_along = along
+			hit = h
 	if hit.is_empty(): return {}
 	var n: Vector3 = hit.normal
 	if n.y > DRIVABLE_NORMAL_Y: return {}       # на такую поверхность можно заезжать
-	var along: float = (hit.position - eye).dot(dir)
-	if along >= half + 0.05: return {}
+	if best_along >= half + 0.05: return {}
 	# низкое препятствие не стена: на бордюр и площадку заезжаем, а не упираемся
 	var car_bottom := origin.y - params.collider_size().y * 0.5
-	var top := _obstacle_top(hit.position)
+	var point: Vector3 = hit.position
+	var top := _obstacle_top(point)
 	if top > -INF and top < car_bottom + STEP_UP: return {}
-	return {"point": hit.position, "push": maxf(0.0, half + 0.03 - along)}
+	return {"point": point, "push": maxf(0.0, half + 0.03 - best_along)}
 
 func _physics_process(dt: float) -> void:
 	if body == null or body.wheels.is_empty(): return

@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://diua7w8da54og"
+path="res://.godot/imported/roadStraightBridge.obj-0e46d12fabbf5197bed5b960abd574a3.mesh"
+
+[deps]
+
+files=["res://.godot/imported/roadStraightBridge.obj-0e46d12fabbf5197bed5b960abd574a3.mesh"]
+
+source_file="res://assets/racing/roadStraightBridge.obj"
+dest_files=["res://.godot/imported/roadStraightBridge.obj-0e46d12fabbf5197bed5b960abd574a3.mesh", "res://.godot/imported/roadStraightBridge.obj-0e46d12fabbf5197bed5b960abd574a3.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

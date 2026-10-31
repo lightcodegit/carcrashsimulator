@@ -84,6 +84,9 @@ func _apply_render() -> void:
 	hud.set_fps_visible(Settings.show_fps)
 
 func _open_settings() -> void:
+	# Карточку паузы прячем: её кнопки живые (focus_mode=ALL), и под затемнением
+	# настроек навигация с геймпада уходила бы на невидимые контролы
+	hud.set_paused(false)
 	settings.open()
 
 func _close_settings() -> void:

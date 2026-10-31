@@ -27,8 +27,22 @@ const PAINT_METAL := 0.15      # металличность держим низ�
 const PAINT_CLEAR := 0.7
 const PROP_ROUGH := 0.82
 
+# Пятнистость крупных поверхностей. Плоский диффуз Kenney — главная причина, по которой
+# карты выглядят мультяшно: у настоящего асфальта есть заплатки, потёртости от шин и
+# выцветшие участки, у травы — сухие и тенистые проплешины. lo/hi смешиваются с альфой
+# самого слоя детали, а середина градиента прозрачна, чтобы базовый цвет автора проглядывал.
+const DETAIL := {
+	"road":  {"lo": Color(0.05, 0.05, 0.055, 0.34), "hi": Color(0.60, 0.60, 0.58, 0.22)},
+	"grass": {"lo": Color(0.04, 0.07, 0.02, 0.42), "hi": Color(0.50, 0.52, 0.18, 0.34)},
+	"grey":  {"lo": Color(0.11, 0.11, 0.11, 0.28), "hi": Color(0.80, 0.80, 0.78, 0.20)},
+	"bark":  {"lo": Color(0.05, 0.03, 0.02, 0.38), "hi": Color(0.44, 0.37, 0.29, 0.20)},
+}
+const DETAIL_SCALE := 0.055    # пятен на метр: одна текстура накрывает ~18 м
+const DETAIL_FREQ := 0.021     # длина волны пятна ~3 м
+
 static var _rough_tex: NoiseTexture2D
 static var _normal_tex: NoiseTexture2D
+static var _detail_texs := {}
 static var _cache := {}
 
 # Кузовная краска: дублируем материал автора и добавляем лак, металличность и
@@ -107,7 +121,20 @@ static func _surface(src: Material, name_key: String) -> StandardMaterial3D:
 	m.normal_enabled = true
 	m.normal_scale = 0.55
 	m.normal_texture = _normal_tex
+	_apply_detail(m, name_key)
 	return m
+
+# Пятнистость кладём во второй UV-набор (DETAIL_UV_2): у него свой мировой трипланар и
+# свой масштаб, поэтому крупные заплатки не зависят от мелкого зерна.
+static func _apply_detail(m: StandardMaterial3D, name_key: String) -> void:
+	if not DETAIL.has(name_key): return
+	m.detail_enabled = true
+	m.detail_albedo = _detail_tex(name_key)
+	m.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+	m.detail_uv_layer = BaseMaterial3D.DETAIL_UV_2
+	m.uv2_triplanar = true
+	m.uv2_world_triplanar = true
+	m.uv2_scale = Vector3.ONE * DETAIL_SCALE
 
 # Материал процедурных коробок MapDB (пол, тротуары, стены) — тот же бетон с зерном.
 static func concrete(color: Color, tile := 1.1) -> StandardMaterial3D:
@@ -129,6 +156,7 @@ static func concrete(color: Color, tile := 1.1) -> StandardMaterial3D:
 		m.normal_enabled = true
 		m.normal_scale = 0.45
 		m.normal_texture = _normal_tex
+		_apply_detail(m, "grey")
 	_cache[ck] = m
 	return m
 
@@ -147,24 +175,41 @@ static func _clone(src: Material) -> StandardMaterial3D:
 # градиентом к светлому: иначе среднее значение 0.5 затемнило бы всё вдвое.
 static func _ensure_noise() -> void:
 	if _rough_tex != null: return
-	var fn := FastNoiseLite.new()
-	fn.seed = 20261031
-	fn.noise_type = FastNoiseLite.TYPE_PERLIN
-	fn.frequency = 0.11
-	fn.fractal_octaves = 4
+	var fn := _noise(0.11, 4)
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 1.0])
 	ramp.colors = PackedColorArray([Color(0.72, 0.72, 0.72), Color(1, 1, 1)])
-	_rough_tex = NoiseTexture2D.new()
-	_rough_tex.noise = fn
-	_rough_tex.width = 256
-	_rough_tex.height = 256
-	_rough_tex.seamless = true
-	_rough_tex.color_ramp = ramp
-	_normal_tex = NoiseTexture2D.new()
-	_normal_tex.noise = fn
-	_normal_tex.width = 256
-	_normal_tex.height = 256
-	_normal_tex.seamless = true
-	_normal_tex.as_normal_map = true
-	_normal_tex.bump_strength = 2.0
+	_rough_tex = _noise_tex(fn, ramp)
+	var nm := _noise_tex(fn, null)
+	nm.as_normal_map = true
+	nm.bump_strength = 2.0
+	_normal_tex = nm
+
+static func _detail_tex(name_key: String) -> NoiseTexture2D:
+	var got: NoiseTexture2D = _detail_texs.get(name_key)
+	if got != null: return got
+	var d: Dictionary = DETAIL[name_key]
+	var ramp := Gradient.new()
+	ramp.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	# середина полностью прозрачна: там остаётся чистый цвет автора
+	ramp.colors = PackedColorArray([d.lo, Color(0, 0, 0, 0), d.hi])
+	got = _noise_tex(_noise(DETAIL_FREQ, 3), ramp)
+	_detail_texs[name_key] = got
+	return got
+
+static func _noise(freq: float, octaves: int) -> FastNoiseLite:
+	var fn := FastNoiseLite.new()
+	fn.seed = 20261031
+	fn.noise_type = FastNoiseLite.TYPE_PERLIN
+	fn.frequency = freq
+	fn.fractal_octaves = octaves
+	return fn
+
+static func _noise_tex(fn: FastNoiseLite, ramp: Gradient) -> NoiseTexture2D:
+	var t := NoiseTexture2D.new()
+	t.noise = fn
+	t.width = 256
+	t.height = 256
+	t.seamless = true
+	if ramp != null: t.color_ramp = ramp
+	return t

@@ -31,6 +31,8 @@ const SUSP_MAX_G := 3.0            # предел силы подвески в �
 const GRIP_REF := 8.0
 const RECENT_DECAY := 96.0         # км/ч за секунду
 const YAW_OFFSET := PI * 0.5       # VehicleBody3D едет носом в +Z (проверено), а проект живёт в «+X вперёд»
+const SKID_SLIDE_START := 0.18     # боковой увод, с которого резина начинает чертить
+const SKID_MIN_MS := 3.0           # медленнее — след не оставляем
 
 var params: VehicleParams
 var chassis: VehicleBody3D
@@ -45,6 +47,7 @@ var _steer := 0.0
 var _roll: Array[float] = []
 var _mount_y: Array[float] = []
 var _susp_static := 0.0
+var _skid: PackedFloat32Array = PackedFloat32Array()
 var _hist: Array[Vector3] = []
 var _recent_speed := 0.0
 var _impact_cooldown := 0.0
@@ -130,6 +133,8 @@ func build(p: VehicleParams, _world: World3D) -> void:
 	# engine_force и brake Godot прикладывает к каждому ведущему колесу отдельно
 	# (замерено: 4 колеса дают ровно 4·F/m), поэтому паспортные м/с² делим на их число
 	_drive_scale = 1.0 / maxf(1.0, float(_traction_count))
+	_skid.resize(_wheels.size())
+	_skid.fill(0.0)
 
 # Статический ход подвески. В Godot луч колеса имеет длину rest+radius, но параметр
 # попадания нормируется на (2*radius+rest), поэтому равновесие наступает при
@@ -212,23 +217,46 @@ func _drive(dt: float) -> void:
 	_steer = move_toward(_steer, lock * steer_in, deg_to_rad(params.steer_rate_deg) * dt)
 	chassis.steering = _steer
 	# ручник срывает сцепление задних колёс: занос вместо «ничего»
+	var side := v - forward() * vf
+	side.y = 0.0
+	var slide := side.length() / maxf(2.0, absf(vf))
 	_grounded = false
-	for w in _wheels:
-		w.wheel_friction_slip = SLIP_HANDBRAKE if (hand and not w.use_as_steering) else _slip_normal
-		if w.is_in_contact(): _grounded = true
+	for i in _wheels.size():
+		var w := _wheels[i]
+		var locked := hand and not w.use_as_steering
+		w.wheel_friction_slip = SLIP_HANDBRAKE if locked else _slip_normal
+		if w.is_in_contact():
+			_grounded = true
+			# резина оставляет след, когда колесо заблокировано ручником или когда
+			# боковой увод велик; на малой скорости пятно не рисуем вовсе
+			var s := (1.0 if locked else 0.0) + (slide - SKID_SLIDE_START) * 4.0
+			_skid[i] = clampf(s, 0.0, 1.0) * clampf(absf(vf) / SKID_MIN_MS, 0.0, 1.0)
+		else:
+			_skid[i] = 0.0
 	# ESP: упрощённые шины Godot не гасят начатый занос — сорвавшуюся машину не поймать
 	# даже контррулём. Поэтому без ручника наращиваем затухание рыскания пропорционально
 	# тому, насколько сильно машина едет боком. Именно свойство angular_damp, а не правка
 	# angular_velocity: запись скорости из _physics_process ломает подвеску.
-	var side := v - forward() * vf
-	side.y = 0.0
-	var slide := 0.0 if hand else side.length() / maxf(2.0, absf(vf))
+	var slide_esp := 0.0 if hand else slide
 	if _grounded:
-		chassis.angular_damp = YAW_DAMP + ESP_DAMP * clampf((slide - ESP_SLIDE_START) * 4.0, 0.0, 1.0)
+		chassis.angular_damp = YAW_DAMP + ESP_DAMP * clampf((slide_esp - ESP_SLIDE_START) * 4.0, 0.0, 1.0)
 	else:
 		# в воздухе вращение гасим сильнее: прыжок должен заканчиваться приземлением
 		# на четыре колеса, а не кульбитом и ударом об угол
 		chassis.angular_damp = AIR_ANGULAR_DAMP
+
+# Насколько сильно скользит i-е колесо (0..1) — вход для следов резины на асфальте.
+func skid_levels() -> PackedFloat32Array:
+	return _skid
+
+func wheel_count() -> int:
+	return _wheels.size()
+
+# Точка контакта i-го колеса. Godot сам двигает узел колеса вдоль хода подвески, а высота
+# покоя равна радиусу (замерено в h_t15), поэтому минус радиус по Y — это поверхность.
+func wheel_contact(i: int) -> Vector3:
+	var w := _wheels[i]
+	return w.global_position - Vector3(0.0, w.wheel_radius, 0.0)
 
 # Удар — это резкое торможение, а не сам факт касания: поэтому заезд на рампу,
 # приземление после прыжка и лёгкое касание борта ударом не считаются. Меряем по окну

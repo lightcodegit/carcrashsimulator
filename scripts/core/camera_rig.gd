@@ -4,6 +4,9 @@ extends Camera3D
 const SHAKE_DECAY := 1.5
 const FOLLOW_RATE := 9.0
 const TELEPORT_M := 8.0
+const STANDOFF := 0.45         # насколько отойти от заслонившей поверхности
+const MIN_FROM := 1.8          # и не вплотную к машине, если места хватает
+const GUARD_STEPS := 4         # сколько раз переснять луч, обходя мелкие тела
 
 var _car: CarRig
 var _mode := 0
@@ -54,14 +57,8 @@ func _process(dt: float) -> void:
 			var back := 5.0 + minf(speed, 60.0) * 0.045     # на скорости отъезжаем дальше
 			var up := 1.9 + minf(speed, 60.0) * 0.010
 			var want := target - fwd * back + Vector3(0, up, 0)
-			var space := get_world_3d().direct_space_state
-			var q := PhysicsRayQueryParameters3D.create(target + Vector3(0, 1.2, 0), want)
-			q.collide_with_bodies = true
-			q.exclude = [_car.chassis.get_rid()]
-			var hit := space.intersect_ray(q)
-			if not hit.is_empty(): want = hit.position + (want - hit.position).normalized() * 0.4
 			if not _have_pos:
-				_pos = want
+				_pos = _pull(target, want)
 				_prev_target = target
 				_have_pos = true
 			else:
@@ -74,6 +71,9 @@ func _process(dt: float) -> void:
 					_pos += delta
 					_pos = _pos.lerp(want, 1.0 - exp(-dt * FOLLOW_RATE))
 				_prev_target = target
+				# к цели сквозь стены идти нельзя: сглаженная позиция может оказаться
+				# за уже проскочившим препятствием, поэтому ограничиваем именно её
+				_pos = _pull(target, _pos)
 			global_position = _pos + shake
 			_look_at(look)
 		1:
@@ -83,8 +83,40 @@ func _process(dt: float) -> void:
 			_look_at(eye + _car.forward() * 12.0 + Vector3(0, -0.45, 0))
 		2:
 			var o := Vector3(cos(_orbit_yaw) * cos(_orbit_pitch), sin(_orbit_pitch), sin(_orbit_yaw) * cos(_orbit_pitch))
-			global_position = target + o * _orbit_dist + shake
+			# орбита раньше не проверяла ничего: камеру можно было увести за стену и
+			# смотреть на машину сквозь бетон
+			global_position = _pull(target, target + o * _orbit_dist) + shake
 			_look_at(look)
+
+# Куда встанет камера, если между ней и машиной есть твёрдая geometry. Камера обязана
+# остаться с МАШИНОЙ по одну сторону заслона: прежний вариант сдвигал её от точки
+# попадания в сторону желаемой позиции, то есть ЗА стену, — именно поэтому погоня
+# всё равно проходила сквозь бетон. Заслоном считаются только StaticBody3D — здания,
+# стены, плиты: сбиваемые конусы и покрышки (RigidBody3D) не должны прятать машину,
+# иначе камера липнет к мелочи на дороге.
+func _pull(from: Vector3, want: Vector3) -> Vector3:
+	var to := want - from
+	var span := to.length()
+	if span < 1e-4: return want
+	var dir := to / span
+	var space := get_world_3d().direct_space_state
+	var excl: Array[RID] = [_car.chassis.get_rid()]
+	for i in GUARD_STEPS:
+		var q := PhysicsRayQueryParameters3D.create(from, want)
+		q.collide_with_bodies = true
+		q.collide_with_areas = false
+		q.exclude = excl
+		var hit := space.intersect_ray(q)
+		if hit.is_empty(): return want
+		if not (hit.collider is StaticBody3D):
+			excl.append(hit.rid)
+			continue
+		var allowed := from.distance_to(hit.position)
+		var keep := maxf(allowed - STANDOFF, 0.0)
+		var t := minf(keep, span)
+		t = maxf(t, minf(MIN_FROM, keep))
+		return from + dir * minf(t, span)
+	return want
 
 func _look_at(p: Vector3) -> void:
 	if (p - global_position).length_squared() < 1e-6: return

@@ -7,7 +7,11 @@ const A := "res://assets/city/"
 const R := "res://assets/racing/"
 const ROAD_Y := -0.2      # запас для сегментов без плоского полотна (у рампы полотно наклонено)
 const ROAD_TOP := 0.03    # world y, на которую кладём полотно плиты
-const FLOOR_Y := -0.01   # верх процедурного пола: на сантиметр НИЖЕ нуля, в котором стоят предметы
+# Физическая земля стоит на 2 мм НИЖЕ нарисованного полотна: машины и предметы
+# реально едут по полу, а асфальт лежит ровно вровень с ним (расхождение в 2 мм
+# не видно, зато нет ни coplanar-мерцания, ни уступа в 4 см, о который на скорости
+# цепляется колесо). Плиты намеренно без коллайдера: их геометрия только визуальная.
+const FLOOR_Y := ROAD_TOP - 0.002
 const P := "res://assets/props/"
 const CARS := "res://assets/cars/"
 const PROP := 1.2          # масштаб пропов: тот же, что у машины игрока (width 1.8 из 1.5)
@@ -154,29 +158,20 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	if road:
 		_record_surfaces(mi, m)
 	if solid:
+		# Коллайдер нужен только наклонным сегментах (рампа, лежачий полицейский):
+		# у плоской плиты полотно совпадает с физической землёй, и свой коллайдер дал
+		# бы уступ в 4 см на каждой границе — на 150 км/ч колесо цепляет его и машину
+		# бросает вперёдь (замерено: 150 → 0 км/ч за 1.3 с после прыжка).
 		var body := StaticBody3D.new()
+		body.position = mi.position
+		body.rotation.y = mi.rotation.y
 		var cs := CollisionShape3D.new()
-		var slab := _plate_slab(mi, m)
-		if slab.is_empty():
-			# полотно наклонено (рампа, лежачий полицейский): нужна честная трёхсетка
-			body.position = mi.position
-			body.rotation.y = mi.rotation.y
-			var shape := ConcavePolygonShape3D.new()
-			shape.set_faces(_mesh_faces(m))
-			# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
-			# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
-			shape.backface_collision = true
-			cs.shape = shape
-		else:
-			# Коробка по полотну вместо трёхсетки плиты. Во-первых, дешевле: на трассе
-			# это снимает ~15 000 граней. Во-вторых, raised белые полосы — только
-			# геометрия, а не столкновение: иначе предмет, вставленный в бордюр, solver
-			# выталкивает вниз, и конусы на старте заезда подпрыгивают. Так было и
-			# раньше: плиты вообще не имели коллайдера, и всё ехало по процедурному полу.
-			body.position = slab["center"]
-			var box := BoxShape3D.new()
-			box.size = slab["size"]
-			cs.shape = box
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(_mesh_faces(m))
+		# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
+		# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
+		shape.backface_collision = true
+		cs.shape = shape
 		body.add_child(cs)
 		var pm := PhysicsMaterial.new(); pm.friction = 0.0
 		body.physics_material_override = pm
@@ -184,7 +179,9 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	return mi
 
 # Мировая «плита полотна»: прямоугольник горизонтальных граней поверхности road и её
-# высота. Пустой словарь — полотно не плоское (рампа, лежачий полицейский).
+# высота. Пустой словарь — полотно не плоское (рампа, лежачий полицейский). Нужно это
+# только для посадки предметов: полотно плиты — тот визуальный уровень, над которым
+# предмет не должен ни проваливаться, ни висеть.
 static func _plate_slab(mi: MeshInstance3D, m: Mesh) -> Dictionary:
 	var faces := _flat_faces(m, "road")
 	if faces.is_empty(): return {}
@@ -248,8 +245,8 @@ static func _flat_faces(m: Mesh, name_key: String) -> Array:
 # иначе две копии белой разметки лежат в одной плоскости и мерцают. Остаток длины
 # добираем короткой плитой roadStraight.
 static func ramp(root: Node3D, x: float, z: float) -> void:
-	kit(root, "roadRamp", Vector3(x, 0, z), 90, true, true)
-	kit(root, "roadStraight", Vector3(x + 10.0, 0, z), 90, true, true)
+	kit(root, "roadRamp", Vector3(x, 0, z), 90, false, true)
+	kit(root, "roadStraight", Vector3(x + 10.0, 0, z), 90, false, true)
 
 # Имя с координатами: "." и ":" Godot в именах узлов молча заменяет, а одинаковые имена
 # среди соседей переименовывает в @Node3D@N, поэтому без координат пропы ненаходимы.
@@ -385,13 +382,13 @@ static func _arena() -> Dictionary:
 	# испытательная петля: outbound по z = 0, разворот, return по z = -20
 	for k in 5:
 		if k != 3:   # плиту x=20..40 занял трамплин
-			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, 5), 90, true, true)
-	kit(root, "roadHalfCircle", Vector3(60, 0, 5), 90, true, true)
+			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, 5), 90, false, true)
+	kit(root, "roadHalfCircle", Vector3(60, 0, 5), 90, false, true)
 	for k in 5:
 		if k != 1:   # плиту x=-20..0 занял лежачий полицейский
-			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, true, true)
+			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, false, true)
 	ramp(root, 20.0, 5.0)
-	kit(root, "roadBump", Vector3(-20, 0, -15), 90, true, true)
+	kit(root, "roadBump", Vector3(-20, 0, -15), 90, false, true)
 	for k in 8:
 		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, 16), 90, false)
 		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, -26), 90, false)
@@ -440,9 +437,9 @@ static func _town() -> Dictionary:
 	# улицы из плит Racing Kit: главная вдоль z = -24 и вторая вдоль z = 36
 	for k in 14:
 		# первую плиту заняла стартовая арка: её разметка легла бы ровно на разметку плиты
-		if k > 0: kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, true, true)
-		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, 41), 90, true, true)
-	kit(root, "roadStart", Vector3(-140, 0, -17.7), 90, true, true)   # арка на въезде в город
+		if k > 0: kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, false, true)
+		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, 41), 90, false, true)
+	kit(root, "roadStart", Vector3(-140, 0, -17.7), 90, false, true)   # арка на въезде в город
 	for k in 24:
 		box_vis(root, Vector3(-140 + k * 12.0, 0.03, -24), Vector3(6.0, 0.02, 0.3), Color(0.85, 0.82, 0.4))
 		box_vis(root, Vector3(-140 + k * 12.0, 0.03, 36), Vector3(6.0, 0.02, 0.3), Color(0.85, 0.82, 0.4))
@@ -502,10 +499,10 @@ static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"
 	box(root, Vector3(280, FLOOR_Y - 1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34), Basis.IDENTITY, true)
 	# полотно из плит Kenney Racing Kit (10 x 20), дорога вдоль +X, центр по z = 0
-	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, true, true)          # стартовая арка
+	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, false, true)          # стартовая арка
 	for k in 31:
 		if k != 1 and k != 12:   # эти плиты заняли трамплин и лежачий полицейский
-			kit(root, "roadStraightLong", Vector3(k * 20.0, 0, 5), 90, true, true)
+			kit(root, "roadStraightLong", Vector3(k * 20.0, 0, 5), 90, false, true)
 	# обочины-газон у старта и пит-лейна
 	for k in 14:
 		kit(root, "grass", Vector3(-20.0 + k * 10.0, 0.02, 16), 90, false)
@@ -531,7 +528,7 @@ static func _speedway() -> Dictionary:
 		kit(root, "fenceStraight", Vector3(300.0 + k * 10.0, 0, 9.0), 0, true)
 	kit(root, "overheadLights", Vector3(-6, 0, 6.3), 90, true)
 	kit(root, "radarEquipment", Vector3(420, 0, 10.5), 0, true)
-	kit(root, "roadBump", Vector3(240, 0, 5), 90, true, true)   # вместо плиты k=12
+	kit(root, "roadBump", Vector3(240, 0, 5), 90, false, true)   # вместо плиты k=12
 	for k in 10:
 		kit(root, "treeLarge", Vector3(-10.0 + k * 65.0, 0, -20.0), 0, true)
 		# пилоны стоят прямо на полотне — их и предполагается сбивать

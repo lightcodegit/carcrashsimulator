@@ -77,8 +77,8 @@ func _ready() -> void:
 			var p := mi as MeshInstance3D
 			for s in ["road", "grey", "grass"]:
 				for y in _horiz(p.mesh, p.global_transform, s):
-					if absf(y - MapDB.FLOOR_Y) < 0.002: on_floor += 1
-		check(on_floor == 0, "%s: ни одна грань ассета не совпала с плоскостью пола (%d)" % [id, on_floor])
+					if absf(y - MapDB.FLOOR_Y) < 0.0005: on_floor += 1
+		check(on_floor == 0, "%s: ни одна грань ассета не легла в плоскость пола (%d)" % [id, on_floor])
 		var plates := 0
 		var lifted := 0
 		var proud := 0
@@ -88,7 +88,9 @@ func _ready() -> void:
 			var lo := _road_min(p)
 			if not is_finite(lo): continue
 			plates += 1
-			if lo > MapDB.FLOOR_Y + 0.005 and lo < MapDB.FLOOR_Y + 0.20: lifted += 1
+			# Полотно лежит на 1–10 мм ВЫШЕ физической земли: меньше — грани совпадают и
+			# мерцают, больше — колёса визуально проваливаются в дорогу.
+			if lo > MapDB.FLOOR_Y + 0.0005 and lo < MapDB.FLOOR_Y + 0.010: lifted += 1
 			for g in _horiz(p.mesh, p.global_transform, "grey"):
 				if g - lo > 0.05 and g - lo < 0.30: proud += 1
 		check(plates > 5, "%s: дорожных сегментов %d" % [id, plates])

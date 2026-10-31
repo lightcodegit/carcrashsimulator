@@ -3,9 +3,10 @@ extends MultiMeshInstance3D
 # Следы резины на асфальте: заблокированное ручником колесо или сильный боковой увод
 # чертят полосу там, где колесо действительно скользит.
 #
-# Один MultiMesh на всё кольцо — это один draw call. Полосы не гаснут и не удаляются:
-# кольцо перезаписывает самые старые, поэтому след живёт несколько секунд и не растёт
-# в памяти. Отдельный квад на пятно был бы сотнями draw call'ов.
+# Один MultiMesh на всё кольцо — это один draw call. Полосы стареют и исчезают: у
+# слотов есть время рождения, а курсор снятия идёт вдоль кольца, где времена упорядочены,
+# — то есть за O(1) на тик, без сканирования 2048 записей. Отдельный квад на пятно был
+# бы сотнями draw call'ов.
 
 const SLOTS := 2048
 const WIDTH := 0.17          # ширина пятна контакта
@@ -25,6 +26,13 @@ var _live: Array[bool] = []
 # отдаёт единичную матрицу. Держим кольцо и на стороне скрипта — это же состояние нужно
 # тестам, чтобы проверять геометрию следа без живого рендера.
 var _ring: Array[Transform3D] = []
+# Время рождения каждого слота в секундах игрового времени (INF — слот пуст). Кольцо
+# пишется по порядку, поэтому снятие — один ход курсора, а не обход 2048 записей.
+# После полного оборота кольца курсор может догнать свежий слот раньше старых: такая
+# полоса поживёт вдвое дольше срока, но исчезнет в любом случае.
+var _born: PackedFloat64Array = PackedFloat64Array()
+var _exp := 0
+var _t := 0.0
 
 func setup(car: CarRig) -> void:
 	_car = car
@@ -46,10 +54,14 @@ func setup(car: CarRig) -> void:
 	material_override = _rubber()
 	# без своей AABB MultiMesh отбрасывался бы как «вне камеры»: кольцо живёт по всему миру
 	multimesh.custom_aabb = AABB(Vector3(-2000, -50, -2000), Vector3(4000, 100, 4000))
+	_born.resize(SLOTS)
+	_born.fill(INF)
 
 # CarRig стоит в дереве раньше, поэтому к своему тиковому вызову скольжение уже посчитано.
-func _physics_process(_dt: float) -> void:
+func _physics_process(dt: float) -> void:
 	if _car == null or _car.chassis == null: return
+	_t += dt
+	_expire()
 	var levels := _car.skid_levels()
 	for i in levels.size():
 		# CarRig обнуляет скольжение колеса, которое не касается земли, — в воздухе следов нет
@@ -75,6 +87,28 @@ func _physics_process(_dt: float) -> void:
 func respawn() -> void:
 	_live.fill(false)
 
+# Срок годности следа. life = 0 значит «не исчезает»: полоса уходит только когда её
+# перезапишет кольцо.
+func expire_after() -> float:
+	return Settings.skid_life if Settings != null else 30.0
+
+func _expire() -> void:
+	var life := expire_after()
+	if life <= 0.0: return
+	# курсор не должен обогнать запись: пустой слот с INF всё равно не «протух»
+	while _born[_exp] != INF and _born[_exp] + life <= _t:
+		_ring[_exp] = _hidden()
+		multimesh.set_instance_transform(_exp, _ring[_exp])
+		_born[_exp] = INF
+		_exp = (_exp + 1) % SLOTS
+
+# Сколько полос ещё живы (не скрыто сроком годности).
+func marks_live() -> int:
+	var n := 0
+	for i in SLOTS:
+		if _born[i] != INF: n += 1
+	return n
+
 func marks_drawn() -> int:
 	return _drawn
 
@@ -91,6 +125,7 @@ func _put(center: Vector3, dir: Vector3, len: float, strength: float) -> void:
 	multimesh.set_instance_transform(_next, _ring[_next])
 	# сила скольжения даёт насыщенность: лёгкий увод — серая полоса, блокировка — чёрная
 	multimesh.set_instance_color(_next, BLACK.lerp(GREY, 1.0 - strength))
+	_born[_next] = _t
 	_next = (_next + 1) % SLOTS
 	_drawn += 1
 

@@ -97,6 +97,38 @@ func _physics_process(_dt: float) -> void:
 		"F":
 			if _ticks == 5:
 				_check_ring()
+				var live := skid.marks_live()
+				check(live > 0, "F: до истечения срока полосы живые (%d)" % live)
+				# 1 секунда игрового времени — и след обязан исчезнуть сам
+				Settings.skid_life = 1.0
+				_enter("G")
+		"G":
+			if _ticks == 120:
+				check(skid.marks_live() == 0,
+					"G: срок вышел — колец живых не осталось (%d)" % skid.marks_live())
+				var seen := 0
+				for i in SkidMarks.SLOTS:
+					if skid.segment(i).basis.get_scale().length() > 0.001: seen += 1
+				check(seen == 0, "G: исчезнувшие полосы правда скрыты, а не перезаписаны (%d)" % seen)
+				# 0 = «не исчезают»: старое поведение кольца оставляем проверяемым
+				Settings.skid_life = 0.0
+				car.respawn(Transform3D(Basis.IDENTITY, Vector3(-20, 1.0, 0)))
+				Input.action_press("throttle")
+				_enter("H")
+		"H":
+			if _ticks == 150:
+				Input.action_press("handbrake")
+				Input.action_press("steer_left")
+			if _ticks == 165:
+				var drawn := skid.marks_live()
+				check(drawn > 0, "H: без срока годности полосы рисуются (%d)" % drawn)
+				Input.action_release("handbrake")
+				Input.action_release("steer_left")
+				Input.action_release("throttle")
+			if _ticks == 400:
+				check(skid.marks_live() > 0,
+					"H: со сроком 0 полосы не исчезают (%d живых через 4 с)" % skid.marks_live())
+				Settings.skid_life = 30.0
 				_check_manager()
 				print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 				get_tree().quit(0 if _fails == 0 else 1)

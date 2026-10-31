@@ -143,7 +143,7 @@ func _build_menu() -> void:   # вызывается из _ready, поэтому
 	var ev := InputEventKey.new()
 	ev.physical_keycode = KEY_G
 	ev.pressed = true
-	menu._unhandled_input(ev)
+	menu._input(ev)   # захват перехватывает событие до GUI
 	check(not menu.capturing(), "5: захват завершился по нажатию")
 	check("G" in InputRouter.describe("cam_cycle"), "5: назначение записано (%s)" % InputRouter.describe("cam_cycle"))
 	# Esc во время захвата отменяет его, но не закрывает экран
@@ -151,9 +151,16 @@ func _build_menu() -> void:   # вызывается из _ready, поэтому
 	var esc := InputEventKey.new()
 	esc.physical_keycode = KEY_ESCAPE
 	esc.pressed = true
-	menu._unhandled_input(esc)
+	menu._input(esc)
 	check(not menu.capturing() and menu.is_open(), "5: Esc во время захвата отменяет захват, но не экран")
 	menu._end_capture()
+	# вне захвата Esc закрывает экран, и его обрабатывает уже _unhandled_input
+	var esc2 := InputEventKey.new()
+	esc2.physical_keycode = KEY_ESCAPE
+	esc2.pressed = true
+	menu._unhandled_input(esc2)
+	check(not menu.is_open(), "5: Esc вне захвата закрывает экран")
+	menu.close()
 	InputRouter.reset_keys()
 	Settings.reset()
 	_finish()

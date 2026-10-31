@@ -15,6 +15,15 @@ static func get_params(id: String) -> VehicleParams:
 			p.mass = 1900; p.accel_max = 6.0; p.vmax_kmh = 140; p.brake_decel = 9.0
 			p.steer_rate_deg = 150; p.grip = 6.0; p.width = 2.0
 			p.accent_color = Color(0.16, 0.35, 0.72)
+		"infinity":
+			# «Машина бесконечности»: паспортного потолка нет (vmax = INF, и кривая
+			# тяги тогда не падает вовсе), разгон вчетверо сильнее спортивного.
+			# Тормоз при этом остаётся в покрышечном пределе — иначе она была бы
+			# неуправляемой игрушкой, а не машиной, которой можно ехать.
+			p.model = "res://assets/cars/race.glb"
+			p.mass = 900; p.accel_max = 45.0; p.vmax_kmh = INF; p.brake_decel = 12.3
+			p.steer_rate_deg = 260; p.grip = 12.0; p.width = 1.9
+			p.accent_color = Color(0.62, 0.28, 0.95)
 		"sport":
 			p.model = "res://assets/cars/race.glb"
 			p.mass = 1050; p.accel_max = 11.0; p.vmax_kmh = 210; p.brake_decel = 12.3

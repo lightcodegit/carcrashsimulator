@@ -12,27 +12,27 @@ const DEFAULTS := {
 	"brake":      {"keys": [[KEY_S], [KEY_DOWN]], "joy": [["motion", 4, 0.5]]},
 	"steer_left": {"keys": [[KEY_A], [KEY_LEFT]], "joy": [["motion", 0, -0.5]]},
 	"steer_right":{"keys": [[KEY_D], [KEY_RIGHT]], "joy": [["motion", 0, 0.5]]},
-	"handbrake":  {"keys": [[KEY_SPACE]], "joy": [["button", 0]]},
+	# Ручник на геймпаде — и крестик, и L1: на консолях ручную стояночную почти всегда
+	# ждут на плечевой кнопке, и второй вариант ничего не стоит
+	"handbrake":  {"keys": [[KEY_SPACE]], "joy": [["button", 0], ["button", 9]]},
 	"slowmo":     {"keys": [[KEY_SHIFT]], "joy": [["button", 1]]},
 	"cam_cycle":  {"keys": [[KEY_C]], "joy": [["button", 2]]},
 	"respawn":    {"keys": [[KEY_R]], "joy": [["button", 3]]},
 	"pause":      {"keys": [[KEY_ESCAPE]], "joy": [["button", 6]]},
 }
 
-# Короткие подписи для строки управления в меню: полная таблица ACTION_NAMES живёт
-# в экране настроек, здесь нужны именно однострочные ярлыки.
-const TITLES := {
-	"throttle": "ГАЗ", "brake": "ТОРМОЗ", "steer_left": "РУЛЬ ←", "steer_right": "РУЛЬ →",
-	"handbrake": "РУЧНИК", "slowmo": "СЛОУ-МО", "cam_cycle": "КАМЕРА", "respawn": "РЕСТАРТ",
-	"pause": "ПАУЗА",
-}
-
+# Индексы — нормализованные Godot JoyButton/JoyAxis (перепроверены на этой сборке
+# печатью самих констант: JOY_BUTTON_A=0 … JOY_BUTTON_START=6, D-PAD 11..14,
+# курки — оси 4 и 5). Подписи должны совпадать с тем, что игрок видит на геймпаде,
+# иначе экран настроек враньём про кнопки хуже, чем их отсутствие.
 const BUTTON_NAMES := {
-	0: "A", 1: "B", 2: "X", 3: "Y", 4: "LB", 5: "RB", 6: "SELECT", 7: "START",
-	8: "L3", 9: "R3", 10: "L", 11: "R", 12: "D-PAD ↑", 13: "D-PAD ↓", 14: "D-PAD ←", 15: "D-PAD →",
+	0: "A", 1: "B", 2: "X", 3: "Y", 4: "SELECT", 5: "PS", 6: "START",
+	7: "L3", 8: "R3", 9: "L1", 10: "R1",
+	11: "D-PAD ↑", 12: "D-PAD ↓", 13: "D-PAD ←", 14: "D-PAD →",
 }
 const AXIS_NAMES := {
-	0: "СТИК L→R", 1: "СТИК L↑↓", 2: "ТРИГГЕР L/R", 4: "КУРОК L", 5: "КУРОК R",
+	0: "СТИК L →/←", 1: "СТИК L ↑/↓", 2: "СТИК R →/←", 3: "СТИК R ↑/↓",
+	4: "КУРОК L", 5: "КУРОК R",
 }
 
 var _custom := {}      # action -> Array[InputEvent]: то, что назначил игрок
@@ -126,8 +126,8 @@ static func event_name(e: InputEvent) -> String:
 		var code: int = k.physical_keycode if k.physical_keycode != 0 else k.keycode
 		return OS.get_keycode_string(code)
 	if e is InputEventJoypadButton:
-		return "pad " + String(BUTTON_NAMES.get((e as InputEventJoypadButton).button_index,
-			"КНОПКА %d" % (e as InputEventJoypadButton).button_index))
+		var i := (e as InputEventJoypadButton).button_index
+		return String(BUTTON_NAMES.get(i, "КНОПКА %d" % i))
 	if e is InputEventJoypadMotion:
 		var m := e as InputEventJoypadMotion
 		var base: String = AXIS_NAMES.get(m.axis, "ОСЬ %d" % m.axis)

@@ -6,6 +6,7 @@ extends Node3D
 # скорости — он же мнёт кузов.
 
 signal impact(speed_kmh: float, point: Vector3, normal: Vector3)
+signal nitro_changed(active: bool)
 
 const IMPACT_DECEL := 210.0        # км/ч за секунду (~6 g): резкое торможение, которое считаем ударом
 const IMPACT_MIN_KMH := 28.0
@@ -59,6 +60,9 @@ var _brake_scale := 0.25
 var _rear_scale := 0.5
 var _steer := 0.0
 var _pedal := 0.0
+var nitro := 0.0                 # сколько форсажа в баке (единицы params.nitro_capacity)
+var nitro_active := false        # горит ли он прямо сейчас
+var _nitro_was := false
 var _roll: Array[float] = []
 var _mount_y: Array[float] = []
 var _susp_static := 0.0
@@ -179,12 +183,22 @@ func respawn(tf: Transform3D) -> void:
 	chassis.reset_physics_interpolation()
 	_steer = 0.0
 	_pedal = 0.0
+	# новый заезд — полный бак, и огонь в выхлопе должен погаснуть, а не мигать
+	nitro = params.nitro_capacity
+	if nitro_active:
+		nitro_active = false
+		_nitro_was = false
+		nitro_changed.emit(false)
 	_recent_speed = 0.0
 	_hist.clear()
 	_impact_cooldown = 0.0
 	_yaw_init = false
 	for i in _roll.size(): _roll[i] = 0.0
 	if body != null: body.reset()
+
+# Доля бака для индикатора: 1.0 — полный, 0.0 — форсажа нет.
+func nitro_fraction() -> float:
+	return nitro / maxf(params.nitro_capacity, 1.0)
 
 func speed_kmh() -> float:
 	return chassis.linear_velocity.length() * 3.6
@@ -210,10 +224,25 @@ func _drive(dt: float) -> void:
 	var v := chassis.linear_velocity
 	var vf := v.dot(forward())
 	var vmax := params.vmax_kmh / 3.6
+	# Нитро даёт тягу И поднимает потолок скорости: без второго кривая pull глушила бы
+	# форсаж ровно там, где он и нужен — на вершине диапазона. Бак тратится только с
+	# нажатым газом и только вперёд: «нитро на нейтрали» ничего не разгоняет, а
+	# расходовать его задом нелогично.
+	nitro_active = Input.is_action_pressed("nitro") and throttle > 0.0 and vf >= -0.5 \
+		and nitro > 0.0
+	if nitro_active != _nitro_was:
+		_nitro_was = nitro_active
+		nitro_changed.emit(nitro_active)
+	var vmax_eff := vmax * (params.nitro_vmax if nitro_active else 1.0)
 	# тяга падает к vmax: штатной кривой момента в Godot 4.7 нет, а без этого
 	# машина разгонялась бы вечно
-	var pull := clampf(1.0 - pow(absf(vf) / vmax, 1.6), 0.0, 1.0)
+	var pull := clampf(1.0 - pow(absf(vf) / vmax_eff, 1.6), 0.0, 1.0)
 	var drive := throttle * params.mass * params.accel_max * pull
+	if nitro_active:
+		drive += throttle * params.mass * params.nitro_accel
+		nitro = maxf(nitro - params.nitro_drain * dt, 0.0)
+	else:
+		nitro = minf(nitro + params.nitro_refill * dt, params.nitro_capacity)
 	# S — тормоз, пока машина катится вперёд, и задний ход, когда она почти встала
 	var reverse := brake_in > 0.0 and vf < 0.6 and not hand
 	if reverse:

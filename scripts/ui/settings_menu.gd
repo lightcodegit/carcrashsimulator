@@ -13,7 +13,8 @@ const ACCENT := Color(0.45, 0.8, 0.95)
 const NOTE := Color(0.55, 0.62, 0.72)
 const ACTION_NAMES := {
 	"throttle": "ГАЗ", "brake": "ТОРМОЗ / задний ход", "steer_left": "РУЛЬ влево",
-	"steer_right": "РУЛЬ вправо", "handbrake": "РУЧНИК", "slowmo": "СЛОУ-МО",
+	"steer_right": "РУЛЬ вправо", "handbrake": "РУЧНИК", "nitro": "НИТРО (форсаж)",
+	"slowmo": "СЛОУ-МО",
 	"cam_cycle": "СМЕНА КАМЕРЫ", "respawn": "РЕСТАРТ", "pause": "ПАУЗА",
 }
 const OPTIONS := [
@@ -266,14 +267,21 @@ func _build_controls() -> Control:
 	host.add_theme_constant_override("separation", 6)
 	host.add_child(_note("Действие можно назначить на клавишу, кнопку или ось геймпада. " +
 		"Клавиатура и геймпад хранятся раздельно: назначив ручник на кнопку, пробел не потеряется."))
-	for action in ACTION_NAMES:
+	# Список берём из раскладки, а не из подписей: новое действие обязано появиться в
+	# экране настроек само, иначе его нельзя переназначить (список подписей при этом
+	# остаётся только человеческими именами).
+	for action in InputRouter.DEFAULTS:
 		host.add_child(_key_row(action))
 	return host
+
+# Человеческое имя действия; если для нового действия подписи нет — хотя бы само имя.
+func _title(action: String) -> String:
+	return String(ACTION_NAMES.get(action, action.to_upper()))
 
 func _key_row(action: String) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	row.add_child(_wide_label(ACTION_NAMES[action], 250))
+	row.add_child(_wide_label(_title(action), 250))
 	var val := _label(InputRouter.describe(action), 16)
 	val.custom_minimum_size = Vector2(300, 0)
 	_keys[action] = val
@@ -292,7 +300,7 @@ func _key_row(action: String) -> Control:
 
 func _begin_capture(action: String) -> void:
 	_capturing = action
-	_capture_label.text = "Нажмите клавишу или кнопку для «%s» · ESC отменяет" % ACTION_NAMES[action]
+	_capture_label.text = "Нажмите клавишу или кнопку для «%s» · ESC отменяет" % _title(action)
 
 func _end_capture() -> void:
 	_capturing = ""

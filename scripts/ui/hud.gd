@@ -27,6 +27,8 @@ class Gauge extends Control:
 	var vmax := 220.0
 	var font: Font
 	var accent := Color(0.45, 0.8, 0.95)
+	var nitro := 1.0             # доля бака форсажа
+	var nitro_hot := false       # горит ли прямо сейчас
 
 	func _draw() -> void:
 		var c := size * 0.5
@@ -53,6 +55,18 @@ class Gauge extends Control:
 		draw_line(c, c + Vector2(cos(na), sin(na)) * r * 0.80, Color(0.95, 0.96, 1.0, 0.9), 2.5)
 		draw_circle(c, r * 0.055, accent)
 		draw_arc(c, r * 0.14, 0, TAU, 24, Color(1, 1, 1, 0.25), 1.0)
+		# Кольцо форсажа внутри шкалы: полное — бак полон, убывает на глазах, оранжевое —
+		# газ подан и нитро горит. Отдельный виджет вешать некуда: спидометр уже занял
+		# угол, а ресурс обязан быть виден без догадок.
+		var a0 := deg_to_rad(A0)
+		var nr := r * 0.74
+		draw_arc(c, nr, a0, a0 + deg_to_rad(SWEEP), 96, Color(1, 1, 1, 0.10), 5.0)
+		if nitro > 0.002:
+			var ncol := Color(1.0, 0.55, 0.16, 0.95) if nitro_hot else Color(0.45, 0.8, 0.95, 0.9)
+			draw_arc(c, nr, a0, a0 + deg_to_rad(SWEEP * clampf(nitro, 0.0, 1.0)), 96, ncol, 5.0)
+		if font != null:
+			draw_string(font, c + Vector2(-24, r * 0.58), "НИТРО",
+				HORIZONTAL_ALIGNMENT_CENTER, 48, 11, Color(1, 1, 1, 0.4))
 
 var _car: CarRig
 var _mono: SystemFont
@@ -399,6 +413,8 @@ func _process(dt: float) -> void:
 	var kmh := _car.speed_kmh()
 	_speed_label.text = "%d" % int(kmh)
 	_gauge.speed = kmh
+	_gauge.nitro = _car.nitro_fraction()
+	_gauge.nitro_hot = _car.nitro_active
 	_gauge.queue_redraw()
 	if dt > 0.0:
 		var inst := (kmh - _prev_kmh) / 3.6 / dt / 9.81

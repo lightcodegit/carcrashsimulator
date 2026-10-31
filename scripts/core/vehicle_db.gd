@@ -1,6 +1,12 @@
 class_name VehicleDB
 extends RefCounted
 
+# Список машин. От него зависит проверка «нитро есть у всех» (h_t30): новый пресет,
+# добавленный в match ниже, обязан появиться и здесь — иначе он останется невидимым
+# для теста и для игрока.
+static func ids() -> Array[String]:
+	return ["sedan", "pickup", "infinity", "sport"]
+
 static func get_params(id: String) -> VehicleParams:
 	var p := VehicleParams.new()
 	p.car_id = id

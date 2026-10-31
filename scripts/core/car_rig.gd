@@ -173,6 +173,9 @@ func respawn(tf: Transform3D) -> void:
 	chassis.global_transform = Transform3D(Basis(Vector3.UP, heading + YAW_OFFSET), Vector3(tf.origin.x, rest_y, tf.origin.z))
 	chassis.linear_velocity = Vector3.ZERO
 	chassis.angular_velocity = Vector3.ZERO
+	# Телепорт без сброса интерполяции рисуется разъездом: кадры между тиками
+	# выводят машину по пути от старой позиции к новой.
+	chassis.reset_physics_interpolation()
 	_steer = 0.0
 	_pedal = 0.0
 	_recent_speed = 0.0

@@ -14,7 +14,10 @@ const STEER_MAX_DEG := 30.0        # полный угол передних ко
 const LAT_ACCEL_CAP := 10.5        # м/с²: потолок бокового ускорения в повороте (~1.07 g)
 const SLIP_BASE := 2.2             # сцепление шины при grip=8 (см. VehicleParams.grip)
 const SLIP_HANDBRAKE := 1.2        # сцепление задних колёс на ручнике — отсюда занос
-const HANDBRAKE_BRAKE := 0.35      # доля тормозного усилия на ручнике: занос, а не экстренная остановка
+const HB_DECEL := 11.0             # м/с² запроса к задней оси: заведомо выше того, что держат шины, поэтому колёса именно блокируются, а фактическое торможение ограничено уже сцеплением
+const HB_HOLD_DECEL := 14.0        # на почти остановившейся машине ручник должен её держать
+const HB_HOLD_MS := 1.0            # м/с, ниже которой включается режим удержания
+const HB_THROTTLE := 0.4           # доля тяги передних колёс на ручнике: заносом можно рулить газом
 const REVERSE_RATIO := 0.18        # задний ход — 18% от vmax
 const ESP_SLIDE_START := 0.15      # доля бокового скольжения, с которой включается ESP
 const ESP_DAMP := 5.0              # 1/с: насколько ESP гасит рыскание в заносе
@@ -42,7 +45,10 @@ var _wheels: Array[VehicleWheel3D] = []
 var _slip_normal := SLIP_BASE
 var _wheelbase := 2.6
 var _traction_count := 0
+var _rear_count := 2
 var _drive_scale := 0.25
+var _brake_scale := 0.25
+var _rear_scale := 0.5
 var _steer := 0.0
 var _roll: Array[float] = []
 var _mount_y: Array[float] = []
@@ -130,9 +136,13 @@ func build(p: VehicleParams, _world: World3D) -> void:
 		_mount_y.append(w.position.y)
 		_roll.append(0.0)
 		if w.use_as_traction: _traction_count += 1
+		if not w.use_as_steering: _rear_count += 1
 	# engine_force и brake Godot прикладывает к каждому ведущему колесу отдельно
 	# (замерено: 4 колеса дают ровно 4·F/m), поэтому паспортные м/с² делим на их число
 	_drive_scale = 1.0 / maxf(1.0, float(_traction_count))
+	# служебный тормоз делится на все колёса, ручник — только на заднюю ось
+	_brake_scale = 1.0 / maxf(1.0, float(_wheels.size()))
+	_rear_scale = 1.0 / maxf(1.0, float(_rear_count))
 	_skid.resize(_wheels.size())
 	_skid.fill(0.0)
 
@@ -186,28 +196,30 @@ func _drive(dt: float) -> void:
 	# тяга падает к vmax: штатной кривой момента в Godot 4.7 нет, а без этого
 	# машина разгонялась бы вечно
 	var pull := clampf(1.0 - pow(absf(vf) / vmax, 1.6), 0.0, 1.0)
-	var unit := params.mass * params.accel_max * _drive_scale
-	# brake в отличие от engine_force — импульс за тик (замерено: brake=98 даёт 18 м/с²),
-	# поэтому его приходится умножать на dt, иначе любое значение блокирует колёса намертво
-	var brake_unit := params.mass * params.brake_decel * _drive_scale * dt
-	# S — тормоз, пока машина катится вперёд, и задний ход, когда она почти встала.
-	# На ручнике газ отключаем: в Godot brake считается только при engine_force == 0
-	# (vehicle_body_3d.cpp: `if (m_engineForce != 0) rollingFriction = -engineForce*step`),
-	# поэтому с зажатым W ручник раньше не делал вообще ничего.
-	if hand:
-		chassis.engine_force = 0.0
-		chassis.brake = HANDBRAKE_BRAKE * brake_unit
-	elif brake_in > 0.0 and vf < 0.6:
+	var drive := throttle * params.mass * params.accel_max * pull
+	# S — тормоз, пока машина катится вперёд, и задний ход, когда она почти встала
+	var reverse := brake_in > 0.0 and vf < 0.6 and not hand
+	if reverse:
 		var back := clampf(1.0 - absf(vf) / (vmax * REVERSE_RATIO), 0.0, 1.0)
-		chassis.engine_force = -brake_in * unit * 0.55 * back
-		chassis.brake = 0.0
-	else:
-		chassis.engine_force = throttle * unit * pull
-		chassis.brake = brake_in * brake_unit
-	# накат и движущее торможение. Именно brake, а не правка linear_velocity: запись
-	# скорости из _physics_process обнуляет импульсы подвески, и машина оседает на коллайдер
-	if throttle <= 0.0 and brake_in <= 0.0 and not hand:
-		chassis.brake = COAST_DECEL * params.mass * _drive_scale * dt
+		drive = -brake_in * params.mass * params.accel_max * 0.55 * back
+	# Именно brake-импульс на колесо, а не правка linear_velocity: запись скорости из
+	# _physics_process обнуляет импульсы подвески, и машина оседает на коллайдер.
+	# brake — это потолок импульса за тик (замерено: 98 Н·с даёт 18 м/с²), поэтому dt.
+	var service := 0.0
+	if reverse or hand:
+		pass
+	elif brake_in > 0.0:
+		service = params.mass * params.brake_decel * brake_in * dt
+	elif throttle <= 0.0:
+		service = params.mass * COAST_DECEL * dt
+	# Ручник — ТОЛЬКО задняя ось. Через chassis.brake его нельзя дать на одно колесо:
+	# Godot рассылает свойство всем колёсам разом (vehicle_body_3d.cpp: set_brake
+	# проходит по m_wheelInfos), поэтому прошлый «ручник» блокировал четыре колеса
+	# и стирал 0.8 g — на геймпаде, где курок держат пальцем, это выглядело как
+	# мгновенная остановка. Теперь задние блокируются, передние катятся свободно.
+	var rear_brake := 0.0
+	if hand:
+		rear_brake = params.mass * (HB_DECEL if absf(vf) > HB_HOLD_MS else HB_HOLD_DECEL) * dt
 	# Угол колёс ограничен сверху допустимым боковым ускорением: линейная зависимость
 	# от скорости не спасала — на 150 км/ч даже 7° требуют от шин 10 g, машина срывается
 	# в скольжение и «поворачивает» на 70° в секунду.
@@ -216,14 +228,22 @@ func _drive(dt: float) -> void:
 	if sp > 2.0: lock = minf(lock, atan(LAT_ACCEL_CAP * _wheelbase / (sp * sp)))
 	_steer = move_toward(_steer, lock * steer_in, deg_to_rad(params.steer_rate_deg) * dt)
 	chassis.steering = _steer
-	# ручник срывает сцепление задних колёс: занос вместо «ничего»
 	var side := v - forward() * vf
 	side.y = 0.0
 	var slide := side.length() / maxf(2.0, absf(vf))
 	_grounded = false
 	for i in _wheels.size():
 		var w := _wheels[i]
-		var locked := hand and not w.use_as_steering
+		var rear := not w.use_as_steering
+		var locked := hand and rear
+		# в Godot brake колеса учитывается только при engine_force == 0
+		# (vehicle_body_3d.cpp: `if (m_engineForce != 0) rollingFriction = -engineForce*step`),
+		# поэтому на ручнике задняя ось теряет тягу, а передняя продолжает тянуть
+		# HB_THROTTLE — заносом можно рулить газом, и с зажатым W ручник работает.
+		w.engine_force = 0.0 if (hand and rear) else drive * _drive_scale * (HB_THROTTLE if hand else 1.0)
+		# служебный тормоз и накат — на все четыре колеса, ручник сверху добавляет
+		# блокировку только задней оси
+		w.brake = service * _brake_scale + (rear_brake * _rear_scale if rear else 0.0)
 		w.wheel_friction_slip = SLIP_HANDBRAKE if locked else _slip_normal
 		if w.is_in_contact():
 			_grounded = true

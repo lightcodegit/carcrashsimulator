@@ -109,9 +109,11 @@ func _physics_process(_dt: float) -> void:
 				var vel := car.chassis.linear_velocity
 				var fwd := Vector3(cos(car.heading), 0, -sin(car.heading))
 				var lat := (vel - fwd * vel.dot(fwd)).length() * 3.6
-				# ручник — тормоз для заноса, а не экстренный: должен заметно гасить
-				# скорость, но не останавливать машину мгновенно (жалоба с геймпада)
-				check(car.speed_kmh() < _hb_speed - 15.0,
+				# ручник — тормоз для заноса, а не экстренный: блокируется только задняя
+				# ось (через chassis.brake Godot блокировал все четыре колеса, и на
+				# геймпаде это читалось как мгновенная остановка), поэтому торможение
+				# умеренное, но заметное, и машина обязана остаться в движении
+				check(car.speed_kmh() < _hb_speed - 8.0,
 					"E1 ручник тормозит (%.1f -> %.1f км/ч)" % [_hb_speed, car.speed_kmh()])
 				check(car.speed_kmh() > _hb_speed * 0.35,
 					"E1b ручник не останавливает мгновенно (%.1f -> %.1f км/ч)" % [_hb_speed, car.speed_kmh()])

@@ -214,10 +214,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if settings != null and settings.is_open(): return
 	if event.is_action_pressed("pause"):
 		_set_paused(not _paused)
+	# R обязан работать и на паузе: игрок жмёт его, чтобы начать заезд заново, а не
+	# чтобы выбираться из меню. Прежняя ветка «elif _paused: return» съедала именно
+	# его, и со стороны это выглядело как «R не рестартит, а только сбрасывает скорость».
+	elif event.is_action_pressed("respawn"):
+		if _paused: _set_paused(false)
+		_respawn_now()
+		hud.show_tip("рестарт")
 	elif _paused:
 		return
-	elif event.is_action_pressed("respawn"):
-		_respawn_now()
 	elif event.is_action_pressed("cam_cycle"):
 		camera.cycle_mode()
 
@@ -227,7 +232,6 @@ func _respawn_now() -> void:
 		if is_instance_valid(n): n.restore()
 	car.respawn(_spawn)
 	skid.respawn()
-	hud.show_tip("")
 	TimeScale.set_hold(false)
 
 func _set_paused(v: bool) -> void:
@@ -253,6 +257,7 @@ func _restart_map() -> void:
 	_top_crash = 0.0
 	_respawn_now()
 	hud.set_crash_stats(0, 0.0)
+	hud.show_tip("заезд начат заново")
 	_set_paused(false)
 
 func _to_menu() -> void:

@@ -161,9 +161,40 @@ func _build_menu() -> void:   # вызывается из _ready, поэтому
 	menu._unhandled_input(esc2)
 	check(not menu.is_open(), "5: Esc вне захвата закрывает экран")
 	menu.close()
+	_apply_in_game()
 	InputRouter.reset_keys()
 	Settings.reset()
 	_finish()
+
+# Настройки обязаны долетать до живой сцены, а не только до файла: иначе экран
+# настроек — декорация.
+func _apply_in_game() -> void:
+	GameContext.select("sedan", "arena")
+	var g: GameManager = load("res://scenes/game.tscn").instantiate()
+	add_child(g)
+	await get_tree().physics_frame
+	check(g._env.ssao_enabled and g._env.ssil_enabled and g._env.fog_enabled, "по умолчанию пост-эффекты включены")
+	check(g._sun.shadow_enabled and is_equal_approx(g._sun.directional_shadow_max_distance, 260.0), "по умолчанию тени 260 м")
+	Settings.set_value("ssao", false)
+	Settings.set_value("ssil", false)
+	Settings.set_value("fog", false)
+	Settings.set_value("glow", false)
+	Settings.set_value("shadow_preset", 0)
+	await get_tree().physics_frame
+	check(not g._env.ssao_enabled and not g._env.ssil_enabled and not g._env.fog_enabled and not g._env.glow_enabled,
+		"пост-эффекты выключаются на лету")
+	check(not g._sun.shadow_enabled, "тени выключаются на лету")
+	Settings.set_value("shadow_preset", 3)
+	await get_tree().physics_frame
+	check(g._sun.shadow_enabled and is_equal_approx(g._sun.directional_shadow_max_distance, 420.0),
+		"дистанция теней меняется (%.0f)" % g._sun.directional_shadow_max_distance)
+	check(g.hud._fps_label.visible, "счётчик кадров виден по умолчанию")
+	Settings.set_value("show_fps", false)
+	await get_tree().physics_frame
+	check(not g.hud._fps_label.visible, "счётчик кадров скрывается настройкой")
+	g.queue_free()
+	Settings.reset()
+	await get_tree().process_frame
 
 func _finish() -> void:
 	if _had_file:

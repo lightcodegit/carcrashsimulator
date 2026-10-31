@@ -108,9 +108,19 @@ func _setup_env() -> void:
 	sky.sky_material = ps
 	sky.radiance_size = Sky.RADIANCE_SIZE_512
 	env.sky = sky
-	# небо как источник рассеянного света и отражений: иначе кузова в тени почти чёрные
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.0
+	# небо как источник рассеянного света и отражений: иначе кузова в тени почти чёрные.
+	# На Compatibility физическое небо рисуется примерно втрое темнее, чем на Forward+,
+	# и свет, взятый с него, ту же троекратную потерку и даёт: замер живым кадром — 20%
+	# пикселей машины темнее 0.05 против 1% на Vulkan, при этом ambient_light_energy и
+	# energy_multiplier неба на Compatibility не двигают ничего. Поэтому там рассеянный
+	# свет берётся ровным цветом, подобранным по тому же замеру (2% чёрных, яркость 0.38).
+	if Settings.rendering_method() == "gl_compatibility":
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = Color(0.55, 0.62, 0.75)
+		env.ambient_light_energy = 0.25
+	else:
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+		env.ambient_light_energy = 1.0
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 1.0

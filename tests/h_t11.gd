@@ -40,7 +40,10 @@ func _ready() -> void:
 					long_shadow = long_shadow or (c as DirectionalLight3D).directional_shadow_max_distance >= 100.0
 				if c is WorldEnvironment: env = (c as WorldEnvironment).environment
 			if env != null:
-				amb = env.ambient_light_source == Environment.AMBIENT_SOURCE_SKY
+				# на Compatibility небо тёмное, и свет от него дают ровным цветом — см. GameManager
+				amb = env.ambient_light_source == Environment.AMBIENT_SOURCE_SKY \
+					or (env.ambient_light_source == Environment.AMBIENT_SOURCE_COLOR
+						and env.ambient_light_energy > 0.1 and env.ambient_light_color.v > 0.4)
 			check(suns >= 2, "%s/%s солнце плюс заполняющий свет (%d)" % [map_id, car_id, suns])
 			check(amb, "%s/%s рассеянный свет от неба" % [map_id, car_id])
 			check(long_shadow, "%s/%s тени хватает за машину с запасом" % [map_id, car_id])

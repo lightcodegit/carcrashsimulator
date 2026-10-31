@@ -24,6 +24,11 @@ InputRouter="*res://scripts/autoload/InputRouter.gd"
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+; HUD и меню разложены в координатах 1600×900. Без растяжения окно меньшего размера
+; обрезало бы правую панель журнала, а большого — оставило бы её висеть в середине
+; экрана, поэтому интерфейс масштабируется целиком с сохранением пропорций.
+window/stretch/mode="canvas"
+window/stretch/aspect="keep"
 
 [physics]
 

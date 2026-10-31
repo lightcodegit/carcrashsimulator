@@ -21,6 +21,25 @@ func _local_aabb(n: Node3D) -> AABB:
 		else: merged = merged.merge(g)
 	return merged
 
+# Дорожные плиты не должны лежать друг на друге: две копии белой разметки в одной
+# плоскости мерцают (z-fighting). Трамплин и лежачий полицейский занимают свою плиту.
+func _road_overlaps(root: Node3D) -> Array[String]:
+	var boxes: Array[AABB] = []
+	var names: Array[String] = []
+	for c in root.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null or mi.mesh == null: continue
+		if not mi.mesh.resource_path.get_file().begins_with("road"): continue
+		boxes.append(mi.global_transform * mi.mesh.get_aabb())
+		names.append(mi.mesh.resource_path.get_file() + "@" + str(mi.global_position.x))
+	var bad: Array[String] = []
+	for i in boxes.size():
+		for j in range(i + 1, boxes.size()):
+			var a := boxes[i].intersection(boxes[j])
+			if a.size.x * a.size.z > 0.05:
+				bad.append(names[i] + " × " + names[j])
+	return bad
+
 func _ready() -> void:
 	await get_tree().process_frame
 	for id in ["arena", "town", "speedway"]:
@@ -31,6 +50,8 @@ func _ready() -> void:
 		add_child(root_map)
 		check(info.colliders > 10, "%s has colliders (%d)" % [id, m.info.colliders])
 		check(info.has_ramp or id == "town", "%s ramp expectation" % id)
+		var ov := _road_overlaps(root_map)
+		check(ov.is_empty(), "%s: дорожные плиты не наложены друг на друга (%s)" % [id, str(ov)])
 		await get_tree().physics_frame
 		var space := get_world_3d().direct_space_state
 		var from := spawn.origin + Vector3(0, 2.0, 0)

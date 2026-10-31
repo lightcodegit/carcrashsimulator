@@ -8,7 +8,8 @@ const R := "res://assets/racing/"
 const ROAD_Y := -0.2      # плиты дорог Kenney Racing Kit высотой 0.2: топим, чтобы верх был на y = 0
 const P := "res://assets/props/"
 const CARS := "res://assets/cars/"
-const PROP := 1.3          # единый масштаб пропов относительно моделей машин
+const PROP := 1.2          # масштаб пропов: тот же, что у машины игрока (width 1.8 из 1.5)
+const WALK_Y := 0.2        # верх тротуара в городке: предметы на нём ставим на эту высоту
 
 static func _mat(color: Color, rough := 0.7) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -81,7 +82,8 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		return null
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
-	mi.name = "kit:" + name
+	# имя с координатами: одинаковые имена среди соседей Godot молча переименовывает в @MeshInstance3D@N
+	mi.name = "kit_%s_%.0f_%.0f" % [name, pos.x, pos.z]
 	mi.position = pos + Vector3(0, ROAD_Y if road else 0.0, 0)
 	mi.rotation.y = deg_to_rad(rot_y_deg)
 	root.add_child(mi)
@@ -101,6 +103,13 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		body.physics_material_override = pm
 		root.add_child(body)
 	return mi
+
+# Трамплин занимает 10 м из 20-метровой плиты, поэтому плиту под ним не ставят:
+# иначе две копии белой разметки лежат в одной плоскости и мерцают. Остаток длины
+# добираем короткой плитой roadStraight.
+static func ramp(root: Node3D, x: float, z: float) -> void:
+	kit(root, "roadRamp", Vector3(x, 0, z), 90, true, true)
+	kit(root, "roadStraight", Vector3(x + 10.0, 0, z), 90, false, true)
 
 static func _aabb_in(n: Node3D) -> AABB:
 	var merged := AABB(); var first := true
@@ -138,6 +147,60 @@ static func prop(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: flo
 			root.add_child(body)
 	return n
 
+# Лёгкий предмет, который можно снести: визуал живёт внутри RigidBody3D, коллайдер —
+# коробка по его габариту. Массу задаём явно: от неё зависит и разлёт предмета, и то,
+# насколько машина замедлится. Здания, отбойники трассы, фонари и деревья остаются
+# статичными — их сносом не снести, а физика на них тратиться не должна.
+static func loose(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: float, mass_kg: float) -> Node3D:
+	var ps: PackedScene = load(path)
+	if ps == null:
+		push_warning("MapDB: ассет не найден " + path)
+		return null
+	var n: Node3D = ps.instantiate()
+	n.name = path.get_file()
+	var local := _aabb_in(n)
+	n.scale = Vector3.ONE * sc
+	# центр по X/Z и низ на y = 0 тела: у конусов основание в нуле, у покрышек — центр оси
+	n.position = Vector3(-local.get_center().x * sc, -local.position.y * sc, -local.get_center().z * sc)
+	return _wrap_loose(root, n, local, pos, rot_y, mass_kg)
+
+# То же самое для сегмента Kenney Racing Kit (пилоны, пластиковые отбойники).
+static func loose_kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, mass_kg: float) -> Node3D:
+	var m: Mesh = load(R + name + ".obj")
+	if m == null:
+		push_warning("MapDB: сегмент не найден " + name)
+		return null
+	var mi := MeshInstance3D.new()
+	mi.mesh = m
+	mi.name = "loose_" + name
+	var local := m.get_aabb()
+	mi.position = Vector3(-local.get_center().x, -local.position.y, -local.get_center().z)
+	return _wrap_loose(root, mi, local, pos, deg_to_rad(rot_y_deg), mass_kg)
+
+static func _wrap_loose(root: Node3D, visual: Node3D, local: AABB, pos: Vector3, rot_y: float, mass_kg: float) -> RigidBody3D:
+	var body := LooseProp.new()
+	body.mass = mass_kg
+	body.continuous_cd = true     # иначе на 200 км/ч конус пролетает сквозь машину
+	var pm := PhysicsMaterial.new()
+	pm.friction = 1.0             # на скользком предмет уезжает, не успев перевернуться
+	pm.bounce = clampf(6.0 / mass_kg, 0.08, 0.20)    # лёгкое отскакивает сильнее, тяжёлое почти не прыгает
+	body.physics_material_override = pm
+	body.rotation.y = rot_y
+	body.position = pos
+	body.add_child(visual)
+	var w: AABB = visual.transform * local
+	if w.size.length() > 0.05:
+		var cs := CollisionShape3D.new()
+		var sh := BoxShape3D.new()
+		sh.size = w.size
+		cs.shape = sh
+		cs.position = w.get_center()
+		body.add_child(cs)
+		body.height_m = w.size.y
+	body.setup_tumble()
+	root.add_child(body)
+	return body
+
 static func street_lamp(root: Node3D, pos: Vector3, side: float) -> void:
 	box(root, pos + Vector3(0, 3.0, 0), Vector3(0.22, 6.0, 0.22), Color(0.18, 0.18, 0.2))
 	box_vis(root, pos + Vector3(side * 0.9, 5.9, 0), Vector3(1.8, 0.16, 0.3), Color(0.22, 0.22, 0.24))
@@ -165,13 +228,14 @@ static func _arena() -> Dictionary:
 	box(root, Vector3(100, 4, 0), Vector3(1, 8, 200), wc)
 	# испытательная петля: outbound по z = 0, разворот, return по z = -20
 	for k in 5:
-		kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, 5), 90, false, true)
+		if k != 3:   # плиту x=20..40 занял трамплин
+			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, 5), 90, false, true)
 	kit(root, "roadHalfCircle", Vector3(60, 0, 5), 90, false, true)
 	for k in 5:
-		kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, false, true)
-	# трамплин вместо одной плиты outbound и лежачий полицейский на return
-	kit(root, "roadRamp", Vector3(20, 0, 5), 90, true, true)
-	kit(root, "roadBump", Vector3(-30, 0, -15), 90, true, true)
+		if k != 1:   # плиту x=-20..0 занял лежачий полицейский
+			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, false, true)
+	ramp(root, 20.0, 5.0)
+	kit(root, "roadBump", Vector3(-20, 0, -15), 90, true, true)
 	for k in 8:
 		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, 16), 90, false)
 		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, -26), 90, false)
@@ -193,10 +257,18 @@ static func _arena() -> Dictionary:
 		kit(root, "flagCheckers", Vector3(-24.0 + k * 30.0, 0, 6.6), 0, false)
 	kit(root, "billboard", Vector3(70, 0, -34.0), 0, true)
 	kit(root, "radarEquipment", Vector3(78, 0, 12.0), 0, true)
-	# слалом из пилонов и краш-блок в конце прямой
+	# слалом из пилонов и краш-блок в конце прямой; пилоны сбиваются
 	for k in 5:
-		kit(root, "pylon", Vector3(-14.0 + k * 6.0, 0, 2.6 * (1 if k % 2 == 0 else -1)), 0, true)
+		loose_kit(root, "pylon", Vector3(-14.0 + k * 6.0, 0, 2.6 * (1 if k % 2 == 0 else -1)), 0, 6.0)
 	box(root, Vector3(82, 1, 0), Vector3(3, 2, 3), Color(0.6, 0.2, 0.2))
+	# сносимый хлам: конусы у краш-блока, покрышки и ящик у боксов, обломки на обратной прямой
+	for k in 4:
+		loose(root, P + "cone.glb", Vector3(66.0 + k * 3.0, 0, -3.0 + 1.5 * float(k)), PROP, 0.0, 3.0)
+	for k in 3:
+		loose(root, P + "debris-tire.glb", Vector3(-70.0 + k * 2.0, 0, 6.5), PROP, 0.0, 10.0)
+	loose(root, P + "box.glb", Vector3(-50.0, 0, 7.5), PROP, 0.6, 15.0)
+	loose(root, P + "debris-bumper.glb", Vector3(10.0, 0, -18.0), PROP, 0.3, 9.0)
+	loose(root, P + "debris-plate-a.glb", Vector3(34.0, 0, -18.5), PROP, 1.1, 12.0)
 	for k in 4:
 		kit(root, "treeLarge", Vector3(-80.0 + k * 50.0, 0, 40.0), 0, true)
 		kit(root, "treeSmall", Vector3(-60.0 + k * 50.0, 0, -50.0), 0, true)
@@ -210,7 +282,8 @@ static func _town() -> Dictionary:
 	var rng := RandomNumberGenerator.new(); rng.seed = 20261029
 	# улицы из плит Racing Kit: главная вдоль z = -24 и вторая вдоль z = 36
 	for k in 14:
-		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, false, true)
+		# первую плиту заняла стартовая арка: её разметка легла бы ровно на разметку плиты
+		if k > 0: kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, false, true)
 		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, 41), 90, false, true)
 	kit(root, "roadStart", Vector3(-140, 0, -17.7), 90, true, true)   # арка на въезде в город
 	for k in 24:
@@ -247,9 +320,19 @@ static func _town() -> Dictionary:
 	for k in 5:
 		kit(root, "billboard", Vector3(-100.0 + k * 50.0, 0, -36.0), 0, true)
 		kit(root, "fenceStraight", Vector3(-110.0 + k * 40.0, 0, 27.0), 0, true)
+	# пластиковые отбойники и пилоны сбиваются: первые тяжёлые и тормозят машину, вторые нет
 	for k in 6:
-		kit(root, "barrierWhite", Vector3(-90.0 + k * 30.0, 0, -16.0), 0, true)
-		kit(root, "pylon", Vector3(-80.0 + k * 30.0, 0, 20.0), 0, true)
+		loose_kit(root, "barrierWhite", Vector3(-90.0 + k * 30.0, WALK_Y, -15.5), 0, 25.0)
+		loose_kit(root, "pylon", Vector3(-80.0 + k * 30.0, 0, 20.0), 0, 6.0)
+	# хлам на улицах: конусы у перекрёстка, покрышки и ящики во дворе, мусор на тротуаре
+	for k in 5:
+		loose(root, P + "cone.glb", Vector3(-8.0 + k * 4.0, 0, -22.0 + 1.2 * float(k % 3)), PROP, 0.0, 3.0)
+	for k in 3:
+		loose(root, P + "debris-tire.glb", Vector3(40.0 + k * 2.0, WALK_Y, 29.0), PROP, 0.0, 10.0)
+	loose(root, P + "box.glb", Vector3(-40.0, WALK_Y, -32.5), PROP, 0.8, 15.0)
+	loose(root, P + "box.glb", Vector3(96.0, WALK_Y, 43.0), PROP, 2.2, 15.0)
+	loose(root, P + "debris-plate-a.glb", Vector3(20.0, 0, 34.0), PROP, 0.4, 12.0)
+	loose(root, P + "debris-bumper.glb", Vector3(-60.0, WALK_Y, -15.5), PROP, 1.7, 9.0)
 	var parked: Array[String] = [CARS + "sedan.glb", CARS + "truck.glb", CARS + "race.glb"]
 	for k in 6:
 		prop(root, parked[k % parked.size()], Vector3(-90.0 + k * 26.0, 0.0, -20.0), 1.0, PI * 0.5, true)
@@ -263,7 +346,8 @@ static func _speedway() -> Dictionary:
 	# полотно из плит Kenney Racing Kit (10 x 20), дорога вдоль +X, центр по z = 0
 	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, true, true)          # стартовая арка
 	for k in 31:
-		kit(root, "roadStraightLong", Vector3(k * 20.0, 0, 5), 90, false, true)
+		if k != 1 and k != 12:   # эти плиты заняли трамплин и лежачий полицейский
+			kit(root, "roadStraightLong", Vector3(k * 20.0, 0, 5), 90, false, true)
 	# обочины-газон у старта и пит-лейна
 	for k in 14:
 		kit(root, "grass", Vector3(-20.0 + k * 10.0, 0.02, 16), 90, false)
@@ -272,8 +356,7 @@ static func _speedway() -> Dictionary:
 	for k in 64:
 		kit(root, "barrierWall", Vector3(-20.0 + k * 10.0, 0, 4.9), 0, true)
 		kit(root, "barrierWall", Vector3(-20.0 + k * 10.0, 0, -6.13), 0, true)
-	# трамплин из дорожного сегмента: поднимается вдоль +X на 2.5 м
-	kit(root, "roadRamp", Vector3(30, 0, 5), 90, true, true)
+	ramp(root, 20.0, 5.0)   # трамплин: поднимается вдоль +X на 2.7 м
 	# пит-лейн, трибуны и обвес трассы
 	for k in 4:
 		kit(root, "pitsGarage", Vector3(60.0 + k * 11.0, 0, 9.5), 0, true)
@@ -290,14 +373,23 @@ static func _speedway() -> Dictionary:
 		kit(root, "fenceStraight", Vector3(300.0 + k * 10.0, 0, 9.0), 0, true)
 	kit(root, "overheadLights", Vector3(-6, 0, 6.3), 90, true)
 	kit(root, "radarEquipment", Vector3(420, 0, 10.5), 0, true)
-	kit(root, "roadBump", Vector3(240, 0, 5), 90, true, true)
+	kit(root, "roadBump", Vector3(240, 0, 5), 90, true, true)   # вместо плиты k=12
 	for k in 10:
 		kit(root, "treeLarge", Vector3(-10.0 + k * 65.0, 0, -20.0), 0, true)
-		kit(root, "pylon", Vector3(-14.0 + k * 22.0, 0, 3.2 * (1 if k % 2 == 0 else -1)), 0, true)
+		# пилоны стоят прямо на полотне — их и предполагается сбивать
+		loose_kit(root, "pylon", Vector3(-14.0 + k * 22.0, 0, 3.2 * (1 if k % 2 == 0 else -1)), 0, 6.0)
+	# конусы вдоль пит-лейна и стопки покрышек у боксов
+	for k in 6:
+		loose(root, P + "cone.glb", Vector3(70.0 + k * 5.0, 0, 7.6), PROP, 0.0, 3.0)
+	for k in 4:
+		loose(root, P + "debris-tire.glb", Vector3(118.0 + k * 1.8, 0, 12.0), PROP, 0.0, 10.0)
+	loose(root, P + "box.glb", Vector3(140.0, 0, 12.5), PROP, 1.3, 15.0)
+	loose(root, P + "debris-bumper.glb", Vector3(300.0, 0, -3.0), PROP, 0.7, 9.0)
 	# финиш: бетонная стена краш-теста
 	box(root, Vector3(585, 3, 0), Vector3(1.5, 6, 30), Color(0.55, 0.2, 0.2))
+	# красные отбойники перед финишной стеной сбиваются, сама стена — нет
 	for k in 5:
-		kit(root, "barrierRed", Vector3(578.0, 0, -5.0 + k * 2.5), 0, true)
+		loose_kit(root, "barrierRed", Vector3(578.0, 0, -5.0 + k * 2.5), 0, 25.0)
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-10, 1.0, 0)),
 		"bounds": AABB(Vector3(-120, -30, -160), Vector3(780, 70, 320)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true}}

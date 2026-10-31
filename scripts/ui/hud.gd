@@ -17,7 +17,9 @@ const BAD := Color(0.95, 0.32, 0.24)
 const ACCENT := Color(0.45, 0.8, 0.95)
 const A0 := 135.0        # начало дуги спидометра, градусы
 const SWEEP := 270.0
-const DEFORM_FULL := 0.25   # м максимальной вмятины, при которой шкала кузова полная
+# Предел шкалы кузова — не константа, а физический потолок вмятины этого кузова
+# (MAX_DEPTH_RATIO · высота): с фиксированным 0.25 м шкала упиралась в 100% на
+# первом же серьёзном ударе и переставала что-либо показывать.
 const SLIP_FULL := 0.45      # доля бокового увода, при которой шин уже нет
 
 class Gauge extends Control:
@@ -70,6 +72,7 @@ var _deform_fill: ColorRect
 var _slip_bg: ColorRect
 var _slip_fill: ColorRect
 var _deform := 0.0
+var _deform_full := 0.25
 var _deform_area := Rect2(14, 192, 288, 8)
 var _slip_area := Rect2(14, 218, 288, 8)
 var _pause_panel: Control
@@ -340,6 +343,7 @@ func bind(car: CarRig) -> void:
 	_car = car
 	_gauge.vmax = car.params.vmax_kmh * 1.05
 	_gauge.accent = car.params.accent_color
+	_deform_full = DentBody.MAX_DEPTH_RATIO * car.params.height
 	_row_vals[4].text = "%.2f м" % car.params.length
 
 func log_impact(kmh: float) -> void:
@@ -414,7 +418,7 @@ func _process(dt: float) -> void:
 		var d: float = _car.body.max_depth
 		if absf(d - _deform) > 1e-4:
 			_deform = d
-			var t: float = clampf(d / DEFORM_FULL, 0.0, 1.0)
+			var t: float = clampf(d / _deform_full, 0.0, 1.0)
 			_deform_fill.size.x = maxf(0.0, (_deform_bg.size.x - 2.0) * t)
 			_deform_fill.color = OK.lerp(WARN, clampf(t * 2.0, 0.0, 1.0)).lerp(BAD, clampf((t - 0.6) / 0.4, 0.0, 1.0))
 	# Индикатор сцепления: полоса показывает, сколько шины ещё держат, и краснеет

@@ -147,6 +147,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _respawn_now() -> void:
 	_flip = 0.0
+	for n in get_tree().get_nodes_in_group(LooseProp.GROUP):
+		if is_instance_valid(n): n.restore()
 	car.respawn(_spawn)
 	skid.respawn()
 	hud.show_tip("")

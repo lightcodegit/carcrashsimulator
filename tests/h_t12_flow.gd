@@ -108,6 +108,33 @@ func _ready() -> void:
 	check(gm.car.chassis.global_position.y > 60.0,
 		"прыжок выше верхней границы карты не вызывает рестарт (y=%.1f)" % gm.car.chassis.global_position.y)
 
+	# 4d) новые элементы HUD: шкала деформации реагирует на вмятину, счётчик кадров
+	# печатает число, а строка с раскладкой клавиш с экрана убрана совсем
+	gm._respawn_now()
+	for f in 10:
+		await get_tree().physics_frame
+	# точку удара берём от ТЕКУЩЕГО положения: nose считался до прыжка на 100 м
+	var nose2 := gm.car.chassis.global_position + Vector3(gm.car.params.length * 0.5, 0, 0)
+	gm.car.body.apply_impact(nose2, Vector3(1, 0, 0), 150.0)
+	for f in 3:
+		await get_tree().process_frame
+	check(gm.hud._deform_fill.size.x > 1.0,
+		"шкала кузова заполняется вмятиной (%.1f px)" % gm.hud._deform_fill.size.x)
+	check(gm.hud._deform_fill.size.x <= gm.hud._deform_bg.size.x, "шкала не вылезает за панель")
+	for f in 100:
+		await get_tree().process_frame
+	var fps_text: String = gm.hud._fps_label.text
+	check("FPS" in fps_text and fps_text.strip_edges().split(" ")[0].is_valid_int(),
+		"счётчик кадров печатает число (%s)" % fps_text)
+	var shown := ""
+	for c in gm.hud.get_children():
+		shown += _texts(c)
+	check("РУЧНИК" not in shown and "СЛОУ-МО" not in shown and "РЕСТАРТ" not in shown,
+		"с HUD убрана строка с раскладкой клавиш")
+	gm.hud.set_fps_visible(false)
+	check(not gm.hud._fps_label.visible, "настройка скрывает счётчик кадров")
+	gm.hud.set_fps_visible(true)
+
 	# 5) возврат в меню: сцена-харнес отцепляется, иначе её снесёт вместе с проверками
 	get_tree().current_scene = null
 	b.emit_signal("pressed")
@@ -118,6 +145,13 @@ func _ready() -> void:
 		"menu button returns to main menu (%s)" % str(get_tree().current_scene.scene_file_path if get_tree().current_scene else null))
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
+
+func _texts(n: Node) -> String:
+	var out := ""
+	if n is Label: out += (n as Label).text
+	for c in n.get_children():
+		out += _texts(c)
+	return out
 
 # Самый вложенный Control с mouse_filter != IGNORE, накрывающий точку. Обходим
 # ГЛУБИНОЙ, а не шириной: затемнение оверлея накрывает всю карту и тоже ловит мышь,

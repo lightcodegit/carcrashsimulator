@@ -2,3 +2,6 @@
 *.tmp
 .tmp_*.log
 tests/out/
+
+# артефакты экспорта: godot --export пишет их в корень проекта, в git им не место
+Car Crash Simulator.*

@@ -68,5 +68,46 @@ func _ready() -> void:
 		check(l <= float(band[4]), "%s: полоса не выжжена (%.3f > %.3f)" % [band[0], l, float(band[4])])
 		check(float(clipped) / maxf(float(n), 1.0) < 0.25, "%s: не больше четверти пикселей в клиппинге" % band[0])
 		if band[0] == "НЕБО": check(blueish, "небо синее, а не серое (r=%.3f b=%.3f)" % [m.x, m.z])
+	# Кузов считаем отдельно: проецируем его габарит в экран и меряем яркость ровно там,
+	# где машина. Жалоба «машина чёрная» — это не средняя по кадру (там кузов светлее
+	# асфальта), а доля почти чёрных пикселей именно в его рамке.
+	var box := _car_box(img, Vector2(img.get_width(), img.get_height()))
+	var sum2 := Vector3.ZERO
+	var n2 := 0
+	var dark := 0
+	var y := int(box.position.y)
+	while y < int(box.end.y):
+		var x := int(box.position.x)
+		while x < int(box.end.x):
+			var col := img.get_pixel(x, y)
+			var cl := 0.2126 * col.r + 0.7152 * col.g + 0.0722 * col.b
+			sum2 += Vector3(col.r, col.g, col.b)
+			if cl < 0.05: dark += 1
+			n2 += 1
+			x += 1
+		y += 1
+	var m2 := sum2 / maxf(float(n2), 1.0)
+	var dark_frac := float(dark) / maxf(float(n2), 1.0)
+	var lum2 := 0.2126 * m2.x + 0.7152 * m2.y + 0.0722 * m2.z
+	print("КУЗОВ: рамка %.0fx%.0f, яркость=%.3f, чёрных=%d%%" % [
+		box.size.x, box.size.y, lum2, int(100.0 * dark_frac)])
+	check(dark_frac < 0.08, "кузов не чёрный: почти чёрных пикселей %d%%" % int(100.0 * dark_frac))
+	check(lum2 > 0.15, "кузов различим в кадре (%.3f)" % lum2)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
+
+# Экранная рамка кузова: восемь угков огибающей в мировых координатах проецируются
+# камерой, берём ограничивающий прямоугольник и режем по границам кадра.
+func _car_box(img: Image, size: Vector2) -> Rect2:
+	var c: Vector3 = gm.car.chassis.global_position
+	var lo := Vector2(size)
+	var hi := Vector2.ZERO
+	for sx in [-1.0, 1.0]:
+		for sy in [-0.6, 0.6]:
+			for sz in [-1.0, 1.0]:
+				var p := gm.camera.unproject_position(c + Vector3(sx * 0.9, sy * 0.5, sz * 2.2))
+				lo.x = minf(lo.x, clampf(p.x, 0, size.x - 1))
+				lo.y = minf(lo.y, clampf(p.y, 0, size.y - 1))
+				hi.x = maxf(hi.x, clampf(p.x, 0, size.x - 1))
+				hi.y = maxf(hi.y, clampf(p.y, 0, size.y - 1))
+	return Rect2(lo, hi - lo)

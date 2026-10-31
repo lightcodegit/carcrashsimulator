@@ -24,7 +24,6 @@ var _spec: Label
 var _car_opts: OptionButton
 var _map_opts: OptionButton
 var _preview_name: Label
-var _hint: Label
 var _start_btn: Button
 var _settings: SettingsMenu
 
@@ -302,13 +301,7 @@ func _build_footer() -> void:
 	add_child(_settings)
 	_settings.closed.connect(func() -> void:
 		_settings.close()      # не просто visible = false: экран помнит, что он открыт
-		_refresh_controls()
 		_start_btn.grab_focus())
-	_hint = _label(Vector2(90, 700), 14, DIM)
-	_hint.size = Vector2(620, 44)
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_hint)
-	_refresh_controls()
 	var ver := _label(Vector2(760, 730), 13, Color(0.45, 0.52, 0.62))
 	ver.text = "МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0"
 	ver.size = Vector2(750, 22)
@@ -333,16 +326,6 @@ func _big_button(text: String, size_px: int) -> Button:
 	b.add_theme_stylebox_override("pressed", hover)
 	b.add_theme_stylebox_override("focus", hover)
 	return b
-
-# Раскладка показывается живая: с переопределением клавиш захардкоженная строка
-# начала бы врать игроку сразу после первой смены биндинга.
-func _refresh_controls() -> void:
-	if _hint == null: return
-	var parts := []
-	for a in ["throttle", "brake", "steer_left", "handbrake", "slowmo", "cam_cycle", "respawn", "pause"]:
-		var d := InputRouter.describe(a)
-		if d != "": parts.append("%s: %s" % [InputRouter.TITLES[a], d])
-	_hint.text = " ·  ".join(parts)
 
 func _open_settings() -> void:
 	_settings.open()

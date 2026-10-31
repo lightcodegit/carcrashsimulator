@@ -49,12 +49,14 @@ func _pad_btn(down: bool) -> void:
 	Input.parse_input_event(e)
 
 # у InputEventJoypadMotion нет pressed: состояние передаётся самим axis_value, и курок
-# «удерживается» только если значение приходит при каждом опросе
+# «удерживается» только если значение приходит при каждом опросе. Значение берётся
+# ПОЛНЫМ ходом (1.0 в знак привязки), а не порогом 0.5 из раскладки: иначе сравнение
+# с клавиатурой некорректно — на клавиатуре газ = 1.0.
 func _pad_axis(down: bool) -> void:
 	if _pad_gas == null: return
 	var e := InputEventJoypadMotion.new()
 	e.axis = _pad_gas.axis
-	e.axis_value = absf(_pad_gas.axis_value) if down else 0.0
+	e.axis_value = (signf(_pad_gas.axis_value) if down else 0.0)
 	e.device = 0
 	Input.parse_input_event(e)
 

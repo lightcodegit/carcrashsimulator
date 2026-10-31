@@ -31,7 +31,10 @@ func _ready() -> void:
 	for e in InputMap.action_get_events("handbrake"):
 		if e is InputEventKey: _key_hb = e
 		elif e is InputEventJoypadButton: _pad_hb = e
-	GameContext.select("sedan", "arena")
+	# Замер кривой идёт по городку: на арене и трассе теперь честные горки и бугры
+	# (раньше они были декорацией), и тормозящая машина успевала на них наехать — тест
+	# мерил бы рельеф, а не ручник. Ровный асфальт городка для этого и выбран.
+	GameContext.select("sedan", "town")
 	gm = load("res://scenes/game.tscn").instantiate()
 	add_child(gm)
 	await get_tree().process_frame

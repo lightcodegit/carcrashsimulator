@@ -111,6 +111,11 @@ static func _mesh_faces(m: Mesh) -> PackedVector3Array:
 			for q in v: faces.append(q)
 	return faces
 
+static func _scaled_faces(faces: PackedVector3Array, sc: Vector3) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for p in faces: out.append(Vector3(p.x * sc.x, p.y * sc.y, p.z * sc.z))
+	return out
+
 static var _road_offsets := {}
 
 # Смещение сегмента по высоте: выравниваем по его же ПОЛОТНУ, а не по верхушке меша.
@@ -139,7 +144,14 @@ static func _road_offset(m: Mesh) -> float:
 
 # Сегмент Kenney Racing Kit. road => плита ставится по её ПОЛОТНУ (см. _road_offset).
 # solid => статичный trimesh-коллайдер по геометрии сегмента (рампы и отбойники честные).
-static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, solid: bool, road := false) -> MeshInstance3D:
+# sc — множитель геометрии сегмента. Нужен потому, что у Kenney «лежачий
+# полицейский» в 10 раз выше настоящего: как горка он безобиден, а как твёрдое
+# препятствие на пути машины превращается в стену (замер: на 164 км/ч скорость падала
+# до 13, а исход заезда менялся от сдвига в четыре тика). Масштаб по Y делает из него
+# честный бугор. Коллайдер получает ТО ЖЕ запечённое в грани масштабирование: у тела
+# масштаба нет, и без этого машина летала бы по воздуху над видимой горкой.
+static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, solid: bool, road := false,
+		sc := Vector3.ONE) -> MeshInstance3D:
 	var m: Mesh = load(R + name + ".obj")
 	if m == null:
 		push_warning("MapDB: сегмент трассы не найден " + name)
@@ -148,13 +160,14 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	mi.mesh = m
 	# имя с координатами: одинаковые имена среди соседей Godot молча переименовывает в @MeshInstance3D@N
 	mi.name = "kit_%s_%.0f_%.0f" % [name, pos.x, pos.z]
-	mi.position = pos + Vector3(0, _road_offset(m) if road else 0.0, 0)
+	mi.scale = sc
+	mi.position = pos + Vector3(0, (_road_offset(m) if road else 0.0) * sc.y, 0)
 	mi.rotation.y = deg_to_rad(rot_y_deg)
 	# Плоская плита (≤25 см по высоте) лежит на полу и теней на себя не бросает: тень
 	# плиты падает ровно на тот же пол. Отключать ей тень — чистый выигрыш без
 	# изменения картинки. Трамплин и лежачий полицейский остаются с тенями: они
 	# высокие, и тень у их подножия видна.
-	if road and m.get_aabb().size.y <= 0.25:
+	if road and m.get_aabb().size.y * sc.y <= 0.25:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mi)
 	# после add_child: global_transform узла, которого ещё нет в дереве, не определён
@@ -170,7 +183,7 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		body.rotation.y = mi.rotation.y
 		var cs := CollisionShape3D.new()
 		var shape := ConcavePolygonShape3D.new()
-		shape.set_faces(_mesh_faces(m))
+		shape.set_faces(_scaled_faces(_mesh_faces(m), sc))
 		# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
 		# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
 		shape.backface_collision = true
@@ -247,8 +260,14 @@ static func _flat_faces(m: Mesh, name_key: String) -> Array:
 # Трамплин занимает 10 м из 20-метровой плиты, поэтому плиту под ним не ставят:
 # иначе две копии белой разметки лежат в одной плоскости и мерцают. Остаток длины
 # добираем короткой плитой roadStraight.
+#
+# И горка, и бугор обязаны быть твёрдыми: без коллайдера машина едет по невидимому полу
+# на уровне земли (замер: на трассе при горке в 2.7 м кузов поднимается лишь до 0.38 м),
+# а сбитый предмет проваливается сквозь геометрию и зависает внутри бугра — ровно то, на
+# что жалуются как «объекты проходят сквозь бугры». Trimesh по граням самой модели, а не
+# коробка: коробка поставила бы ступеньку, о которую машина теряла скорость.
 static func ramp(root: Node3D, x: float, z: float) -> void:
-	kit(root, "roadRamp", Vector3(x, 0, z), 90, false, true)
+	kit(root, "roadRamp", Vector3(x, 0, z), 90, true, true)
 	kit(root, "roadStraight", Vector3(x + 10.0, 0, z), 90, false, true)
 
 # Имя с координатами: "." и ":" Godot в именах узлов молча заменяет, а одинаковые имена
@@ -340,6 +359,15 @@ static func _wrap_loose(root: Node3D, visual: Node3D, local: AABB, pos: Vector3,
 	var pm := PhysicsMaterial.new()
 	pm.friction = 1.0             # на скользком предмет уезжает, не успев перевернуться
 	pm.bounce = clampf(6.0 / mass_kg, 0.08, 0.20)    # лёгкое отскакивает сильнее, тяжёлое почти не прыгает
+	# Дороги и пол заведомо с нулевым трением: машина не должна терять скорость от
+	# любого касания (отдельная просьба игрока), а Bullet перемножает трение пары —
+	# 1.0 предмета о 0.0 пола даёт те же нули. Без гашения сбитый конус уезжал и не
+	# останавливался никогда. Режим REPLACE, потому что в проекте default_linear_damp
+	# стоит в 0, а ADD прибавлял бы ноль к значению материала, а не к нашему.
+	body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	body.linear_damp = 1.6
+	body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	body.angular_damp = 2.4
 	body.physics_material_override = pm
 	body.rotation.y = rot_y
 	body.position = pos
@@ -392,7 +420,7 @@ static func _arena() -> Dictionary:
 		if k != 1:   # плиту x=-20..0 занял лежачий полицейский
 			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, false, true)
 	ramp(root, 20.0, 5.0)
-	kit(root, "roadBump", Vector3(-20, 0, -15), 90, false, true)
+	kit(root, "roadBump", Vector3(-20, 0, -15), 90, true, true, Vector3(1, 0.35, 1))
 	for k in 8:
 		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, 16), 90, false)
 		kit(root, "grass", Vector3(-40.0 + k * 10.0, 0.02, -26), 90, false)
@@ -532,7 +560,7 @@ static func _speedway() -> Dictionary:
 		kit(root, "fenceStraight", Vector3(300.0 + k * 10.0, 0, 9.0), 0, true)
 	kit(root, "overheadLights", Vector3(-6, 0, 6.3), 90, true)
 	kit(root, "radarEquipment", Vector3(420, 0, 10.5), 0, true)
-	kit(root, "roadBump", Vector3(240, 0, 5), 90, false, true)   # вместо плиты k=12
+	kit(root, "roadBump", Vector3(240, 0, 5), 90, true, true, Vector3(1, 0.35, 1))   # вместо плиты k=12
 	for k in 10:
 		kit(root, "treeLarge", Vector3(-10.0 + k * 65.0, 0, -20.0), 0, true)
 		# пилоны стоят прямо на полотне — их и предполагается сбивать

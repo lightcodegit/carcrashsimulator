@@ -101,6 +101,9 @@ func open() -> void:
 	refresh()
 	if not _tabs.is_empty(): _tabs[0].grab_focus()
 
+# Закрыть и сообщить. Флаг снимаем до сигнала, чтобы `is_open()` был честным для
+# любого обработчика: владельцы экрана (главное меню, пауза) тоже зовут close(),
+# но повторный вызов безопасен.
 func close() -> void:
 	_capturing = ""
 	_is_open = false
@@ -185,44 +188,55 @@ func _end_capture() -> void:
 	_capture_label.text = ""
 	refresh()
 
-# Захват ставит в тупик обычную обработку ввода: пока ждём назначение, событие
-# принадлежит этому экрану, а не машине и не паузе.
-func _unhandled_input(event: InputEvent) -> void:
-	if not _is_open: return
-	# Esc вне захвата закрывает сам экран: иначе из настроек, открытых из паузы,
-	# нельзя выйти клавиатурой, а кнопка «ЗАКРЫТЬ» — единственный выход
-	if _capturing == "" and event is InputEventKey and (event as InputEventKey).pressed \
-			and (event as InputEventKey).physical_keycode == KEY_ESCAPE:
-		closed.emit()
-		get_viewport().set_input_as_handled()
-		return
+# Пока ждём назначение, событие перехватываем ДО обработки GUI: кнопка «НАЗНАЧИТЬ»
+# остаётся в фокусе, а Enter и Space — это ещё и ui_accept, поэтому через
+# _unhandled_input назначенный пробел нажимал бы кнопку снова, и захват никогда бы
+# не закончился.
+func _input(event: InputEvent) -> void:
 	if _capturing == "": return
-	if event.is_pressed() and not _is_echo(event):
-		var mapped: InputEvent = null
-		if event is InputEventKey:
-			var code: int = (event as InputEventKey).physical_keycode
-			if code == KEY_ESCAPE:
-				_end_capture()
-				get_viewport().set_input_as_handled()
-				return
-			var k := InputEventKey.new()
-			k.physical_keycode = code
-			mapped = k
-		elif event is InputEventJoypadButton:
-			var b := InputEventJoypadButton.new()
-			b.button_index = (event as InputEventJoypadButton).button_index
-			b.device = (event as InputEventJoypadButton).device
-			mapped = b
-		elif event is InputEventJoypadMotion and absf((event as InputEventJoypadMotion).axis_value) > 0.6:
-			var m := InputEventJoypadMotion.new()
-			m.axis = (event as InputEventJoypadMotion).axis
-			m.axis_value = (event as InputEventJoypadMotion).axis_value
-			m.device = (event as InputEventJoypadMotion).device
-			mapped = m
-		if mapped != null:
-			InputRouter.rebind(_capturing, mapped)
+	if not event.is_pressed() or _is_echo(event): return
+	_take(event)
+	get_viewport().set_input_as_handled()
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Esc вне захвата закрывает сам экран: иначе из настроек, открытых из паузы, нельзя
+	# выйти клавиатурой, а кнопка «ЗАКРЫТЬ» — единственный выход мыши под затемнением
+	if _capturing != "" or not _is_open: return
+	if event is InputEventKey and (event as InputEventKey).pressed \
+			and (event as InputEventKey).physical_keycode == KEY_ESCAPE:
+		_dismiss()
+		get_viewport().set_input_as_handled()
+
+func _dismiss() -> void:
+	close()
+	closed.emit()
+
+# Одно нажатие — одно назначение. Клавиша и устройство пишутся «как есть», без
+# лишних полей: иначе событие не совпадёт с самим собой при сравнении.
+func _take(event: InputEvent) -> void:
+	var mapped: InputEvent = null
+	if event is InputEventKey:
+		var code: int = (event as InputEventKey).physical_keycode
+		if code == KEY_ESCAPE:
 			_end_capture()
-			get_viewport().set_input_as_handled()
+			return
+		var k := InputEventKey.new()
+		k.physical_keycode = code
+		mapped = k
+	elif event is InputEventJoypadButton:
+		var b := InputEventJoypadButton.new()
+		b.button_index = (event as InputEventJoypadButton).button_index
+		b.device = (event as InputEventJoypadButton).device
+		mapped = b
+	elif event is InputEventJoypadMotion and absf((event as InputEventJoypadMotion).axis_value) > 0.6:
+		var m := InputEventJoypadMotion.new()
+		m.axis = (event as InputEventJoypadMotion).axis
+		m.axis_value = (event as InputEventJoypadMotion).axis_value
+		m.device = (event as InputEventJoypadMotion).device
+		mapped = m
+	if mapped == null: return
+	InputRouter.rebind(_capturing, mapped)
+	_end_capture()
 
 static func _is_echo(e: InputEvent) -> bool:
 	return e is InputEventKey and (e as InputEventKey).echo

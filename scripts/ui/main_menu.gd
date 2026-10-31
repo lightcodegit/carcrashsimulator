@@ -243,6 +243,10 @@ func _build_preview() -> void:
 	sv.add_child(_pivot)
 	var cam := Camera3D.new()
 	cam.fov = 38.0
+	# Витрина стоит на месте, а модель под ней крутится из _process — интерполяции
+	# физики тут нечего делать, и без отказа движок предупреждает
+	# «Interpolated Camera3D triggered from outside physics process».
+	cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	# look_at_from_position: обычный look_at требует узел уже в дереве
 	cam.look_at_from_position(Vector3(4.6, 2.35, 5.4), Vector3(0, 0.72, 0), Vector3.UP)
 	sv.add_child(cam)

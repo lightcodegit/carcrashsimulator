@@ -23,6 +23,10 @@ var _shake := 1.0              # множитель тряски: 0 — каме
 func setup(car: CarRig) -> void:
 	_car = car
 	_have_pos = false
+	# Плавностью заведует _process, и покадровая интерполяция физики нам только мешает:
+	# движок предупреждает «Interpolated Camera3D triggered from outside physics process»,
+	# потому что мы ставим трансформ вне физического тика.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	apply_settings()
 
 # Отдельно от _ready: настройка тряски меняется на глазах, в том числе из меню паузы.

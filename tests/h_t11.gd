@@ -49,8 +49,12 @@ func _ready() -> void:
 			check(long_shadow, "%s/%s тени хватает за машину с запасом" % [map_id, car_id])
 			# окружение: физическое небо, дымка и экранный непрямой свет — иначе кузова
 			# в тени домов остаются чёрными, а дальние карты обрываются
-			check(env != null and env.sky != null and env.sky.sky_material is PhysicalSkyMaterial,
-				"%s/%s небо физическое" % [map_id, car_id])
+			# Небо — процедурный градиент: физическое на этом движке даёт «молоко»
+			# (замер: синий минус красный 0.046 против 0.121). Проверяется сам факт
+			# gradient-неба с синим зенитом, а не конкретный класс материала.
+			var sm := (env.sky.sky_material if env != null and env.sky != null else null) as ProceduralSkyMaterial
+			check(sm != null and sm.sky_top_color.b > sm.sky_top_color.r + 0.3,
+				"%s/%s небо — градиент с синим зенитом" % [map_id, car_id])
 			check(env != null and env.fog_enabled and env.fog_density > 0.0,
 				"%s/%s дымка включена" % [map_id, car_id])
 			# SSIL живёт только на Forward+: на Compatibility движок его не знает, и

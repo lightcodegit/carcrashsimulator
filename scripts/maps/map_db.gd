@@ -19,13 +19,15 @@ static func _mat(color: Color) -> StandardMaterial3D:
 	# асфальт из ассетов, иначе они выглядят бумажными на его фоне
 	return Materials.concrete(color)
 
-static func box(root: Node3D, pos: Vector3, size: Vector3, color: Color, rot: Basis = Basis.IDENTITY) -> StaticBody3D:
+static func box(root: Node3D, pos: Vector3, size: Vector3, color: Color, rot: Basis = Basis.IDENTITY, no_shadow := false) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.position = pos; body.basis = rot
 	var cs := CollisionShape3D.new(); var sh := BoxShape3D.new()
 	sh.size = size; cs.shape = sh; body.add_child(cs)
 	var pm := PhysicsMaterial.new(); pm.friction = 0.0; body.physics_material_override = pm
-	box_vis(body, Vector3.ZERO, size, color)
+	var vis := box_vis(body, Vector3.ZERO, size, color)
+	# пол бросает тень сам на себя: невидимая работа, а на слабом GPU — самая дорогая
+	if no_shadow: vis.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(body)
 	return body
 
@@ -115,6 +117,12 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	mi.name = "kit_%s_%.0f_%.0f" % [name, pos.x, pos.z]
 	mi.position = pos + Vector3(0, _road_offset(m) if road else 0.0, 0)
 	mi.rotation.y = deg_to_rad(rot_y_deg)
+	# Плоская плита (≤25 см по высоте) лежит на полу и теней на себя не бросает: тень
+	# плиты падает ровно на тот же пол. Отключать ей тень — чистый выигрыш без
+	# изменения картинки. Трамплин и лежачий полицейский остаются с тенями: они
+	# высокие, и тень у их подножия видна.
+	if road and m.get_aabb().size.y <= 0.25:
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mi)
 	if solid:
 		var body := StaticBody3D.new()
@@ -257,7 +265,7 @@ static func build(id: String) -> Dictionary:
 
 static func _arena() -> Dictionary:
 	var root := Node3D.new(); root.name = "Arena"
-	box(root, Vector3(0, FLOOR_Y - 1.0, 0), Vector3(200, 2, 200), Color(0.55, 0.55, 0.57))
+	box(root, Vector3(0, FLOOR_Y - 1.0, 0), Vector3(200, 2, 200), Color(0.55, 0.55, 0.57), Basis.IDENTITY, true)
 	var wc := Color(0.35, 0.35, 0.38)
 	box(root, Vector3(0, 4, -100), Vector3(200, 8, 1), wc)
 	box(root, Vector3(0, 4, 100), Vector3(200, 8, 1), wc)
@@ -316,7 +324,7 @@ static func _arena() -> Dictionary:
 
 static func _town() -> Dictionary:
 	var root := Node3D.new(); root.name = "Town"
-	box(root, Vector3(0, FLOOR_Y - 1.0, 0), Vector3(300, 2, 300), Color(0.42, 0.42, 0.45))
+	box(root, Vector3(0, FLOOR_Y - 1.0, 0), Vector3(300, 2, 300), Color(0.42, 0.42, 0.45), Basis.IDENTITY, true)
 	var rng := RandomNumberGenerator.new(); rng.seed = 20261029
 	# улицы из плит Racing Kit: главная вдоль z = -24 и вторая вдоль z = 36
 	for k in 14:
@@ -381,7 +389,7 @@ static func _town() -> Dictionary:
 
 static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"
-	box(root, Vector3(280, FLOOR_Y - 1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34))
+	box(root, Vector3(280, FLOOR_Y - 1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34), Basis.IDENTITY, true)
 	# полотно из плит Kenney Racing Kit (10 x 20), дорога вдоль +X, центр по z = 0
 	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, true, true)          # стартовая арка
 	for k in 31:

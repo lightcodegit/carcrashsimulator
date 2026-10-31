@@ -12,9 +12,12 @@ var _top_crash := 0.0
 var _crashes := 0
 var _paused := false
 var _flip := 0.0
+var _start_ms := 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # Esc и «в меню» должны работать и на паузе
+	_release_inputs()
+	TimeScale.set_hold(false)     # слоу-мо не должно переезжать в новый заезд
 	_setup_env()
 	var m: Dictionary = MapDB.build(GameContext.map_id)
 	_spawn = m.spawn
@@ -40,7 +43,17 @@ func _ready() -> void:
 	add_child(hud)
 	hud.bind(car)
 	hud.menu_requested.connect(_to_menu)
+	_start_ms = Time.get_ticks_msec()
+	hud.resume_requested.connect(func() -> void: _set_paused(false))
+	hud.restart_requested.connect(_restart_map)
 	car.impact.connect(_on_impact)
+
+# Состояние действий переживает смену сцены: уход в меню с зажатым W возвращал в игру
+# уже с нажатым газом и ручником, и машина начинала движение сама. Отжимаем всё перед
+# сборкой заезда — это release по уже известным именам, новых состояний не заводим.
+func _release_inputs() -> void:
+	for a in InputMap.get_actions():
+		Input.action_release(a)
 
 func _setup_env() -> void:
 	var we := WorldEnvironment.new()
@@ -111,7 +124,10 @@ func _physics_process(dt: float) -> void:
 	if _paused: return
 	TimeScale.set_hold(Input.is_action_pressed("slowmo"))
 	var pos := car.chassis.global_position
-	if pos.y < -60.0 or not _bounds.has_point(pos):
+	# Верхнюю границу не проверяем: над картой ничего не держит, и прыгнуть высоко —
+	# это фича песочницы, а не вылет. Проверка только по горизонтали (y = 0 заведомо
+	# внутри AABB), плюс провал под пол.
+	if pos.y < -60.0 or not _bounds.has_point(Vector3(pos.x, 0.0, pos.z)):
 		_respawn_now()
 		hud.show_tip("вылет за пределы — рестарт")
 		return
@@ -141,7 +157,25 @@ func _set_paused(v: bool) -> void:
 	if v: TimeScale.set_hold(false)
 	get_tree().paused = v
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS if v else Node.PROCESS_MODE_INHERIT
+	if v: hud.set_run_stats(run_summary())
 	hud.set_paused(v)
+
+# Сводка заезда в меню паузы: игрок уходит из игры на секунду и хочет увидеть, чем
+# именно кончился заход, а не вспоминать это по памяти.
+func run_summary() -> String:
+	var secs := int((Time.get_ticks_msec() - _start_ms) / 1000)
+	return "УДАРОВ %d · ЛУЧШИЙ %d КМ/Ч · %02d:%02d · %s / %s" % [
+		_crashes, int(_top_crash), secs / 60, secs % 60,
+		GameContext.car_id.to_upper(), GameContext.map_id.to_upper()]
+
+# Тот же спавн на той же карте, без пересборки сцены: дёргать change_scene ради
+# «начать заново» — значит на полсекунды потерять картинку ради того же результата.
+func _restart_map() -> void:
+	_crashes = 0
+	_top_crash = 0.0
+	_respawn_now()
+	hud.set_crash_stats(0, 0.0)
+	_set_paused(false)
 
 func _to_menu() -> void:
 	get_tree().paused = false

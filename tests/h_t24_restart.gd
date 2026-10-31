@@ -46,6 +46,18 @@ func _aabb(n: Node3D) -> AABB:
 		for k in c.get_children(): stack.append(k)
 	return m
 
+# Настоящее нажатие кнопки: событие уходит через viewport, его читает
+# GameManager._unhandled_input. Между нажатием и отпусканием — физический тик,
+# иначе is_action_pressed() не успевает сработать.
+func _tap(key: int) -> void:
+	var ev := InputEventKey.new()
+	ev.physical_keycode = key
+	ev.pressed = true
+	get_viewport().push_input(ev)
+	await get_tree().physics_frame
+	ev.pressed = false
+	get_viewport().push_input(ev)
+
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
@@ -145,5 +157,28 @@ func _ready() -> void:
 	check(gm.car.speed_kmh() < 2.0, "после R машина стоит (%.1f км/ч)" % gm.car.speed_kmh())
 	check(absf(angle_difference(gm.car.heading, gm._spawn.basis.get_euler().y)) < 0.05,
 		"после R курс совпадает со спавном (%.2f рад)" % gm.car.heading)
+
+	# Что игрок видит, а не что посчитала физика: позиция на экране (с интерполяцией
+	# она может отставать от тика) и камера рядом с машиной. Повторная жалоба на R —
+	# «машина не рестартится, а просто сбрасывает скорость до нуля» — это про кадр,
+	# поэтому меряется по get_global_transform_interpolated(), а не по global_position.
+	var shown := gm.car.chassis.get_global_transform_interpolated().origin
+	check(Vector2(shown.x - gm._spawn.origin.x, shown.z - gm._spawn.origin.z).length() < 1.0,
+		"R: на экране машина на спавне (рисуется x=%.1f z=%.1f, спавн x=%.1f)" % [
+			shown.x, shown.z, gm._spawn.origin.x])
+	check(gm.camera.global_position.distance_to(gm.car.chassis.global_position) < 14.0,
+		"R: камера после рестарта рядом с машиной (%.1f м)" %
+		gm.camera.global_position.distance_to(gm.car.chassis.global_position))
+	check(gm.hud._tip_label.visible, "R: рестарт подписан на экране")
+
+	# R на паузе: игрок жмёт его, чтобы начать заново, а не чтобы выбираться из меню.
+	gm._set_paused(true)
+	await get_tree().physics_frame
+	await _tap(KEY_R)
+	for _i in 8:
+		await get_tree().physics_frame
+	check(not gm._paused, "R на паузе снимает паузу (%s)" % str(gm._paused))
+	check(absf(gm.car.chassis.global_position.x - gm._spawn.origin.x) < 1.0,
+		"R на паузе возвращает на спавн (x=%.1f)" % gm.car.chassis.global_position.x)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

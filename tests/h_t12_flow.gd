@@ -39,14 +39,25 @@ func _ready() -> void:
 	check(gm.car.body.dent_count == 0, "dent count cleared after respawn")
 	check(gm.car.body.deformation() < 1e-6, "body restored after respawn (%.6f)" % gm.car.body.deformation())
 
-	# 3) Esc — пауза, R на паузе игнорируется, Esc — выход
+	# 3) Esc — пауза, R на паузе начинает заезд заново и снимает паузу, Esc — выход.
+	# Прежде R на паузе молча пропадал: игрок жаловался, что «R не рестартит, а только
+	# сбрасывает скорость» — теперь эта же кнопка работает в обоих состояниях.
 	_key(KEY_ESCAPE)
 	await get_tree().process_frame
 	check(gm._paused and get_tree().paused, "esc pauses")
 	gm.car.body.apply_impact(nose, Vector3(1, 0, 0), 90.0)
+	gm.car.chassis.global_position = Vector3(60.0, 1.0, 0.0)
 	_key(KEY_R)
 	await get_tree().process_frame
-	check(gm.car.body.dent_count > 0, "respawn ignored while paused")
+	check(not gm._paused and not get_tree().paused,
+		"R на паузе снимает паузу (_paused=%s, tree=%s)" % [str(gm._paused), str(get_tree().paused)])
+	check(gm.car.body.dent_count == 0, "R на паузе рестартует заезд (вмятин %d)" % gm.car.body.dent_count)
+	check(absf(gm.car.chassis.global_position.x - gm._spawn.origin.x) < 1.0,
+		"R на паузе возвращает машину на спавн (x=%.1f)" % gm.car.chassis.global_position.x)
+	check(gm.hud._tip_label.visible, "рестарт виден игроку: на экране есть подпись")
+	_key(KEY_ESCAPE)
+	await get_tree().process_frame
+	check(gm._paused and get_tree().paused, "esc pauses again")
 	_key(KEY_ESCAPE)
 	await get_tree().process_frame
 	check(not gm._paused and not get_tree().paused, "esc resumes")

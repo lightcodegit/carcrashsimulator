@@ -15,7 +15,10 @@ const DEFAULTS := {
 	# Ручник на геймпаде — и крестик, и L1: на консолях ручную стояночную почти всегда
 	# ждут на плечевой кнопке, и второй вариант ничего не стоит
 	"handbrake":  {"keys": [[KEY_SPACE]], "joy": [["button", 0], ["button", 9]]},
-	"slowmo":     {"keys": [[KEY_SHIFT]], "joy": [["button", 1]]},
+	# Нитро на Shift — гоночная привычка; Слоу-мо уступает ей Shift и переезжает на Ctrl,
+	# потому что две болезни на одной кнопке игрок почувствует как «сломался Shift».
+	"nitro":      {"keys": [[KEY_SHIFT]], "joy": [["button", 10]]},
+	"slowmo":     {"keys": [[KEY_CTRL]], "joy": [["button", 1]]},
 	"cam_cycle":  {"keys": [[KEY_C]], "joy": [["button", 2]]},
 	"respawn":    {"keys": [[KEY_R]], "joy": [["button", 3]]},
 	"pause":      {"keys": [[KEY_ESCAPE]], "joy": [["button", 6]]},

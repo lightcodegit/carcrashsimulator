@@ -5,17 +5,45 @@ extends Node3D
 
 var _sparks: CPUParticles3D
 var _dust: CPUParticles3D
+var _flames: CPUParticles3D
 var _spark_until := 0
 
 func attach(car: CarRig) -> void:
 	_sparks = _mk_particles(Color(1.0, 0.82, 0.35), 42, 0.9)
 	_dust = _mk_particles(Color(0.62, 0.6, 0.58, 0.5), 26, 2.0)
+	_flames = _mk_flames(car)
 	add_child(_sparks)
 	add_child(_dust)
+	add_child(_flames)
 	if get_parent(): get_parent().remove_child(self)
 	car.chassis.add_child(self)
 	position = Vector3.ZERO
 	car.impact.connect(_on_impact)
+	car.nitro_changed.connect(_on_nitro)
+
+# Язык пламени из-за заднего бампера. Нос машины — это локальный +Z (см. YAW_OFFSET),
+# поэтому выхлоп смотрит в −Z и частицы живут в мировых координатах: на 200 км/ч они
+# остаются в воздухе за машиной, а не летят вместе с ней.
+func _mk_flames(car: CarRig) -> CPUParticles3D:
+	var p := _mk_particles(Color(0.45, 0.75, 1.0, 0.85), 60, 0.22)
+	p.one_shot = false
+	p.explosiveness = 0.0
+	p.amount = 60
+	p.lifetime = 0.22
+	p.preprocess = 0.0
+	p.direction = Vector3(0.0, 0.08, -1.0)
+	p.spread = 9.0
+	p.gravity = Vector3.ZERO
+	p.initial_velocity_min = 7.0
+	p.initial_velocity_max = 13.0
+	p.scale_amount_min = 0.10
+	p.scale_amount_max = 0.26
+	p.emitting = false
+	p.position = Vector3(0.0, car.params.wheel_r * 0.55, -car.params.length * 0.5 - 0.12)
+	return p
+
+func _on_nitro(active: bool) -> void:
+	_flames.emitting = active
 
 func _mk_particles(color: Color, amount: int, lifetime: float) -> CPUParticles3D:
 	var p := CPUParticles3D.new()

@@ -268,6 +268,7 @@ func _load_car(id: String) -> void:
 	_pivot.add_child(_car_node)
 	var a: AABB = DentBody.measure(p.model).aabb
 	var s := 2.6 / maxf(0.001, a.size.z)          # нормируем длину модели в превью
+	Materials.apply_tree(_car_node, "car")
 	_car_node.scale = Vector3.ONE * s
 	_car_node.position = Vector3(-a.get_center().x * s, -a.position.y * s, -a.get_center().z * s)
 	_preview_name.text = id.to_upper()

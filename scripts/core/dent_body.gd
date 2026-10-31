@@ -149,11 +149,9 @@ func _build_deformable() -> void:
 	_build_weld()
 	# материал автора (колormap, шероховатость) — дублируем и добавляем только vertex color
 	# для ободранных вмятин: собственный metallic затемнял кузов до чёрного
-	var base_mat: Material = src.surface_get_material(0)
-	if base_mat is StandardMaterial3D:
-		_mat = (base_mat as StandardMaterial3D).duplicate() as StandardMaterial3D
-	else:
-		_mat = StandardMaterial3D.new()
+	# лак и металличность поверх материала автора: без них кузов матовый и в тени
+	# выглядит чёрным. vertex color нужен самому DentBody — им красится ободранная краска.
+	_mat = Materials.car_paint(src.surface_get_material(0))
 	_mat.vertex_color_use_as_albedo = true
 	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mesh = ArrayMesh.new()

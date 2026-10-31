@@ -4,23 +4,6 @@ var _fails := 0
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
-func _collect_props(n: Node, out: Array) -> void:
-	if n is Node3D and String(n.name).ends_with(".glb"):
-		out.append(n)
-	for c in n.get_children():
-		_collect_props(c, out)
-
-func _local_aabb(n: Node3D) -> AABB:
-	var merged := AABB()
-	var first := true
-	for c in n.get_children():
-		var mi := c as MeshInstance3D
-		if mi == null: continue
-		var g: AABB = mi.transform * mi.get_aabb()
-		if first: merged = g; first = false
-		else: merged = merged.merge(g)
-	return merged
-
 # Дорожные плиты не должны лежать друг на друге: две копии белой разметки в одной
 # плоскости мерцают (z-fighting). Трамплин и лежачий полицейский занимают свою плиту.
 func _road_overlaps(root: Node3D) -> Array[String]:
@@ -55,9 +38,15 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		var space := get_world_3d().direct_space_state
 		var from := spawn.origin + Vector3(0, 2.0, 0)
-		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -3.0, 0)))
-		check(not hit.is_empty(), "%s spawn over ground" % id)
-		check(absf(hit.position.y - 0.0) < 0.06, "%s floor top y≈0 (%.2f)" % [id, hit.position.y])
+		# луч длиннее, чем от спавна до пола: верх пола на 1 см ниже нуля (см. FLOOR_Y),
+		# и коротким лучом в самый ноль мы бы его не видели
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -5.0, 0)))
+		if hit.is_empty():
+			check(false, "%s spawn over ground" % id)
+		else:
+			# пол карты на 1 см ниже нуля (FLOOR_Y), а плиты лежат поверх него
+			check(hit.position.y > MapDB.FLOOR_Y - 0.001 and hit.position.y < 0.20,
+				"%s: под спавном пол (%.3f)" % [id, hit.position.y])
 		for dx in [-2.0, 2.0]:
 			for dz in [-1.0, 1.0]:
 				var h2 := space.intersect_ray(PhysicsRayQueryParameters3D.create(m.spawn.origin + Vector3(dx, 2.5, dz), m.spawn.origin + Vector3(dx, 0.05, dz)))

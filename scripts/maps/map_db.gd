@@ -5,11 +5,13 @@ extends RefCounted
 
 const A := "res://assets/city/"
 const R := "res://assets/racing/"
-const ROAD_Y := -0.2      # плиты дорог Kenney Racing Kit высотой 0.2: топим, чтобы верх был на y = 0
+const ROAD_Y := -0.2      # запас для сегментов без плоского полотна (у рампы полотно наклонено)
+const ROAD_TOP := 0.03    # world y, на которую кладём полотно плиты
+const FLOOR_Y := -0.01   # верх процедурного пола: на сантиметр НИЖЕ нуля, в котором стоят предметы
 const P := "res://assets/props/"
 const CARS := "res://assets/cars/"
 const PROP := 1.2          # масштаб пропов: тот же, что у машины игрока (width 1.8 из 1.5)
-const WALK_Y := 0.2        # верх тротуара в городке: предметы на нём ставим на эту высоту
+const WALK_Y := 0.21       # предметы на тротуаре (его верх 0.20): на сантиметр выше плоскости, иначе база предмета мерцает
 const GROUP_PARKED := "parked_car"
 
 static func _mat(color: Color) -> StandardMaterial3D:
@@ -74,7 +76,33 @@ static func _mesh_faces(m: Mesh) -> PackedVector3Array:
 			for q in v: faces.append(q)
 	return faces
 
-# Сегмент Kenney Racing Kit. road => плита топится на ROAD_Y, чтобы полотно легло на y = 0.
+static var _road_offsets := {}
+
+# Смещение сегмента по высоте: выравниваем по его же ПОЛОТНУ, а не по верхушке меша.
+#
+# Плита Kenney — это корыто из трёх уровней: трава y=0.0, асфальт y=0.1, белые бордюрные
+# полосы y=0.2 (замерено по геометрии roadStraightLong). Прежнее «топим на половину
+# высоты» клало асфальт на y=-0.1, то есть ПОД невидимый пол карты (у того верх ровно
+# y=0), и тогда сам асфальт был не виден, а белая полоса попадала точно в плоскость пола
+# — отсюда и мерцание разметки, на которое жаловался игрок. Полотно поднимаем на 3 см над
+# полом: этого хватает глубине буфера формата, и полосы остаются на 10 см выше асфальта,
+# как настоящий поребрик.
+static func _road_offset(m: Mesh) -> float:
+	var key := m.resource_path
+	if _road_offsets.has(key): return _road_offsets[key]
+	var got := INF
+	for s in m.get_surface_count():
+		var mat := m.surface_get_material(s)
+		if mat == null or mat.resource_name != "road": continue
+		var v: PackedVector3Array = m.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]
+		for p in v:
+			# минимум по вершинам: у плоской плиты он равен её высоте, у рампы — низу въезда
+			got = minf(got, p.y)
+	var off := ROAD_TOP - (got if is_finite(got) else -ROAD_Y)
+	_road_offsets[key] = off
+	return off
+
+# Сегмент Kenney Racing Kit. road => плита ставится по её ПОЛОТНУ (см. _road_offset).
 # solid => статичный trimesh-коллайдер по геометрии сегмента (рампы и отбойники честные).
 static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, solid: bool, road := false) -> MeshInstance3D:
 	var m: Mesh = load(R + name + ".obj")
@@ -85,7 +113,7 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	mi.mesh = m
 	# имя с координатами: одинаковые имена среди соседей Godot молча переименовывает в @MeshInstance3D@N
 	mi.name = "kit_%s_%.0f_%.0f" % [name, pos.x, pos.z]
-	mi.position = pos + Vector3(0, ROAD_Y if road else 0.0, 0)
+	mi.position = pos + Vector3(0, _road_offset(m) if road else 0.0, 0)
 	mi.rotation.y = deg_to_rad(rot_y_deg)
 	root.add_child(mi)
 	if solid:
@@ -229,7 +257,7 @@ static func build(id: String) -> Dictionary:
 
 static func _arena() -> Dictionary:
 	var root := Node3D.new(); root.name = "Arena"
-	box(root, Vector3(0, -1.0, 0), Vector3(200, 2, 200), Color(0.55, 0.55, 0.57))
+	box(root, Vector3(0, FLOOR_Y - 1.0, 0), Vector3(200, 2, 200), Color(0.55, 0.55, 0.57))
 	var wc := Color(0.35, 0.35, 0.38)
 	box(root, Vector3(0, 4, -100), Vector3(200, 8, 1), wc)
 	box(root, Vector3(0, 4, 100), Vector3(200, 8, 1), wc)
@@ -288,7 +316,7 @@ static func _arena() -> Dictionary:
 
 static func _town() -> Dictionary:
 	var root := Node3D.new(); root.name = "Town"
-	box(root, Vector3(0, -1.0, 0), Vector3(300, 2, 300), Color(0.42, 0.42, 0.45))
+	box(root, Vector3(0, FLOOR_Y - 1.0, 0), Vector3(300, 2, 300), Color(0.42, 0.42, 0.45))
 	var rng := RandomNumberGenerator.new(); rng.seed = 20261029
 	# улицы из плит Racing Kit: главная вдоль z = -24 и вторая вдоль z = 36
 	for k in 14:
@@ -353,7 +381,7 @@ static func _town() -> Dictionary:
 
 static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"
-	box(root, Vector3(280, -1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34))
+	box(root, Vector3(280, FLOOR_Y - 1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34))
 	# полотно из плит Kenney Racing Kit (10 x 20), дорога вдоль +X, центр по z = 0
 	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, true, true)          # стартовая арка
 	for k in 31:

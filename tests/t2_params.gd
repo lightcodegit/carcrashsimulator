@@ -5,7 +5,7 @@ func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
 func _initialize() -> void:
-	var ids := ["sedan", "pickup", "sport", "infinity"]
+	var ids := VehicleDB.ids()      # список берём из базы: новый кузов сам попадёт в проверку
 	var by_id := {}
 	for id in ids:
 		var p = VehicleDB.get_params(id)
@@ -38,8 +38,47 @@ func _initialize() -> void:
 	check(by_id["infinity"].accel_max > by_id["sport"].accel_max, "infinity accelerates hardest")
 	check(is_finite(by_id["infinity"].brake_decel), "infinity still stops like a car")
 	check(by_id["sport"].accel_max > by_id["sedan"].accel_max, "sport accelerates harder")
-	check(by_id["pickup"].mass > by_id["sedan"].mass, "pickup is the heaviest")
 	check(by_id["pickup"].width > by_id["sedan"].width, "pickup is the widest")
 	check(by_id["sport"].height < by_id["sedan"].height, "sport is the lowest")
+
+	# Лимузин — самый длинный и самый тяжёлый: это и есть его смысл, иначе «растянутый
+	# кузов» был бы только картинкой.
+	var longest := ""
+	var heaviest := ""
+	for id in ids:
+		if longest == "" or by_id[id].length > by_id[longest].length: longest = id
+		if heaviest == "" or by_id[id].mass > by_id[heaviest].mass: heaviest = id
+	check(longest == "limousine", "лимузин — самая длинная машина (%.2f м)" % by_id["limousine"].length)
+	check(heaviest == "limousine", "лимузин — самая тяжёлая машина (%.0f кг)" % by_id["limousine"].mass)
+	check(by_id["limousine"].length > by_id["sedan"].length * 1.15,
+		"лимузин длиннее седана минимум на 15%% (%.2f против %.2f м)" % [
+			by_id["limousine"].length, by_id["sedan"].length])
+	check(by_id["limousine"].accel_max < by_id["sedan"].accel_max,
+		"лимузин разгоняется хуже седана (%.1f против %.1f)" % [
+			by_id["limousine"].accel_max, by_id["sedan"].accel_max])
+	check(by_id["limousine"].nitro_accel > 0.0, "лимузин тоже с нитро")
+
+	# Растяжение кузова не имеет права трогать колёса: они круглые и крутятся, а
+	# неравномерный масштаб превратил бы их в овалы.
+	var ps: PackedScene = load("res://assets/cars/sedan.glb")
+	var m: Node3D = ps.instantiate()
+	DentBody.stretch_model(m, 1.45)
+	var body_mi: MeshInstance3D = m.get_node("body")
+	var round_ok := true
+	var rear_z := 0.0
+	for c in m.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null: continue
+		var nm := String(mi.name).to_lower()
+		if not nm.begins_with("wheel"): continue
+		var a: AABB = mi.get_aabb()
+		# колесо крутится в плоскости Y/Z: диаметр обязан остаться равным, а X — это
+		# ширина шины, она диаметру не равна по определению
+		if absf(a.size.y - a.size.z) > 0.001: round_ok = false
+		if nm.contains("back"): rear_z = minf(rear_z, mi.position.z)
+	check(body_mi.scale.z > 1.4, "лимузин: кузов растянут по длине (×%.2f)" % body_mi.scale.z)
+	check(round_ok, "лимузин: колёса остались круглыми")
+	check(rear_z < -1.0, "лимузин: задняя ось уехала назад (z=%.2f)" % rear_z)
+	m.free()
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	quit(0 if _fails == 0 else 1)

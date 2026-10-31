@@ -46,10 +46,11 @@ var _scale := 1.0
 
 # Габариты импортированной модели в её собственных единицах и радиус колеса
 # (узел в дерево не добавляется).
-static func measure(scene_path: String) -> Dictionary:
+static func measure(scene_path: String, stretch := 1.0) -> Dictionary:
 	var ps: PackedScene = load(scene_path)
 	if ps == null: return {"aabb": AABB(), "wheel_r": 0.0}
 	var n: Node3D = ps.instantiate()
+	stretch_model(n, stretch)
 	var merged := _aabb_in(n)
 	var wb := _wheels_bounds(n)
 	n.free()
@@ -79,6 +80,28 @@ static func _aabb_in(n: Node3D) -> AABB:
 		else: merged = merged.merge(g)
 	return merged
 
+# Лимузин — это растянутый по длине седан из того же CC0-набора: кузов длиннее, задняя
+# ось уехала назад, передок остался там, где был. Колёса не масштабируются НИКОГДА:
+# неравномерный масштаб сделал бы из них овалы, а они крутятся.
+static func stretch_model(model: Node3D, k: float) -> void:
+	if absf(k - 1.0) < 1e-3: return
+	var body: MeshInstance3D = null
+	var rear: Array[MeshInstance3D] = []
+	for c in model.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null: continue
+		var nm := String(c.name).to_lower()
+		if nm == "body": body = mi
+		elif nm.begins_with("wheel") and (nm.contains("back") or nm.contains("rear")): rear.append(mi)
+	if body == null: return
+	# aabb узла в его местных координатах: половина длины кузова от его центра
+	var half := maxf(absf(body.get_aabb().position.z), absf(body.get_aabb().end.z))
+	var grow := half * (k - 1.0)
+	body.scale = Vector3(body.scale.x, body.scale.y, body.scale.z * k)
+	body.position.z -= grow                 # прирост уходит в зад, нос на месте
+	for w in rear:
+		w.position.z -= grow * 2.0          # задняя ось держится за задок кузова
+
 func setup(scene_path: String, p: VehicleParams) -> void:
 	params = p
 	var ps: PackedScene = load(scene_path)
@@ -86,6 +109,7 @@ func setup(scene_path: String, p: VehicleParams) -> void:
 		push_error("DentBody: модель не найдена " + scene_path)
 		return
 	var model: Node3D = ps.instantiate()
+	stretch_model(model, p.body_stretch)
 	add_child(model)
 	var body_mi: MeshInstance3D = null
 	for c in model.get_children():

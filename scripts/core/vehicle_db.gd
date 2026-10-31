@@ -5,7 +5,7 @@ extends RefCounted
 # добавленный в match ниже, обязан появиться и здесь — иначе он останется невидимым
 # для теста и для игрока.
 static func ids() -> Array[String]:
-	return ["sedan", "pickup", "infinity", "sport"]
+	return ["sedan", "pickup", "limousine", "infinity", "sport"]
 
 static func get_params(id: String) -> VehicleParams:
 	var p := VehicleParams.new()
@@ -30,6 +30,17 @@ static func get_params(id: String) -> VehicleParams:
 			p.mass = 900; p.accel_max = 45.0; p.vmax_kmh = INF; p.brake_decel = 12.3
 			p.steer_rate_deg = 260; p.grip = 12.0; p.width = 1.9
 			p.accent_color = Color(0.62, 0.28, 0.95)
+		"limousine":
+			# Лимузин — растянутый кузов седана (DentBody.stretch_model): длиннее на 45%,
+			# задняя ось уехала назад. Тяжёлый, длинный и потому медленный: разгон,
+			# тормоз и нитро слабее, чем у спорткара — иначе длинный кузов был бы просто
+			# быстрой машиной с другой картинкой.
+			p.model = "res://assets/cars/sedan.glb"
+			p.body_stretch = 1.45
+			p.mass = 2100; p.accel_max = 5.6; p.vmax_kmh = 175; p.brake_decel = 8.0
+			p.steer_rate_deg = 130; p.grip = 6.0; p.width = 1.9
+			p.accent_color = Color(0.10, 0.11, 0.16)
+			p.nitro_accel = 5.5; p.nitro_vmax = 1.25
 		"sport":
 			p.model = "res://assets/cars/race.glb"
 			p.mass = 1050; p.accel_max = 11.0; p.vmax_kmh = 210; p.brake_decel = 12.3
@@ -38,7 +49,7 @@ static func get_params(id: String) -> VehicleParams:
 		_:
 			return null
 	# габариты берём из модели: единый равномерный масштаб под целевую ширину
-	var m := DentBody.measure(p.model)
+	var m := DentBody.measure(p.model, p.body_stretch)
 	var aabb: AABB = m.aabb
 	var s := p.width / maxf(0.001, aabb.size.x)
 	p.length = aabb.size.z * s

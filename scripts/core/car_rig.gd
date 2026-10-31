@@ -36,6 +36,7 @@ const RECENT_DECAY := 96.0         # км/ч за секунду
 const YAW_OFFSET := PI * 0.5       # VehicleBody3D едет носом в +Z (проверено), а проект живёт в «+X вперёд»
 const SKID_SLIDE_START := 0.18     # боковой увод, с которого резина начинает чертить
 const SKID_MIN_MS := 3.0           # медленнее — след не оставляем
+const SLIP_FULL := 0.45            # боковой увод, при котором шин уже не осталось
 
 var params: VehicleParams
 var chassis: VehicleBody3D
@@ -54,6 +55,10 @@ var _roll: Array[float] = []
 var _mount_y: Array[float] = []
 var _susp_static := 0.0
 var _skid: PackedFloat32Array = PackedFloat32Array()
+# 0 = шины держат прямо, 1 = машина едет боком (отношение боковой составляющей
+# скорости к продольной). Наружу отдаётся уже с учётом ручника: на ручнике увод
+# считается сорванным всегда, иначе индикатор сцепления показывал бы «держит».
+var slip := 0.0
 var _hist: Array[Vector3] = []
 var _recent_speed := 0.0
 var _impact_cooldown := 0.0
@@ -257,6 +262,7 @@ func _drive(dt: float) -> void:
 	# даже контррулём. Поэтому без ручника наращиваем затухание рыскания пропорционально
 	# тому, насколько сильно машина едет боком. Именно свойство angular_damp, а не правка
 	# angular_velocity: запись скорости из _physics_process ломает подвеску.
+	slip = clampf(1.0 if hand else slide / SLIP_FULL, 0.0, 1.0)
 	var slide_esp := 0.0 if hand else slide
 	if _grounded:
 		chassis.angular_damp = YAW_DAMP + ESP_DAMP * clampf((slide_esp - ESP_SLIDE_START) * 4.0, 0.0, 1.0)

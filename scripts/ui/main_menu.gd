@@ -24,6 +24,9 @@ var _spec: Label
 var _car_opts: OptionButton
 var _map_opts: OptionButton
 var _preview_name: Label
+var _hint: Label
+var _start_btn: Button
+var _settings: SettingsMenu
 
 func _mono_font() -> SystemFont:
 	var f := SystemFont.new()
@@ -277,34 +280,72 @@ func _load_car(id: String) -> void:
 		p.brake_decel, p.steer_rate_deg, p.grip]
 
 func _build_footer() -> void:
-	var start := Button.new()
-	start.text = "ЗАПУСК СИМУЛЯЦИИ"
-	start.add_theme_font_override("font", _mono)
-	start.add_theme_font_size_override("font_size", 24)
-	start.position = Vector2(90, 610)
-	start.size = Vector2(620, 76)
 	var norm := StyleBoxFlat.new()
 	norm.bg_color = Color(0.10, 0.17, 0.24, 0.96)
 	norm.set_border_width_all(1)
 	norm.border_color = ACCENT
 	norm.set_corner_radius_all(5)
-	start.add_theme_stylebox_override("normal", norm)
 	var hover := norm.duplicate() as StyleBoxFlat
 	hover.bg_color = Color(0.16, 0.28, 0.38, 1.0)
-	start.add_theme_stylebox_override("hover", hover)
-	start.add_theme_stylebox_override("pressed", hover)
-	start.add_theme_stylebox_override("focus", hover)
-	start.pressed.connect(_start)
-	add_child(start)
-	var hint := _label(Vector2(90, 706), 14, DIM)
-	hint.text = "WASD/СТРЕЛКИ · SPACE РУЧНИК · SHIFT СЛОУ-МО · C КАМЕРА · R РЕСТАРТ · ESC ПАУЗА · ГЕЙМПАД"
-	hint.size = Vector2(620, 24)
-	add_child(hint)
+	_start_btn = _big_button("ЗАПУСК СИМУЛЯЦИИ", 24)
+	_start_btn.position = Vector2(90, 600)
+	_start_btn.size = Vector2(404, 76)
+	_start_btn.pressed.connect(_start)
+	add_child(_start_btn)
+	var cfg := _big_button("НАСТРОЙКИ", 19)
+	cfg.position = Vector2(514, 600)
+	cfg.size = Vector2(196, 76)
+	cfg.pressed.connect(_open_settings)
+	add_child(cfg)
+	_settings = SettingsMenu.new()
+	_settings.name = "SettingsMenu"
+	add_child(_settings)
+	_settings.closed.connect(func() -> void:
+		_settings.visible = false
+		_refresh_controls()
+		_start_btn.grab_focus())
+	_hint = _label(Vector2(90, 700), 14, DIM)
+	_hint.size = Vector2(620, 44)
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_hint)
+	_refresh_controls()
 	var ver := _label(Vector2(760, 730), 13, Color(0.45, 0.52, 0.62))
 	ver.text = "МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0"
 	ver.size = Vector2(750, 22)
 	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(ver)
+
+func _big_button(text: String, size_px: int) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_ALL
+	b.add_theme_font_override("font", _mono)
+	b.add_theme_font_size_override("font_size", size_px)
+	var norm := StyleBoxFlat.new()
+	norm.bg_color = Color(0.10, 0.17, 0.24, 0.96)
+	norm.set_border_width_all(1)
+	norm.border_color = ACCENT
+	norm.set_corner_radius_all(5)
+	b.add_theme_stylebox_override("normal", norm)
+	var hover := norm.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(0.16, 0.28, 0.38, 1.0)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", hover)
+	b.add_theme_stylebox_override("focus", hover)
+	return b
+
+# Раскладка показывается живая: с переопределением клавиш захардкоженная строка
+# начала бы врать игроку сразу после первой смены биндинга.
+func _refresh_controls() -> void:
+	if _hint == null: return
+	var parts := []
+	for a in ["throttle", "brake", "steer_left", "handbrake", "slowmo", "cam_cycle", "respawn", "pause"]:
+		var d := InputRouter.describe(a)
+		if d != "": parts.append("%s: %s" % [InputRouter.TITLES[a], d])
+	_hint.text = " ·  ".join(parts)
+
+func _open_settings() -> void:
+	_settings.open()
 
 func _start() -> void:
 	GameContext.select(CARS[_car_opts.selected][1], MAPS[_map_opts.selected][1])

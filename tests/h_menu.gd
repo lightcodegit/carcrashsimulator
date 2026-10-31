@@ -13,21 +13,31 @@ func _design_size() -> Vector2:
 
 func _opts(root: Node, out: Array) -> void:
 	for c in root.get_children():
+		if c is Control and not (c as Control).visible: continue
 		if c is OptionButton: out.append(c)
 		_opts(c, out)
 
 func _buttons(root: Node, out: Array) -> void:
 	for c in root.get_children():
+		# скрытые поддеревья не проверяем: экран настроек свёрнут, а его контролы
+		# разложены якорями, которые в headless-вьюпорте 64×64 дают мусор
+		if c is Control and not (c as Control).visible: continue
 		if c is Button and not (c is OptionButton): out.append(c)
 		_buttons(c, out)
 
 func _labels(root: Node, out: Array) -> void:
 	for c in root.get_children():
+		# скрытые поддеревья не проверяем: экран настроек свёрнут, а его контролы
+		# разложены якорями, которые в headless-вьюпорте 64×64 дают мусор
+		if c is Control and not (c as Control).visible: continue
 		if c is Label: out.append(c)
 		_labels(c, out)
 
 func _rich(root: Node, out: Array) -> void:
 	for c in root.get_children():
+		# скрытые поддеревья не проверяем: экран настроек свёрнут, а его контролы
+		# разложены якорями, которые в headless-вьюпорте 64×64 дают мусор
+		if c is Control and not (c as Control).visible: continue
 		if c is RichTextLabel: out.append(c)
 		_rich(c, out)
 
@@ -62,7 +72,10 @@ func _process(_d: float) -> void:
 	opts[0].emit_signal("item_selected", 2)
 	check(rich[0].text != d0, "description follows selection")
 	var btns: Array = []; _buttons(mm, btns)
-	check(btns.size() == 1, "single start button (%d)" % btns.size())
+	var texts := []
+	for b in btns: texts.append(b.text)
+	check(btns.size() == 2 and "ЗАПУСК СИМУЛЯЦИИ" in texts and "НАСТРОЙКИ" in texts,
+		"в меню две кнопки: запуск и настройки (%s)" % str(texts))
 	var br: Rect2 = btns[0].get_global_rect()
 	check(br.position.x > 0 and br.position.y > 0 and br.position.x + br.size.x < vp.x and br.position.y + br.size.y < vp.y,
 		"start button inside viewport (%s)" % str(br))

@@ -82,6 +82,13 @@ func _ready() -> void:
 			check(_topmost_at(gm.hud, r.position + Vector2(6, r.size.y * 0.5)) == pb,
 				"пауза: %s не перекрыта другой панелью" % name)
 	check(gm.hud.pause_button("ПРОДОЛЖИТЬ").has_focus(), "пауза: фокус на первой кнопке")
+	# сама проверка «не перекрыта» была бы пустой, если бы хелпер всегда отдавал
+	# кнопку: точка внутри карточки, но мимо кнопок, обязана вернуть карточку
+	var card_rect: Rect2 = gm.hud.pause_button("ПРОДОЛЖИТЬ").get_parent().get_global_rect()
+	var card_point: Vector2 = card_rect.position + Vector2(24, 24)
+	var on_card := _topmost_at(gm.hud, card_point)
+	check(on_card != null and on_card is Panel, "пауза: вне кнопок наверху карточка, а не затемнение (%s)" % [
+		"null" if on_card == null else on_card.get_class()])
 	# оверлей паузы не должен подписывать кнопки клавишами: кнопка «ПРОДОЛЖИТЬ» и есть
 	# способ продолжить, а строка «ESC — …» дублировала её словами
 	var overlay := ""
@@ -178,10 +185,18 @@ func _texts(n: Node) -> String:
 # ГЛУБИНОЙ, а не шириной: затемнение оверлея накрывает всю карту и тоже ловит мышь,
 # но кнопка вложен в него и получит клик именно она.
 func _topmost_at(root: Node, p: Vector2) -> Control:
+	var found: Control = null
 	for c in root.get_children():
-		if not (c is Control) or not c.visible: continue
-		var deeper := _topmost_at(c, p)
-		if deeper != null: return deeper
-	if root is Control and (root as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
-		if (root as Control).get_global_rect().has_point(p): return root as Control
-	return null
+		if not (c is Control): continue
+		var ctl := c as Control
+		# не visible у самого узла, а видим ли он в дереве: скрытый оверлей экрана
+		# настроек живёт в HUD постоянно, и его полноэкранный затемнитель иначе
+		# считался бы «накрывающим» всё на свете
+		if not ctl.is_visible_in_tree(): continue
+		if ctl.mouse_filter != Control.MOUSE_FILTER_IGNORE and ctl.get_global_rect().has_point(p):
+			found = ctl
+		# вложенность и порядок детей решают, а не ранний возврат: клика получает
+		# самый верхний по отрисовке контрол, то есть последний подходящий
+		var deeper := _topmost_at(ctl, p)
+		if deeper != null: found = deeper
+	return found

@@ -41,6 +41,9 @@ var msaa: int = Msaa.X2           # 2X: на Compatibility это единств
 var screen_aa := false
 var scale := 0.7
 var show_fps := true
+# Сколько секунд живёт след резины. 0 — не исчезает вовсе (тогда кольцо
+# перезаписывает самые старые полосы, как было раньше).
+var skid_life := 30.0
 
 func _ready() -> void:
 	load_values()
@@ -52,6 +55,7 @@ func values() -> Dictionary:
 		"vsync": vsync, "fps_limit": fps_limit, "shadow_preset": shadow_preset,
 		"ssao": ssao, "ssil": ssil, "fog": fog, "glow": glow,
 		"msaa": msaa, "screen_aa": screen_aa, "scale": scale, "show_fps": show_fps,
+		"skid_life": skid_life,
 	}
 
 func set_value(key: String, v: Variant) -> void:
@@ -67,6 +71,7 @@ func set_value(key: String, v: Variant) -> void:
 		"screen_aa": screen_aa = bool(v)
 		"scale": scale = clampf(float(v), 0.5, 1.0)
 		"show_fps": show_fps = bool(v)
+		"skid_life": skid_life = maxf(0.0, float(v))
 		_: return
 	save()
 	changed.emit()
@@ -131,6 +136,7 @@ func load_values() -> void:
 	glow = bool(d.glow)
 	msaa = int(d.msaa)
 	screen_aa = bool(d.screen_aa)
+	skid_life = maxf(0.0, float(d.skid_life))
 	scale = clampf(float(d.scale), 0.5, 1.0)
 	show_fps = bool(d.show_fps)
 	InputRouter.load_keys(cf)
@@ -146,6 +152,7 @@ func reset() -> void:
 	msaa = Msaa.X2
 	screen_aa = false
 	scale = 0.7
+	skid_life = 30.0
 	show_fps = true
 	InputRouter.reset_keys()
 	save()

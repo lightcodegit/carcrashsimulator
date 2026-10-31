@@ -126,6 +126,13 @@ func _ready() -> void:
 	var fps_text: String = gm.hud._fps_label.text
 	check("FPS" in fps_text and fps_text.strip_edges().split(" ")[0].is_valid_int(),
 		"счётчик кадров печатает число (%s)" % fps_text)
+	# Индикатор сцепления сверяем с тем же значением, которое отдаёт CarRig: вписать
+	# slip из теста нельзя — _drive пересчитывает его каждый тик физики.
+	await get_tree().process_frame
+	var want := (1.0 - gm.car.slip) * (gm.hud._slip_bg.size.x - 2.0)
+	check(absf(gm.hud._slip_fill.size.x - maxf(want, 0.0)) < 1.5,
+		"полоса сцепления соответствует скольжению (bar=%.1f want=%.1f, slip=%.2f)" % [
+			gm.hud._slip_fill.size.x, want, gm.car.slip])
 	var shown := ""
 	for c in gm.hud.get_children():
 		shown += _texts(c)

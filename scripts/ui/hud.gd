@@ -18,6 +18,7 @@ const ACCENT := Color(0.45, 0.8, 0.95)
 const A0 := 135.0        # начало дуги спидометра, градусы
 const SWEEP := 270.0
 const DEFORM_FULL := 0.25   # м максимальной вмятины, при которой шкала кузова полная
+const SLIP_FULL := 0.45      # доля бокового увода, при которой шин уже нет
 
 class Gauge extends Control:
 	var speed := 0.0
@@ -66,8 +67,11 @@ var _tip_label: Label
 var _fps_label: Label
 var _deform_bg: ColorRect
 var _deform_fill: ColorRect
+var _slip_bg: ColorRect
+var _slip_fill: ColorRect
 var _deform := 0.0
 var _deform_area := Rect2(14, 192, 288, 8)
+var _slip_area := Rect2(14, 218, 288, 8)
 var _pause_panel: Control
 var _pause_label: Label
 var _run_stats: Label
@@ -153,7 +157,7 @@ func _build_speedo(root: Control) -> void:
 func _build_telemetry(root: Control) -> void:
 	var panel := Panel.new()
 	panel.position = Vector2(28, 28)
-	panel.size = Vector2(316, 206)
+	panel.size = Vector2(316, 232)
 	panel.add_theme_stylebox_override("panel", _style())
 	root.add_child(panel)
 	var title := _label(Vector2(14, 10), 13, DIM)
@@ -168,6 +172,9 @@ func _build_telemetry(root: Control) -> void:
 	var cap := _label(Vector2(14, 170), 13, DIM)
 	cap.text = "КУЗОВ"
 	panel.add_child(cap)
+	var cap2 := _label(Vector2(14, 196), 13, DIM)
+	cap2.text = "СЦЕПЛЕНИЕ"
+	panel.add_child(cap2)
 	# Шкала деформации кузова: доля глубины самой большой вмятины от предельной.
 	# Показание «суммарного отклонения вершин» для этого не годится — там сотни метров
 	# на сильный краш, и степень разрушения по нему не читается.
@@ -186,6 +193,19 @@ func _build_telemetry(root: Control) -> void:
 	_deform_bg.size = _deform_area.size + Vector2(2, 2)
 	panel.add_child(_deform_bg)
 	panel.move_child(_deform_fill, panel.get_child_count() - 1)
+	_slip_fill = ColorRect.new()
+	_slip_fill.color = OK
+	_slip_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_slip_fill.position = _slip_area.position
+	_slip_fill.size = Vector2(_slip_area.size.x, _slip_area.size.y)
+	panel.add_child(_slip_fill)
+	_slip_bg = ColorRect.new()
+	_slip_bg.color = Color(1, 1, 1, 0.09)
+	_slip_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_slip_bg.position = _slip_area.position - Vector2(1, 1)
+	_slip_bg.size = _slip_area.size + Vector2(2, 2)
+	panel.add_child(_slip_bg)
+	panel.move_child(_slip_fill, panel.get_child_count() - 1)
 
 func _build_crash_log(root: Control) -> void:
 	var panel := Panel.new()
@@ -397,5 +417,10 @@ func _process(dt: float) -> void:
 			var t: float = clampf(d / DEFORM_FULL, 0.0, 1.0)
 			_deform_fill.size.x = maxf(0.0, (_deform_bg.size.x - 2.0) * t)
 			_deform_fill.color = OK.lerp(WARN, clampf(t * 2.0, 0.0, 1.0)).lerp(BAD, clampf((t - 0.6) / 0.4, 0.0, 1.0))
+	# Индикатор сцепления: полоса показывает, сколько шины ещё держат, и краснеет
+	# раньше, чем занос становится виден по следам резины.
+	var grip := 1.0 - _car.slip
+	_slip_fill.size.x = maxf(0.0, (_slip_bg.size.x - 2.0) * grip)
+	_slip_fill.color = BAD.lerp(WARN, clampf(grip * 2.0, 0.0, 1.0)).lerp(OK, clampf((grip - 0.5) * 2.0, 0.0, 1.0))
 	if _tip_label.visible and _tip_until > 0 and Time.get_ticks_msec() > _tip_until:
 		_tip_label.visible = false

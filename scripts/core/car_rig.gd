@@ -19,6 +19,12 @@ const HB_HOLD_DECEL := 14.0        # на почти остановившейс�
 const HB_HOLD_MS := 1.0            # м/с, ниже которой включается режим удержания
 const HB_THROTTLE := 0.4           # доля тяги передних колёс на ручнике: заносом можно рулить газом
 const REVERSE_RATIO := 0.18        # задний ход — 18% от vmax
+const GRAVITY := 9.81
+# Предел торможения по сцеплению: шины легковушки держат ~1.1 g, спорткар на сликах —
+# ~1.3 g. Замедление выше этого физически невозможно: машина встаёт в одну точку, и
+# это ощущается не как торможение, а как удар о невидимую стену.
+const BRAKE_MAX_G := 1.25
+const PEDAL_RISE := 7.0            # 1/с: педаль набирает давление за ~0.14 с, а не по щелчку
 const ESP_SLIDE_START := 0.15      # доля бокового скольжения, с которой включается ESP
 const ESP_DAMP := 5.0              # 1/с: насколько ESP гасит рыскание в заносе
 const YAW_DAMP := 0.35             # 1/с: фоновое затухание рыскания
@@ -51,6 +57,7 @@ var _drive_scale := 0.25
 var _brake_scale := 0.25
 var _rear_scale := 0.5
 var _steer := 0.0
+var _pedal := 0.0
 var _roll: Array[float] = []
 var _mount_y: Array[float] = []
 var _susp_static := 0.0
@@ -167,6 +174,7 @@ func respawn(tf: Transform3D) -> void:
 	chassis.linear_velocity = Vector3.ZERO
 	chassis.angular_velocity = Vector3.ZERO
 	_steer = 0.0
+	_pedal = 0.0
 	_recent_speed = 0.0
 	_hist.clear()
 	_impact_cooldown = 0.0
@@ -211,10 +219,13 @@ func _drive(dt: float) -> void:
 	# _physics_process обнуляет импульсы подвески, и машина оседает на коллайдер.
 	# brake — это потолок импульса за тик (замерено: 98 Н·с даёт 18 м/с²), поэтому dt.
 	var service := 0.0
+	# педаль — состояние, а не мгновенное чтение: иначе короткое касание курка или
+	# клавиши отдаёт полным тормозом за один тик
+	_pedal = move_toward(_pedal, brake_in, PEDAL_RISE * dt)
 	if reverse or hand:
 		pass
-	elif brake_in > 0.0:
-		service = params.mass * params.brake_decel * brake_in * dt
+	elif _pedal > 0.0:
+		service = params.mass * minf(params.brake_decel, BRAKE_MAX_G * GRAVITY) * _pedal * dt
 	elif throttle <= 0.0:
 		service = params.mass * COAST_DECEL * dt
 	# Ручник — ТОЛЬКО задняя ось. Через chassis.brake его нельзя дать на одно колесо:

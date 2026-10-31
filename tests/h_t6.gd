@@ -5,6 +5,7 @@ var car: CarRig
 var _max_lat := 0.0
 var _max_slip_deg := 0.0
 var _max_yaw := 0.0
+var _v_brake := 0.0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -29,10 +30,16 @@ func _physics_process(_dt: float) -> void:
 		check(car.speed_kmh() > 0.7 * 160 and car.speed_kmh() < 1.1 * 160,
 			"reach ~vmax (%.1f km/h)" % car.speed_kmh())
 		check(absf(car.chassis.global_position.z) < 3.0, "straight-line drift small")
+		_v_brake = car.speed_kmh()
 		Input.action_release("throttle"); Input.action_press("brake")
 	if _frame == 546:
 		Input.action_release("brake")
-		check(car.speed_kmh() < 90.0, "braked below 90 (%.1f)" % car.speed_kmh())
+		# за секунду полного торможения шины держат ~1.2 g = ~43 км/ч. Прежняя проверка
+		# («ниже 90») пропускала и 2.7 g: машина вставала в одну точку, и игрок читал
+		# это как «мгновенно сбрасывает скорость». Теперь диапазон и есть требование.
+		var lost := _v_brake - car.speed_kmh()
+		check(lost > 30.0 and lost < 62.0,
+			"торможение в покрышечном пределе: -%.0f км/ч за 1 с (%.1f g)" % [lost, lost / 3.6 / 9.81])
 	# фаза 2: рулёжка на средней скорости
 	if _frame == 550: Input.action_press("steer_left")
 	if _frame == 590:

@@ -5,7 +5,7 @@ extends Resource
 @export var mass := 1300.0
 @export var accel_max := 7.0
 @export var vmax_kmh := 160.0
-@export var brake_decel := 22.0
+@export var brake_decel := 11.0     # м/с² предельного замедления: 1.0 g — то, что держат шины
 @export var steer_rate_deg := 190.0   # скорость набора угла передних колёс, °/с
 @export var grip := 8.0             # множитель сцепления шин (wheel_friction_slip)
 @export var width := 1.8                # целевая ширина: по ней DentBody считает равномерный масштаб

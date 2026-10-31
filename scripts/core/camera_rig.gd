@@ -18,10 +18,18 @@ var _drag := false
 var _pos := Vector3.ZERO           # чистая позиция без шейка: инакше шейк накапливается и тянет камеру
 var _prev_target := Vector3.ZERO
 var _have_pos := false
+var _shake := 1.0              # множитель тряски: 0 — камера неподвижна даже в краше
 
 func setup(car: CarRig) -> void:
 	_car = car
 	_have_pos = false
+	apply_settings()
+
+# Отдельно от _ready: настройка тряски меняется на глазах, в том числе из меню паузы.
+func apply_settings() -> void:
+	_shake = Settings.shake
+	if Settings.fov > 0.0:
+		fov = Settings.fov
 
 func mode() -> int: return _mode
 
@@ -47,7 +55,7 @@ func _process(dt: float) -> void:
 	if _car == null or _car.chassis == null: return
 	_trauma = maxf(0.0, _trauma - dt * SHAKE_DECAY)
 	var t := _trauma * _trauma
-	var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.35 * t
+	var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.35 * t * _shake
 	var target := _car.chassis.global_position
 	var look := target + Vector3(0, 0.6, 0)
 	match _mode:

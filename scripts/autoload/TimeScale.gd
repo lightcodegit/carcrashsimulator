@@ -9,4 +9,5 @@ func _ready() -> void:
 func set_hold(flag: bool) -> void:
 	if _held == flag: return
 	_held = flag
-	Engine.time_scale = 0.3 if flag else 1.0
+	# фактор замедления — настройка: кому-то 0.3 кажется гонками, кому-то — слайдом
+	Engine.time_scale = clampf(Settings.slowmo, 0.05, 1.0) if flag else 1.0

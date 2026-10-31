@@ -73,6 +73,8 @@ func _release_inputs() -> void:
 # Настройки картинки применяются к конкретной сцене, потому что Environment и солнце
 # принадлежат заезду, а не автозагрузке. Вызывается при сборке сцены и на каждый
 # Settings.changed — экран настроек открыт и из меню, и из паузы.
+# Единственное место, где картинка доходит до живой сцены: всё, что игрок может
+# покрутить в НАСТРОЙКАХ, обязано применяться отсюда, а не только записываться в файл.
 func _apply_render() -> void:
 	if _env == null or hud == null: return
 	_env.ssao_enabled = Settings.ssao
@@ -81,6 +83,23 @@ func _apply_render() -> void:
 	_env.glow_enabled = Settings.glow
 	_sun.shadow_enabled = Settings.shadow_enabled()
 	_sun.directional_shadow_max_distance = Settings.shadow_distance()
+	_env.tonemap_mode = int(Settings.TONEMAPS[clampi(Settings.tonemap, 0, Settings.TONEMAPS.size() - 1)][1])
+	_env.tonemap_exposure = Settings.exposure
+	_env.tonemap_white = Settings.tonemap_white
+	_env.glow_intensity = Settings.glow_intensity
+	_env.glow_bloom = Settings.glow_bloom
+	_env.fog_density = Settings.fog_density
+	_env.fog_aerial_perspective = Settings.fog_aerial
+	_env.fog_sun_scatter = Settings.fog_scatter
+	_env.ssao_radius = Settings.ssao_radius
+	_env.ssao_intensity = Settings.ssao_intensity
+	_env.ambient_light_energy = Settings.ambient_energy()
+	# угловой размер солнца — ширина полутени на краю собственной тени: нулевой даёт
+	# бритвенную границу, около 1.2 — мягкую, как у настоящего диска на небе
+	_sun.light_angular_distance = Settings.sun_soft
+	if camera != null:
+		camera.fov = Settings.fov
+		camera.apply_settings()
 	hud.set_fps_visible(Settings.show_fps)
 
 func _open_settings() -> void:
@@ -131,14 +150,10 @@ func _setup_env() -> void:
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 		env.ambient_light_energy = 1.0
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.0
-	env.tonemap_white = 4.0
+	# все числа, которые игрок может покрутить, живут в _apply_render — иначе у
+	# настройки было бы два источника правды и второе всегда побеждало при открытии меню
 	env.glow_enabled = true
-	env.glow_intensity = 0.45
 	env.ssao_enabled = true
-	env.ssao_radius = 1.2
-	env.ssao_intensity = 1.4
 	# экранный непрямой свет вытаскивает из черноты то, что не освещено солнцем напрямую:
 	# припаркованные машины в тени домов были главным источником жалобы на темноту.
 	# На Compatibility его нет — движок сам предупреждает, если включить, поэтому
@@ -148,10 +163,7 @@ func _setup_env() -> void:
 	env.ssil_radius = 6.0
 	# дымка даёт глубину и прячет границу прорисовки на 620-метровой трассе
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.70, 0.76, 0.85)
-	env.fog_density = 0.0016
-	env.fog_aerial_perspective = 0.5
-	env.fog_sun_scatter = 0.25
+	env.fog_light_color = Color(0.70, 0.76, 0.85)   # оттенок дымки — не настройка, а часть образа
 	we.environment = env
 	add_child(we)
 	_env = env

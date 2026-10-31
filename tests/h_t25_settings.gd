@@ -27,6 +27,76 @@ func _ready() -> void:
 	await _rebind()
 	await _codec()
 	await _build_menu()
+	await _presets()
+	await _extended()
+
+# Пресеты и то, что ручной сдвиг сбрасывает отметку «в СРЕДНЕМ».
+func _presets() -> void:
+	check(Settings.preset == 1, "P: по умолчанию активен пресет СРЕДНЕЕ (%d)" % Settings.preset)
+	Settings.apply_preset(3)
+	check(Settings.shadow_preset == 3 and Settings.ssao and is_equal_approx(Settings.glow_bloom, 0.35),
+		"P: КИНО включает дальние тени, SSAO и bloom (%d/%s/%.2f)" % [
+			Settings.shadow_preset, str(Settings.ssao), Settings.glow_bloom])
+	check(Settings.preset_name() == "КИНО", "P: имя пресета читается (%s)" % Settings.preset_name())
+	Settings.set_value("exposure", 1.9)
+	check(Settings.preset == Settings.PRESET_CUSTOM and Settings.preset_name() == "СВОЁ",
+		"P: ручная правка снимает отметку пресета (%d)" % Settings.preset)
+	Settings.apply_preset(1)
+	check(is_equal_approx(Settings.exposure, 1.0) and Settings.preset == 1,
+		"P: возврат в СРЕДНЕЕ чинит ползунок обратно (%.2f)" % Settings.exposure)
+	Settings.load_values()
+	check(Settings.preset == 1 and is_equal_approx(Settings.glow_bloom, 0.0),
+		"P: пресет и его значения доживают до перезагрузки (%d)" % Settings.preset)
+	Settings.reset()
+
+# Расширенный режим: пункты обязаны не только существовать, но и доходить до сцены.
+func _extended() -> void:
+	Settings.tier_extended = false
+	menu.refresh()
+	var hidden := _tier_rows(1, false)
+	check(hidden > 10, "E: в базовом режиме %d расширенных строк скрыто" % hidden)
+	Settings.tier_extended = true
+	menu.refresh()
+	var shown := _tier_rows(1, true)
+	check(shown == hidden, "E: расширенный режим показывает те же %d строк" % shown)
+	check(is_equal_approx(Settings.ambient_energy(), Settings.ambient_base() * Settings.ambient),
+		"E: яркость рассеянного света = база движка × множитель (%.2f)" % Settings.ambient_energy())
+	GameContext.select("sedan", "arena")
+	var g: GameManager = load("res://scenes/game.tscn").instantiate()
+	add_child(g)
+	await get_tree().physics_frame
+	Settings.set_value("fov", 92.0)
+	Settings.set_value("shake", 0.0)
+	Settings.set_value("exposure", 1.4)
+	Settings.set_value("tonemap", 1)
+	Settings.set_value("sun_soft", 1.3)
+	Settings.set_value("fog_aerial", 0.9)
+	Settings.set_value("ssao_radius", 2.5)
+	Settings.set_value("slowmo", 0.5)
+	await get_tree().physics_frame
+	check(is_equal_approx(g.camera.fov, 92.0), "E: поле зрения доходит до камеры (%.1f)" % g.camera.fov)
+	check(is_equal_approx(g._env.tonemap_exposure, 1.4), "E: экспозиция доходит до окружения (%.2f)" % g._env.tonemap_exposure)
+	check(g._env.tonemap_mode == Environment.TONE_MAPPER_FILMIC, "E: тонмаппинг переключается (%d)" % g._env.tonemap_mode)
+	check(is_equal_approx(g._sun.light_angular_distance, 1.3), "E: мягкость теней доходит до солнца (%.2f)" % g._sun.light_angular_distance)
+	check(is_equal_approx(g._env.fog_aerial_perspective, 0.9), "E: воздушная перспектива применяется (%.2f)" % g._env.fog_aerial_perspective)
+	check(is_equal_approx(g._env.ssao_radius, 2.5), "E: радиус SSAO применяется (%.2f)" % g._env.ssao_radius)
+	TimeScale.set_hold(true)
+	check(is_equal_approx(Engine.time_scale, 0.5), "E: фактор слоу-мо берётся из настройки (%.2f)" % Engine.time_scale)
+	TimeScale.set_hold(false)
+	check(is_equal_approx(Engine.time_scale, 1.0), "E: отпускание возвращает время в норму")
+	g.queue_free()
+	await get_tree().process_frame
+	Settings.reset()
+
+func _tier_rows(tier: int, visible: bool) -> int:
+	var n := 0
+	var stack: Array[Node] = [menu]
+	while not stack.is_empty():
+		var c: Node = stack.pop_back()
+		if c is Control and (c as Control).has_meta("tier") and int((c as Control).get_meta("tier")) == tier:
+			if (c as Control).visible == visible: n += 1
+		for k in c.get_children(): stack.append(k)
+	return n
 
 func _defaults() -> void:
 	# Дефолт выбран по замерам на Intel HD 630: полный кадр с тенями, свечением и
@@ -154,8 +224,10 @@ func _build_menu() -> void:   # вызывается из _ready, поэтому
 	var want_checks := 0
 	for c in SettingsMenu.CHECKS:
 		if SettingsMenu._supported(c[0]): want_checks += 1
-	check(opts == want_opts and checks == want_checks,
-		"5: картинки настроек: %d списка и %d переключателя (%d/%d)" % [want_opts, want_checks, opts, checks])
+	# +1 переключатель: сам режим (базовый/расширенный) тоже CheckBox, но он не
+	# настройка картинки, а способ их показать
+	check(opts == want_opts and checks == want_checks + 1,
+		"5: картинки настроек: %d списка и %d+1 переключателя (%d/%d)" % [want_opts, want_checks, opts, checks])
 	menu._begin_capture("cam_cycle")
 	check(menu.capturing(), "5: режим захвата включён")
 	var ev := InputEventKey.new()

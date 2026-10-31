@@ -58,6 +58,8 @@ func _key(code: int, down: bool) -> void:
 	Input.parse_input_event(e)
 
 func _rebind() -> void:
+	var b1 := InputEventJoypadButton.new()
+	b1.button_index = 1
 	var k := InputEventKey.new()
 	k.physical_keycode = KEY_F
 	InputRouter.rebind("handbrake", k)
@@ -84,6 +86,15 @@ func _rebind() -> void:
 	_key(KEY_F, false)
 	await get_tree().process_frame
 	check("F" in InputRouter.describe("handbrake"), "3: описание показывает новую клавишу (%s)" % InputRouter.describe("handbrake"))
+	# назначаем ТЕПЕРЬ ещё и кнопку: класс клавиш при этом не должен вернуться к пробелу
+	InputRouter.rebind("handbrake", b1)
+	var n := InputMap.action_get_events("handbrake").size()
+	check(n == 2, "3: два назначения — по одному на устройство (%d)" % n)
+	_key(KEY_SPACE, true)
+	await get_tree().process_frame
+	check(not Input.is_action_pressed("handbrake"), "3: пробел не воскрес после назначения кнопки")
+	_key(KEY_SPACE, false)
+	await get_tree().process_frame
 	InputRouter.reset_keys()
 	Settings.load_values()
 

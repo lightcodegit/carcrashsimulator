@@ -109,5 +109,41 @@ func _ready() -> void:
 	check(gm.car.chassis.linear_velocity.length() < 0.5,
 		"машину не выталкивает и не разгоняет (%.2f м/с)" % gm.car.chassis.linear_velocity.length())
 	check(gm.car.body.dent_count == 0, "рестарт починил кузов")
+
+	# Самая частая жалоба на рестарт: «скорость обнулилась, а машина осталась на месте».
+	# Раньше тест проверял только стартовую постановку, то есть момент ДО поездки. Теперь
+	# уезжаем, жмём R настоящими событиями (их читает GameManager._unhandled_input) и
+	# требуем вернуться на спавн — по положению, курсу и скорости. Дальность берём с
+	# трассы: на арене за 3 секунды машина упёрлась бы в борт и проверка стала бы пустой.
+	gm.queue_free()
+	for _i in 4:
+		await get_tree().physics_frame
+	GameContext.select("sedan", "speedway")
+	gm = load("res://scenes/game.tscn").instantiate()
+	add_child(gm)
+	for _i in 20:
+		await get_tree().physics_frame
+	Input.action_press("throttle")
+	for _i in 200:
+		await get_tree().physics_frame
+	Input.action_release("throttle")
+	var far := gm.car.chassis.global_position.x
+	check(absf(far - gm._spawn.origin.x) > 20.0,
+		"тест не пустой: машина реально уехала (%.1f м от спавна)" % absf(far - gm._spawn.origin.x))
+	var ev := InputEventKey.new()
+	ev.physical_keycode = KEY_R
+	ev.pressed = true
+	get_viewport().push_input(ev)
+	await get_tree().physics_frame
+	ev.pressed = false
+	get_viewport().push_input(ev)
+	for _i in 20:
+		await get_tree().physics_frame
+	var landed := gm.car.chassis.global_position
+	check(absf(landed.x - gm._spawn.origin.x) < 1.0 and absf(landed.z - gm._spawn.origin.z) < 1.0,
+		"R телепортирует машину на спавн (было x=%.1f, стало x=%.1f, спавн x=%.1f)" % [far, landed.x, gm._spawn.origin.x])
+	check(gm.car.speed_kmh() < 2.0, "после R машина стоит (%.1f км/ч)" % gm.car.speed_kmh())
+	check(absf(angle_difference(gm.car.heading, gm._spawn.basis.get_euler().y)) < 0.05,
+		"после R курс совпадает со спавном (%.2f рад)" % gm.car.heading)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

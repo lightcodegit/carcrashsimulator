@@ -35,6 +35,9 @@ const PRESETS := {
 		"glow": null, "fxaa": null, "scale": -1.0 },
 }
 
+# Пресеты из настроек: их цена обязана быть известна, а не обещана.
+const PRESET_STAGES := { "p0": 0, "p1": 1, "p2": 2, "p3": 3 }
+
 var _gm: GameManager
 var _measuring := false
 var _t0 := 0
@@ -54,6 +57,14 @@ func _ready() -> void:
 	_gm = load("res://scenes/game.tscn").instantiate()
 	add_child(_gm)
 	await get_tree().process_frame
+	# «set:N» — только записать пресет N в конфиг и выйти: измерять пресет надо
+	# холодным стартом, потому что MSAA на лету буфер не пересобирает (см. keep)
+	if ids.begins_with("set:"):
+		Settings.reset()
+		Settings.apply_preset(int(ids.substr(4)))
+		print("PROBE preset %d -> %s записан" % [int(ids.substr(4)), Settings.preset_name()])
+		get_tree().quit(0)
+		return
 	for id in ids.split(",", false):
 		var p: Dictionary = {}
 		if id == "env":
@@ -65,6 +76,13 @@ func _ready() -> void:
 				"fog": OS.get_environment("FOG") == "1",
 				"glow": OS.get_environment("GLOW") == "1", "fxaa": false,
 				"scale": sc if sc > 0.0 else 1.0 }
+		elif PRESET_STAGES.has(id):
+			# пресет применяется к самим настройкам, а _apply ничего не меняет:
+			# так меряется ровно то, что получит игрок, выбравший этот пресет
+			Settings.reset()
+			Settings.apply_preset(PRESET_STAGES[id])
+			p = { "msaa": -1, "shadow": -1, "ssao": null, "ssil": null, "fog": null,
+				"glow": null, "fxaa": null, "scale": -1.0 }
 		elif PRESETS.has(id):
 			p = PRESETS[id]
 		else:

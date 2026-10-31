@@ -17,22 +17,43 @@ const ACTION_NAMES := {
 	"cam_cycle": "СМЕНА КАМЕРЫ", "respawn": "РЕСТАРТ", "pause": "ПАУЗА",
 }
 const OPTIONS := [
-	["vsync", "ВЕРТИКАЛЬНАЯ СИНХРОНИЗАЦИЯ", ["ВЫКЛ", "ВКЛ", "АДАПТИВНАЯ"], [0, 1, 2]],
-	["fps_limit", "ПОТОЛОК КАДРОВ", ["БЕЗ ПОТОЛКА", "30", "60", "120"], [0, 30, 60, 120]],
-	["scale", "МАСШТАБ КАРТИНКИ", ["70%", "85%", "100%"], [0.7, 0.85, 1.0]],
-	["shadow_preset", "ТЕНИ", ["ВЫКЛ", "КОРОТКИЕ 120 М", "СРЕДНИЕ 260 М", "ДАЛЬНИЕ 420 М"], [0, 1, 2, 3]],
-	["msaa", "МСАА", ["НЕТ", "2×", "4×", "8×"], [0, 1, 2, 3]],
+	# [ключ, заголовок, подписи пунктов, значения, режим] — режим 0 виден всегда,
+	# 1 появляется только в расширенном
+	["preset", "КАЧЕСТВО КАРТИНКИ", ["НИЗКОЕ", "СРЕДНЕЕ", "ВЫСОКОЕ", "КИНО", "СВОЁ"], [0, 1, 2, 3, 4], 0],
+	["vsync", "ВЕРТИКАЛЬНАЯ СИНХРОНИЗАЦИЯ", ["ВЫКЛ", "ВКЛ", "АДАПТИВНАЯ"], [0, 1, 2], 0],
+	["fps_limit", "ПОТОЛОК КАДРОВ", ["БЕЗ ПОТОЛКА", "30", "60", "120"], [0, 30, 60, 120], 0],
+	["scale", "МАСШТАБ КАРТИНКИ", ["70%", "85%", "100%"], [0.7, 0.85, 1.0], 0],
+	["shadow_preset", "ТЕНИ", ["ВЫКЛ", "КОРОТКИЕ 120 М", "СРЕДНИЕ 260 М", "ДАЛЬНИЕ 420 М"], [0, 1, 2, 3], 0],
+	["msaa", "МСАА", ["НЕТ", "2×", "4×", "8×"], [0, 1, 2, 3], 0],
+	["tonemap", "ТОНМАППИНГ", ["НЕЙТРАЛЬНЫЙ", "ФИЛЬМ", "КИНО (ACES)"], [0, 1, 2], 1],
 ]
 const CHECKS := [
-	["ssao", "ТЕНЬ КОНТАКТА (SSAO)"],
-	["ssil", "НЕПРЯМОЙ СВЕТ (SSIL)"],
-	["fog", "ДЫМКА И ТУМАН"],
-	["screen_aa", "ЭКРАННОЕ СГЛАЖИВАНИЕ"],
-	["glow", "СВЕЧЕНИЕ ЯРКОГО"],
-	["show_fps", "СЧЁТЧИК КАДРОВ НА ЭКРАНЕ"],
+	["ssao", "ТЕНЬ КОНТАКТА (SSAO)", 0],
+	["ssil", "НЕПРЯМОЙ СВЕТ (SSIL)", 0],
+	["fog", "ДЫМКА И ТУМАН", 0],
+	["screen_aa", "ЭКРАННОЕ СГЛАЖИВАНИЕ", 0],
+	["glow", "СВЕЧЕНИЕ ЯРКОГО", 0],
+	["show_fps", "СЧЁТЧИК КАДРОВ НА ЭКРАНЕ", 0],
 ]
-# Что из перечисленного живой движок действительно умеет. Показать строчку, которая
-# ничего не меняет, — значит соврать игроку.
+# [ключ, заголовок, мин, макс, шаг, формат, множитель показа, режим]
+const SLIDERS := [
+	["skid_life", "СЛЕД РЕЗИНЫ ЖИВЁТ, С", 0.0, 120.0, 5.0, "%.0f", 1.0, 0],
+	["exposure", "ЭКСПОЗИЦИЯ", 0.4, 2.5, 0.05, "%.2f", 1.0, 1],
+	["tonemap_white", "ТОЧКА БЕЛОГО", 1.0, 12.0, 0.5, "%.1f", 1.0, 1],
+	["glow_intensity", "СВЕЧЕНИЕ: ЯРКОСТЬ", 0.0, 1.5, 0.05, "%.2f", 1.0, 1],
+	["glow_bloom", "СВЕЧЕНИЕ: BLOOM", 0.0, 1.0, 0.05, "%.2f", 1.0, 1],
+	["fog_density", "ДЫМКА: ПЛОТНОСТЬ ×1000", 0.0, 20.0, 0.5, "%.1f", 1000.0, 1],
+	["fog_aerial", "ДЫМКА: ВОЗДУШНАЯ ПЕРСПЕКТИВА", 0.0, 1.0, 0.05, "%.2f", 1.0, 1],
+	["fog_scatter", "РАССЕЯНИЕ СОЛНЕЧНОГО СВЕТА", 0.0, 1.0, 0.05, "%.2f", 1.0, 1],
+	["ssao_radius", "SSAO: РАДИУС, М", 0.2, 4.0, 0.1, "%.1f", 1.0, 1],
+	["ssao_intensity", "SSAO: СИЛА", 0.0, 4.0, 0.1, "%.1f", 1.0, 1],
+	["sun_soft", "МЯГКОСТЬ СОЛНЕЧНЫХ ТЕНЕЙ, °", 0.0, 2.0, 0.05, "%.2f", 1.0, 1],
+	["ambient", "РАССЕЯННЫЙ СВЕТ ×", 0.2, 3.0, 0.05, "%.2f", 1.0, 1],
+	["fov", "ПОЛЕ ЗРЕНИЯ КАМЕРЫ, °", 50.0, 100.0, 1.0, "%.0f", 1.0, 1],
+	["shake", "ТРЯСКА КАМЕРЫ ×", 0.0, 2.0, 0.1, "%.1f", 1.0, 1],
+	["slowmo", "СЛОУ-МО: ФАКТОР ВРЕМЕНИ", 0.05, 1.0, 0.05, "%.2f", 1.0, 1],
+]
+
 static func _supported(key: String) -> bool:
 	match key:
 		"ssil": return Settings.supports_ssil()
@@ -43,9 +64,11 @@ var _mono: SystemFont
 var _pages: Array[Control] = []
 var _tabs: Array[Button] = []
 var _keys := {}          # action -> Label, показывающий текущую раскладку
+var _sliders := {}         # key -> [HSlider, Label, множитель показа, формат]
 var _capturing := ""
 var _capture_label: Label
 var _is_open := false
+var _save_at := 0          # мс, когда пора писать ползунки на диск
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -72,6 +95,12 @@ func _ready() -> void:
 	var video := _build_video()
 	var controls := _build_controls()
 	_pages = [video, controls]
+	# расширенный режим — это строк двадцать, поэтому страницы живут в прокрутке:
+	# без неё последние пункты оказались бы за нижним краем панели, и до них нельзя
+	# было бы добраться ни мышью, ни с геймпада
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	for i in _pages.size():
 		var t := _button(["КАРТИНКА", "УПРАВЛЕНИЕ"][i])
 		t.custom_minimum_size = Vector2(210, 40)
@@ -80,11 +109,8 @@ func _ready() -> void:
 		_tabs.append(t)
 	box.add_child(_note("Тени стоят дороже всего: на слабой видеокарте начните с них. " +
 		"Ничего из этого не меняет модели и материалы — только стоимость кадра."))
-	box.add_child(video)
-	box.add_child(controls)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(spacer)
+	for pg in _pages: scroll.add_child(pg)
+	box.add_child(scroll)
 	_capture_label = _label("", 14, ACCENT)
 	box.add_child(_capture_label)
 	var bottom := HBoxContainer.new()
@@ -113,6 +139,9 @@ func open() -> void:
 # любого обработчика: владельцы экрана (главное меню, пауза) тоже зовут close(),
 # но повторный вызов безопасен.
 func close() -> void:
+	if _save_at != 0:
+		_save_at = 0
+		Settings.save()           # закрыть меню можно и не дождавшись тишины
 	_capturing = ""
 	_is_open = false
 	visible = false
@@ -137,6 +166,17 @@ func _build_video() -> Control:
 		if not Settings.supports_ssil(): miss.append("SSIL")
 		host.add_child(_note("Движок: %s · не поддерживается: %s" % [
 			Settings.rendering_method(), ", ".join(miss)]))
+	var mode := CheckBox.new()
+	mode.text = "РАСШИРЕННЫЙ РЕЖИМ — ВСЯ ГРАФИКА ПО ПУНКТАМ"
+	mode.focus_mode = Control.FOCUS_ALL
+	mode.add_theme_font_override("font", _mono)
+	mode.add_theme_font_size_override("font_size", 15)
+	mode.add_theme_color_override("font_color", ACCENT)
+	mode.set_meta("key", "tier_extended")
+	mode.toggled.connect(func(on: bool) -> void:
+		Settings.set_value("tier_extended", on)
+		_apply_tier())
+	host.add_child(mode)
 	for o in OPTIONS:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
@@ -146,9 +186,20 @@ func _build_video() -> Control:
 		for l in o[2]: opt.add_item(l)
 		opt.set_meta("key", o[0])
 		opt.set_meta("values", o[3])
+		opt.set_meta("tier", int(o[4]))
 		var key: String = o[0]
 		var vals: Array = o[3]
-		opt.item_selected.connect(func(i: int) -> void: Settings.set_value(key, vals[i]))
+		# пресет — не ещё одна настройка, а применение сразу нескольких: он обязан
+		# перевести все ползунки, а не просто запомнить номер
+		if key == "preset":
+			opt.item_selected.connect(func(i: int) -> void:
+				if i >= Settings.PRESET_CUSTOM:
+					Settings.set_value("preset", Settings.PRESET_CUSTOM)
+				else:
+					Settings.apply_preset(i)
+				refresh())
+		else:
+			opt.item_selected.connect(func(i: int) -> void: Settings.set_value(key, vals[i]))
 		row.add_child(opt)
 		host.add_child(row)
 	for c in CHECKS:
@@ -160,11 +211,55 @@ func _build_video() -> Control:
 		cb.add_theme_font_size_override("font_size", 15)
 		cb.add_theme_color_override("font_color", DIM)
 		cb.set_meta("key", c[0])
+		cb.set_meta("tier", int(c[2]))
 		var k: String = c[0]
 		cb.toggled.connect(func(on: bool) -> void: Settings.set_value(k, on))
 		host.add_child(cb)
+	for sl in SLIDERS:
+		host.add_child(_slider_row(sl))
 	return host
 
+# Один ряд: заголовок, ползунок, число. Значение летит в Settings на каждом шаге
+# (так картинка меняется на глазах), а на диск — только когда ползунок отпустили:
+# иначе перетаскивание записывало бы файл тридцать раз в секунду.
+func _slider_row(sl: Array) -> Control:
+	var key: String = sl[0]
+	var mul: float = float(sl[6])
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.set_meta("tier", int(sl[7]))
+	row.add_child(_wide_label(sl[1], 330))
+	var s := HSlider.new()
+	s.min_value = float(sl[2]) * mul
+	s.max_value = float(sl[3]) * mul
+	s.step = float(sl[4]) * mul
+	s.custom_minimum_size = Vector2(320, 34)
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	s.focus_mode = Control.FOCUS_ALL
+	row.add_child(s)
+	var val := _label("", 15, DIM)
+	val.custom_minimum_size = Vector2(90, 0)
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(val)
+	_sliders[key] = [s, val, mul, String(sl[5])]
+	s.value_changed.connect(func(_v: float) -> void: _slide(key))
+	return row
+
+# В этом билде у HSlider нет сигнала «отпустил» (только value_changed), поэтому диск
+# пишется не на каждый пиксель перетаскивания, а по тишине: картинка меняется сразу,
+# а на диск уходит одно сохранение после того, как ползунок перестали двигать.
+func _slide(key: String) -> void:
+	var rec: Array = _sliders[key]
+	Settings.set_value(key, float(rec[0].value) / float(rec[2]), false)
+	Settings.changed.emit()
+	rec[1].text = String(rec[3]) % float(rec[0].value)
+	_save_at = Time.get_ticks_msec() + 400
+
+func _process(_dt: float) -> void:
+	if _save_at == 0 or Time.get_ticks_msec() < _save_at: return
+	_save_at = 0
+	Settings.save()
+	Settings.apply_window()
 func _build_controls() -> Control:
 	var host := VBoxContainer.new()
 	host.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -269,9 +364,27 @@ func refresh() -> void:
 		for i in vals.size():
 			if is_equal_approx(cur, float(vals[i])): n.select(i)
 	for n in _all_of("CheckBox"):
-		n.button_pressed = bool(Settings.get(String(n.get_meta("key"))))
+		var k := String(n.get_meta("key"))
+		if k != "": n.button_pressed = bool(Settings.get(k))
+	for key in _sliders:
+		var rec: Array = _sliders[key]
+		rec[0].value = float(Settings.get(key)) * float(rec[2])
+		rec[1].text = String(rec[3]) % rec[0].value
+	_apply_tier()
 	for action in _keys:
 		(_keys[action] as Label).text = InputRouter.describe(action)
+
+# Показывает только те строки, которые относятся к выбранному режиму. Делает это по
+# meta, а не пересобирая страницу: пересборка унесла бы фокус с кнопки, на которой
+# игрок стоит.
+func _apply_tier() -> void:
+	var ext := bool(Settings.tier_extended)
+	var stack: Array[Node] = [self]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is Control and (n as Control).has_meta("tier"):
+			(n as Control).visible = ext or int((n as Control).get_meta("tier")) == 0
+		for k in n.get_children(): stack.append(k)
 
 func _all_of(cls: String) -> Array[Control]:
 	var out: Array[Control] = []

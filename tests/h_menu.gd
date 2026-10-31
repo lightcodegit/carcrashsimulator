@@ -62,14 +62,22 @@ func _process(_d: float) -> void:
 	check(title_found, "title present")
 	var opts: Array = []; _opts(mm, opts)
 	check(opts.size() == 2, "two option buttons (%d)" % opts.size())
+	# Пунктов ровно столько, сколько в списках самого меню: список машин и карт растёт,
+	# и записанное в тест «3» превращалось бы в ложную аварию.
+	var consts: Dictionary = (mm.get_script() as GDScript).get_script_constant_map()
+	var ncars: int = (consts["CARS"] as Array).size()
+	var nmaps: int = (consts["MAPS"] as Array).size()
+	check(opts[0] == mm._car_opts and opts[1] == mm._map_opts,
+		"первым идёт выбор машины, вторым — карты")
+	check(opts[0].item_count == ncars and opts[1].item_count == nmaps,
+		"селекторы показывают все машины (%d) и все карты (%d)" % [ncars, nmaps])
 	for o in opts:
-		check(o.item_count == 3, "option %s has 3 items (%d)" % [o.name, o.item_count])
 		check(o.selected == 0, "option %s defaults to first" % o.name)
 	var rich: Array = []; _rich(mm, rich)
 	check(rich.size() == 2, "two description fields (%d)" % rich.size())
 	var d0: String = rich[0].text
-	opts[0].select(2)
-	opts[0].emit_signal("item_selected", 2)
+	opts[0].select(ncars - 1)
+	opts[0].emit_signal("item_selected", ncars - 1)
 	check(rich[0].text != d0, "description follows selection")
 	var btns: Array = []; _buttons(mm, btns)
 	var texts := []

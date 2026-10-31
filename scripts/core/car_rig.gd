@@ -14,7 +14,7 @@ const STEER_MAX_DEG := 30.0        # полный угол передних ко
 const LAT_ACCEL_CAP := 10.5        # м/с²: потолок бокового ускорения в повороте (~1.07 g)
 const SLIP_BASE := 2.2             # сцепление шины при grip=8 (см. VehicleParams.grip)
 const SLIP_HANDBRAKE := 1.2        # сцепление задних колёс на ручнике — отсюда занос
-const HANDBRAKE_BRAKE := 0.55      # доля тормозного усилия на ручнике
+const HANDBRAKE_BRAKE := 0.35      # доля тормозного усилия на ручнике: занос, а не экстренная остановка
 const REVERSE_RATIO := 0.18        # задний ход — 18% от vmax
 const ESP_SLIDE_START := 0.15      # доля бокового скольжения, с которой включается ESP
 const ESP_DAMP := 5.0              # 1/с: насколько ESP гасит рыскание в заносе
@@ -185,15 +185,20 @@ func _drive(dt: float) -> void:
 	# brake в отличие от engine_force — импульс за тик (замерено: brake=98 даёт 18 м/с²),
 	# поэтому его приходится умножать на dt, иначе любое значение блокирует колёса намертво
 	var brake_unit := params.mass * params.brake_decel * _drive_scale * dt
-	# S — тормоз, пока машина катится вперёд, и задний ход, когда она почти встала
-	if brake_in > 0.0 and vf < 0.6:
+	# S — тормоз, пока машина катится вперёд, и задний ход, когда она почти встала.
+	# На ручнике газ отключаем: в Godot brake считается только при engine_force == 0
+	# (vehicle_body_3d.cpp: `if (m_engineForce != 0) rollingFriction = -engineForce*step`),
+	# поэтому с зажатым W ручник раньше не делал вообще ничего.
+	if hand:
+		chassis.engine_force = 0.0
+		chassis.brake = HANDBRAKE_BRAKE * brake_unit
+	elif brake_in > 0.0 and vf < 0.6:
 		var back := clampf(1.0 - absf(vf) / (vmax * REVERSE_RATIO), 0.0, 1.0)
 		chassis.engine_force = -brake_in * unit * 0.55 * back
 		chassis.brake = 0.0
 	else:
 		chassis.engine_force = throttle * unit * pull
 		chassis.brake = brake_in * brake_unit
-	if hand: chassis.brake += HANDBRAKE_BRAKE * brake_unit
 	# накат и движущее торможение. Именно brake, а не правка linear_velocity: запись
 	# скорости из _physics_process обнуляет импульсы подвески, и машина оседает на коллайдер
 	if throttle <= 0.0 and brake_in <= 0.0 and not hand:

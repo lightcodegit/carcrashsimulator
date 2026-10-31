@@ -99,7 +99,9 @@ func _physics_process(_dt: float) -> void:
 		"E":
 			if _hb_speed == 0.0 and car.speed_kmh() > 75.0:
 				_hb_speed = car.speed_kmh()
-				Input.action_release("throttle")
+				# газ НЕ отпускаем: это ровно тот случай из жалоб — W и Space вместе.
+				# Godot считает brake только при engine_force == 0, поэтому CarRig
+				# обязан сам снимать тягу на ручнике.
 				Input.action_press("handbrake")
 				Input.action_press("steer_left")
 				_phase_frame = 0
@@ -107,8 +109,12 @@ func _physics_process(_dt: float) -> void:
 				var vel := car.chassis.linear_velocity
 				var fwd := Vector3(cos(car.heading), 0, -sin(car.heading))
 				var lat := (vel - fwd * vel.dot(fwd)).length() * 3.6
-				check(car.speed_kmh() < _hb_speed - 25.0,
+				# ручник — тормоз для заноса, а не экстренный: должен заметно гасить
+				# скорость, но не останавливать машину мгновенно (жалоба с геймпада)
+				check(car.speed_kmh() < _hb_speed - 15.0,
 					"E1 ручник тормозит (%.1f -> %.1f км/ч)" % [_hb_speed, car.speed_kmh()])
+				check(car.speed_kmh() > _hb_speed * 0.35,
+					"E1b ручник не останавливает мгновенно (%.1f -> %.1f км/ч)" % [_hb_speed, car.speed_kmh()])
 				check(lat > 3.0, "E2 ручник срывает в занос (боковая %.1f км/ч)" % lat)
 				check(car.heading > deg_to_rad(8.0), "E3 ручник доворачивает нос (%.0f°)" % rad_to_deg(car.heading))
 				print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

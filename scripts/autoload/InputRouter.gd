@@ -55,13 +55,19 @@ func _rebuild(action: String) -> void:
 	if over.is_empty():
 		_apply(action, events)
 	else:
-		# одно событие класса замещает весь класс: назначил клавишу — дефолтные клавиры
-		# этого действия убраны, геймпад при этом остался прежний
-		var keys := _class_of(over[0]) == "key"
+		# Замещается ТОЛЬКО тот класс устройств, для которого игрок что-то назначил:
+		# назначил клавишу — штатные клавиры убраны, геймпад остался. Раньше класс
+		# определялся по первому элементу списка, и после назначения и клавиши, и кнопки
+		# обратно воскресал дефолтный пробел.
+		var has_key := false
+		var has_joy := false
+		for e in over:
+			if _kind(e) == "key": has_key = true
+			else: has_joy = true
 		var out: Array[InputEvent] = []
 		for e in events:
-			if _kind(e) == "key" and not keys: out.append(e)
-			elif _kind(e) != "key" and keys: out.append(e)
+			if _kind(e) == "key" and not has_key: out.append(e)
+			elif _kind(e) != "key" and not has_joy: out.append(e)
 		for e in over: out.append(e)
 		_apply(action, out)
 

@@ -301,7 +301,7 @@ func _build_footer() -> void:
 	_settings.name = "SettingsMenu"
 	add_child(_settings)
 	_settings.closed.connect(func() -> void:
-		_settings.visible = false
+		_settings.close()      # не просто visible = false: экран помнит, что он открыт
 		_refresh_controls()
 		_start_btn.grab_focus())
 	_hint = _label(Vector2(90, 700), 14, DIM)

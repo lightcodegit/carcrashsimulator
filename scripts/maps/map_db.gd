@@ -11,8 +11,33 @@ const FLOOR_Y := -0.01   # верх процедурного пола: на са
 const P := "res://assets/props/"
 const CARS := "res://assets/cars/"
 const PROP := 1.2          # масштаб пропов: тот же, что у машины игрока (width 1.8 из 1.5)
-const WALK_Y := 0.21       # предметы на тротуаре (его верх 0.20): на сантиметр выше плоскости, иначе база предмета мерцает
+const WALK_Y := 0.201      # верх тротуара 0.20 + миллиметр. Сбиваемые предметы — динамические:
+# лишний сантиметр подъёма превращается в падение и подскок на старте
+# Плоскость, на которую ставим сбиваемые предметы. Плиты приподняты над полом, и если
+# ставить предмет на геометрический ноль, он оказывается внутри асфальта: solver
+# выталкивает его со скоростью 0.49 м/с, и на старте конусы подпрыгивают и ложатся.
+# Лучше всплыть на пару сантиметров там, где поверхность ниже (с камеры незаметно),
+# чем погрузиться в неё — это физика и дрожь.
+const PROP_Y := ROAD_TOP + 0.001
 const GROUP_PARKED := "parked_car"
+
+# Плоскости, на которые можно поставить предмет: (x, z) -> y. Собираются по ходу
+# раскладки плит в build(), обнуляются на его старте. Без этого предмет либо внутри
+# асфальта (solver его выталкивает — на старте конусы подпрыгивают), либо висящий
+# над полом на толщину плиты.
+static var _surfaces: Array[Dictionary] = []
+
+# Высота, на которую нужно ставить предмет в этой точке: берётся НАИБОЛЕЕ НИЗКАЯ
+# подходящая поверхность. Предмет стоит коробкой, и если центр попал на полотно, а
+# углом задел бордюр, установка на бордюр оставит под ним пустоту, а втиснутый в
+# бордюр ящик solver вытолкнет вниз — конус запрыгает по дороге. Низкая поверхность
+# даёт крошечное пересечение с бордюром, которое машина просто переезжает.
+static func surface_y(x: float, z: float) -> float:
+	var got := INF
+	var c := Vector3(x, 0.0, z)
+	for r in _surfaces:
+		if (r["rect"] as AABB).has_point(c): got = minf(got, float(r["y"]))
+	return got if is_finite(got) else FLOOR_Y + 0.001
 
 static func _mat(color: Color) -> StandardMaterial3D:
 	# процедурные коробки (пол, тротуары, стены) получают то же зерно бетона, что и
@@ -124,29 +149,106 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	if road and m.get_aabb().size.y <= 0.25:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mi)
+	# после add_child: global_transform узла, которого ещё нет в дереве, не определён
+	if road:
+		_record_surfaces(mi, m)
 	if solid:
 		var body := StaticBody3D.new()
-		body.position = mi.position
-		body.rotation.y = mi.rotation.y
 		var cs := CollisionShape3D.new()
-		var shape := ConcavePolygonShape3D.new()
-		shape.set_faces(_mesh_faces(m))
-		# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
-		# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
-		shape.backface_collision = true
-		cs.shape = shape
+		var slab := _plate_slab(mi, m)
+		if slab.is_empty():
+			# полотно наклонено (рампа, лежачий полицейский): нужна честная трёхсетка
+			body.position = mi.position
+			body.rotation.y = mi.rotation.y
+			var shape := ConcavePolygonShape3D.new()
+			shape.set_faces(_mesh_faces(m))
+			# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
+			# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
+			shape.backface_collision = true
+			cs.shape = shape
+		else:
+			# Коробка по полотну вместо трёхсетки плиты. Во-первых, дешевле: на трассе
+			# это снимает ~15 000 граней. Во-вторых, raised белые полосы — только
+			# геометрия, а не столкновение: иначе предмет, вставленный в бордюр, solver
+			# выталкивает вниз, и конусы на старте заезда подпрыгивают. Так было и
+			# раньше: плиты вообще не имели коллайдера, и всё ехало по процедурному полу.
+			body.position = slab["center"]
+			var box := BoxShape3D.new()
+			box.size = slab["size"]
+			cs.shape = box
 		body.add_child(cs)
 		var pm := PhysicsMaterial.new(); pm.friction = 0.0
 		body.physics_material_override = pm
 		root.add_child(body)
 	return mi
 
+# Мировая «плита полотна»: прямоугольник горизонтальных граней поверхности road и её
+# высота. Пустой словарь — полотно не плоское (рампа, лежачий полицейский).
+static func _plate_slab(mi: MeshInstance3D, m: Mesh) -> Dictionary:
+	var faces := _flat_faces(m, "road")
+	if faces.is_empty(): return {}
+	var ys := {}
+	var lo := Vector3(INF, 0, INF)
+	var hi := Vector3(-INF, 0, -INF)
+	var flat := true
+	var ref := INF
+	for f in faces:
+		var w: Vector3 = mi.transform * f[0]
+		if not is_finite(ref): ref = w.y
+		elif absf(w.y - ref) > 0.002: flat = false
+		for p in f:
+			var q: Vector3 = mi.transform * p
+			lo = Vector3(minf(lo.x, q.x), 0.0, minf(lo.z, q.z))
+			hi = Vector3(maxf(hi.x, q.x), 0.0, maxf(hi.z, q.z))
+	if not flat: return {}
+	var bottom: float = (mi.transform * m.get_aabb().position).y
+	var size := Vector3(hi.x - lo.x, ref - bottom, hi.z - lo.z)
+	if size.x < 0.05 or size.y < 0.02 or size.z < 0.05: return {}
+	return {"center": Vector3((lo.x + hi.x) * 0.5, bottom + size.y * 0.5, (lo.z + hi.z) * 0.5), "size": size}
+
+# Плитаoccupies прямоугольник по всему своему отпечатку на высоте полотна. Только это и
+# есть настоящая поверхность: приподнятые белые полосы коллайдера не имеют (см.
+# _plate_slab), поэтому ставить предмет «на бордюр» означало бы ронять его на пол.
+static func _record_surfaces(mi: MeshInstance3D, m: Mesh) -> void:
+	var slab := _plate_slab(mi, m)
+	if slab.is_empty(): return
+	var r: Vector3 = slab["center"]
+	var sz: Vector3 = slab["size"]
+	var rect := AABB(Vector3(r.x - sz.x * 0.5, 0.0, r.z - sz.z * 0.5), Vector3(sz.x, 0.0, sz.z))
+	_surfaces.append({"rect": rect, "y": r.y + sz.y * 0.5})
+
+# Треугольники поверхности name_key, у которых нормаль почти вертикальна.
+static func _flat_faces(m: Mesh, name_key: String) -> Array:
+	var out: Array = []
+	for surf in m.get_surface_count():
+		var mat := m.surface_get_material(surf)
+		if mat == null or mat.resource_name != name_key: continue
+		var arrays := m.surface_get_arrays(surf)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var tris: Array = []
+		if idx.is_empty():
+			var i := 0
+			while i + 2 < verts.size():
+				tris.append([verts[i], verts[i + 1], verts[i + 2]])
+				i += 3
+		else:
+			for k in range(0, idx.size() - 2, 3):
+				tris.append([verts[idx[k]], verts[idx[k + 1]], verts[idx[k + 2]]])
+		for t in tris:
+			var a: Vector3 = t[0]
+			var b: Vector3 = t[1]
+			var c: Vector3 = t[2]
+			var n := (b - a).cross(c - a)
+			if absf(n.y) > 0.9 * n.length(): out.append(t)
+	return out
+
 # Трамплин занимает 10 м из 20-метровой плиты, поэтому плиту под ним не ставят:
 # иначе две копии белой разметки лежат в одной плоскости и мерцают. Остаток длины
 # добираем короткой плитой roadStraight.
 static func ramp(root: Node3D, x: float, z: float) -> void:
 	kit(root, "roadRamp", Vector3(x, 0, z), 90, true, true)
-	kit(root, "roadStraight", Vector3(x + 10.0, 0, z), 90, false, true)
+	kit(root, "roadStraight", Vector3(x + 10.0, 0, z), 90, true, true)
 
 # Имя с координатами: "." и ":" Godot в именах узлов молча заменяет, а одинаковые имена
 # среди соседей переименовывает в @Node3D@N, поэтому без координат пропы ненаходимы.
@@ -197,6 +299,7 @@ static func prop(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: flo
 # насколько машина замедлится. Здания, отбойники трассы, фонари и деревья остаются
 # статичными — их сносом не снести, а физика на них тратиться не должна.
 static func loose(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: float, mass_kg: float) -> Node3D:
+	pos.y = _sit(pos.y, pos.x, pos.z)
 	var ps: PackedScene = load(path)
 	if ps == null:
 		push_warning("MapDB: ассет не найден " + path)
@@ -211,6 +314,7 @@ static func loose(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: fl
 
 # То же самое для сегмента Kenney Racing Kit (пилоны, пластиковые отбойники).
 static func loose_kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, mass_kg: float) -> Node3D:
+	pos.y = _sit(pos.y, pos.x, pos.z)
 	var m: Mesh = load(R + name + ".obj")
 	if m == null:
 		push_warning("MapDB: сегмент не найден " + name)
@@ -221,6 +325,11 @@ static func loose_kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float
 	var local := m.get_aabb()
 	mi.position = Vector3(-local.get_center().x, -local.position.y, -local.get_center().z)
 	return _wrap_loose(root, mi, local, pos, deg_to_rad(rot_y_deg), mass_kg)
+
+# «Ноль» в раскладке карт означает «стою на поверхности под этой точкой», а не «в
+# плоскости y=0». Высоту, которую вызывающий выбрал сам (тротуар — WALK_Y), не трогаем.
+static func _sit(y: float, x: float, z: float) -> float:
+	return y if y > 0.005 else surface_y(x, z)
 
 static func _wrap_loose(root: Node3D, visual: Node3D, local: AABB, pos: Vector3, rot_y: float, mass_kg: float) -> RigidBody3D:
 	var body := LooseProp.new()
@@ -258,6 +367,7 @@ static func street_lamp(root: Node3D, pos: Vector3, side: float) -> void:
 	head.material_override = m
 
 static func build(id: String) -> Dictionary:
+	_surfaces.clear()
 	match id:
 		"town": return _town()
 		"speedway": return _speedway()
@@ -274,11 +384,11 @@ static func _arena() -> Dictionary:
 	# испытательная петля: outbound по z = 0, разворот, return по z = -20
 	for k in 5:
 		if k != 3:   # плиту x=20..40 занял трамплин
-			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, 5), 90, false, true)
-	kit(root, "roadHalfCircle", Vector3(60, 0, 5), 90, false, true)
+			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, 5), 90, true, true)
+	kit(root, "roadHalfCircle", Vector3(60, 0, 5), 90, true, true)
 	for k in 5:
 		if k != 1:   # плиту x=-20..0 занял лежачий полицейский
-			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, false, true)
+			kit(root, "roadStraightLong", Vector3(-40.0 + k * 20.0, 0, -15), 90, true, true)
 	ramp(root, 20.0, 5.0)
 	kit(root, "roadBump", Vector3(-20, 0, -15), 90, true, true)
 	for k in 8:
@@ -329,8 +439,8 @@ static func _town() -> Dictionary:
 	# улицы из плит Racing Kit: главная вдоль z = -24 и вторая вдоль z = 36
 	for k in 14:
 		# первую плиту заняла стартовая арка: её разметка легла бы ровно на разметку плиты
-		if k > 0: kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, false, true)
-		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, 41), 90, false, true)
+		if k > 0: kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, true, true)
+		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, 41), 90, true, true)
 	kit(root, "roadStart", Vector3(-140, 0, -17.7), 90, true, true)   # арка на въезде в город
 	for k in 24:
 		box_vis(root, Vector3(-140 + k * 12.0, 0.03, -24), Vector3(6.0, 0.02, 0.3), Color(0.85, 0.82, 0.4))
@@ -376,7 +486,7 @@ static func _town() -> Dictionary:
 	for k in 3:
 		loose(root, P + "debris-tire.glb", Vector3(40.0 + k * 2.0, WALK_Y, 29.0), PROP, 0.0, 10.0)
 	loose(root, P + "box.glb", Vector3(-40.0, WALK_Y, -32.5), PROP, 0.8, 15.0)
-	loose(root, P + "box.glb", Vector3(96.0, WALK_Y, 43.0), PROP, 2.2, 15.0)
+	loose(root, P + "box.glb", Vector3(96.0, 0, 43.0), PROP, 2.2, 15.0)
 	loose(root, P + "debris-plate-a.glb", Vector3(20.0, 0, 34.0), PROP, 0.4, 12.0)
 	loose(root, P + "debris-bumper.glb", Vector3(-60.0, WALK_Y, -15.5), PROP, 1.7, 9.0)
 	var parked: Array[String] = [CARS + "sedan.glb", CARS + "truck.glb", CARS + "race.glb"]
@@ -394,7 +504,7 @@ static func _speedway() -> Dictionary:
 	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, true, true)          # стартовая арка
 	for k in 31:
 		if k != 1 and k != 12:   # эти плиты заняли трамплин и лежачий полицейский
-			kit(root, "roadStraightLong", Vector3(k * 20.0, 0, 5), 90, false, true)
+			kit(root, "roadStraightLong", Vector3(k * 20.0, 0, 5), 90, true, true)
 	# обочины-газон у старта и пит-лейна
 	for k in 14:
 		kit(root, "grass", Vector3(-20.0 + k * 10.0, 0.02, 16), 90, false)
@@ -436,7 +546,7 @@ static func _speedway() -> Dictionary:
 	box(root, Vector3(585, 3, 0), Vector3(1.5, 6, 30), Color(0.55, 0.2, 0.2))
 	# красные отбойники перед финишной стеной сбиваются, сама стена — нет
 	for k in 5:
-		loose_kit(root, "barrierRed", Vector3(578.0, 0, -5.0 + k * 2.5), 0, 25.0)
+		loose_kit(root, "barrierRed", Vector3(578.0, 0, -2.4 + k * 1.2), 0, 25.0)   # внутри полотна: по краю опора была разная
 	Materials.apply_tree(root, "prop")
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-10, 1.0, 0)),
 		"bounds": AABB(Vector3(-120, -30, -160), Vector3(780, 70, 320)),

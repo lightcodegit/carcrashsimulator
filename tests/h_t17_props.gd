@@ -16,6 +16,8 @@ var _got_loss := false
 var _v_after := 0.0
 var _max_y := 0.0
 var _impacts := 0
+var _settling := false
+var _settle_at := 0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -24,6 +26,10 @@ func _ready() -> void:
 	var fl := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var b := BoxShape3D.new()
 	b.size = Vector3(600, 2, 60); cs.shape = b
+	# трение пола — как на дорогах карт (нулевое): иначе тест меряет поведение в среде,
+	# которой в игре нет, и предмет, который никогда не останавливается, выглядел бы нормально
+	var fpm := PhysicsMaterial.new(); fpm.friction = 0.0
+	fl.physics_material_override = fpm
 	fl.add_child(cs); add_child(fl); fl.global_position = Vector3(200, -1, 0)
 	await get_tree().process_frame
 	car = CarRig.new(); add_child(car)
@@ -58,6 +64,7 @@ func _next() -> void:
 	_v_after = 0.0
 	_max_y = 0.0
 	_impacts = 0
+	_settling = false
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(-70, 1.0, 0)))
 	Input.action_press("throttle")
 
@@ -76,7 +83,7 @@ func _physics_process(_dt: float) -> void:
 	if not _got_loss and x > 5.0:
 		_v_after = car.speed_kmh()
 		_got_loss = true
-	if x > 16.0 or _pf > 700:
+	if (x > 16.0 or _pf > 700) and not _settling:
 		var moved := (_prop.global_position - _start).length()
 		var e := _prop.global_basis.get_euler()
 		var tilt := absf(e.x) + absf(e.z)
@@ -87,14 +94,30 @@ func _physics_process(_dt: float) -> void:
 		check(moved > 3.0, "%s улетел от удара (сдвиг %.2f м)" % [_kind, moved])
 		check(_max_y < 4.0, "%s не улетел в стратосферу (высота %.2f м)" % [_kind, _max_y])
 		if _kind == "barrier":
-			# тяжёлый и широкий: он скользит, а не кувыркается, но машину заметно тормозит
+			# тяжёлый и широкий: на дороге с нулевым трением он едет юзом, а не кувыркается
+			# (именно поэтому у полов трения нет — машина не должна терять скорость от касания),
+			# зато заметно тормозит машину и уползает далеко
 			check(loss > 4.0, "тяжёлый отбойник тормозит машину (%.1f%%)" % loss)
-			check(tilt > 0.3 or _max_y > 0.3, "отбойник кувыркается (наклон %.2f, высота %.2f)" % [tilt, _max_y])
+			check(moved > 8.0, "отбойник уползает далеко (%.2f м)" % moved)
 		else:
 			check(tilt > 0.3 or _max_y > 0.3, "%s подброшен или опрокинут (наклон %.2f, высота %.2f)" % [_kind, tilt, _max_y])
 			check(loss < 12.0, "лёгкий предмет почти не тормозит (%.1f%%)" % loss)
 			check(_impacts == 0, "%s не считается ударом (%d)" % [_kind, _impacts])
 			check(car.body.dent_count == 0, "%s не мнёт кузов (%d)" % [_kind, car.body.dent_count])
+		# 7 секунд на то, чтобы предмет остановился сам. Машину увозим: она катится
+		# накатом быстрее предмета и догоняла его — замер показывал бы не затухание, а
+		# очередной толчок бампером.
+		car.respawn(Transform3D(Basis.IDENTITY, Vector3(-140, 1.0, 0)))
+		_settling = true
+		_settle_at = _f + 420
+	var rest := 0.0
+	var spin := 0.0
+	if _settling and _f >= _settle_at:
+		rest = _prop.linear_velocity.length()
+		spin = _prop.angular_velocity.length()
+		print("%-8s осел: v=%.2f м/с ω=%.2f рад/с" % [_kind, rest, spin])
+		check(rest < 0.6, "%s останавливается после удара (%.2f м/с через 7 с)" % [_kind, rest])
+		check(spin < 1.5, "%s перестаёт вращаться (%.2f рад/с)" % [_kind, spin])
 		car.body.reset()
 		_next()
 	if _f > 6000:

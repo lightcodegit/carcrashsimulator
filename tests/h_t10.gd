@@ -106,6 +106,26 @@ func _ready() -> void:
 			for dz in [-1.0, 1.0]:
 				var h2 := space.intersect_ray(PhysicsRayQueryParameters3D.create(m.spawn.origin + Vector3(dx, 2.5, dz), m.spawn.origin + Vector3(dx, 0.05, dz)))
 				check(h2.is_empty(), "%s spawn clear at %s,%s" % [id, dx, dz])
+		# Рельеф обязан быть твёрдым: и горка, и бугор. Без коллайдера по ним ехал
+		# невидимый пол — машина не прыгала, а сбитый предмет проваливался внутрь
+		# бугра и зависал в геометрии (жалоба «объекты проходят сквозь бугры»).
+		# Ищем именно вершину: луч в угол плиты ничего не доказывает.
+		for c in root_map.get_children():
+			var mi := c as MeshInstance3D
+			if mi == null: continue
+			var n := String(mi.name)
+			if not (n.contains("roadRamp") or n.contains("roadBump")): continue
+			var box := _world_aabb(mi)
+			var top := MapDB.FLOOR_Y + 0.2
+			var best := -1e9
+			for fx in [0.25, 0.5, 0.75]:
+				for fz in [0.25, 0.5, 0.75]:
+					var p := Vector3(box.position.x + box.size.x * fx, box.end.y + 1.0,
+						box.position.z + box.size.z * fz)
+					var relief := space.intersect_ray(PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -8.0, 0)))
+					if not relief.is_empty(): best = maxf(best, relief.position.y)
+			check(best > top, "%s: %s твёрдый на своей высоте (лучше всего %.2f м, ждали > %.2f)" % [
+				id, n, best, top])
 		m.root.queue_free()
 		await get_tree().process_frame
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

@@ -15,7 +15,7 @@ func _list(dir: String) -> Array:
 	return out
 
 func _initialize() -> void:
-	for id in ["sedan", "pickup", "sport"]:
+	for id in ["sedan", "pickup", "sport", "infinity"]:
 		var p = VehicleDB.get_params(id)
 		if p == null: continue
 		var ps: PackedScene = load(p.model)

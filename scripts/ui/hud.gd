@@ -335,7 +335,9 @@ static func _lit(sb: StyleBoxFlat, r: float, g: float, bl: float) -> StyleBoxFla
 
 func bind(car: CarRig) -> void:
 	_car = car
-	_gauge.vmax = car.params.vmax_kmh * 1.05
+	# Шкала спидометра обязана быть конечной: у машины без потолка скорости
+	# стрелка всё равно должна иметь куда доезжать.
+	_gauge.vmax = (car.params.vmax_kmh * 1.05) if is_finite(car.params.vmax_kmh) else 600.0
 	_gauge.accent = car.params.accent_color
 	_deform_full = DentBody.MAX_DEPTH_RATIO * car.params.height
 	_row_vals[4].text = "%.2f м" % car.params.length

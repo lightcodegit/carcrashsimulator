@@ -13,10 +13,9 @@ func _physics_process(_dt: float) -> void:
 	_f += 1
 	if _f == 5: Input.action_press("throttle")
 	# Ждать frame_post_draw внутри физического тика можно только с живым рендером:
-	# в headless кадр не рисуется, корутина замирает, и «дистанция» оказывалась
-	# серединой прыжка (x_max=451 вместо 583) — метрика врала.
-	if not _shot: return
-	if _f in [100, 420, 1000, 1690]:
+	# в headless кадр не рисуется, корутина замирала посреди функции, и метрика
+	# врала (x_max=451 вместо 583 — это середина прыжка, а не финиш).
+	if _shot and _f in [100, 420, 1000, 1690]:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("res://tests/out/s%d.png" % _f)
 	# максимум, а не текущий x: после удара о финишную стену машину отбрасывает,

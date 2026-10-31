@@ -35,7 +35,7 @@ func _ready() -> void:
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())
 	car.impact.connect(func(_s: float, _p: Vector3, _n: Vector3) -> void: _impacts += 1)
-	for id in ["arena", "town", "speedway"]:
+	for id in MapDB.ids():
 		var m: Dictionary = MapDB.build(id)
 		var root_map: Node3D = m.root
 		var n := 0

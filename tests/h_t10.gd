@@ -68,23 +68,34 @@ func _road_overlaps(root: Node3D) -> Array[String]:
 	var bad: Array[String] = []
 	for i in boxes.size():
 		for j in range(i + 1, boxes.size()):
+			# Угловые и изогнутые тайлы — квадрат с пустыми секторами внутри: их AABB
+			# накрывает и внутренний угол поворота, поэтому пересечение «угол × прямая»
+			# ничего не доказывает. Настоящее наложение полотна ловит h_t21, который
+			# сравнивает плоские грани разметки, а не габариты.
+			if _curved(names[i]) or _curved(names[j]): continue
 			var a := boxes[i].intersection(boxes[j])
 			if a.size.x * a.size.z > 0.05:
 				bad.append(names[i] + " × " + names[j])
 	return bad
 
+func _curved(name: String) -> bool:
+	for k in ["Corner", "HalfCircle", "Curved", "Skew", "Split"]:
+		if name.contains(k): return true
+	return false
+
 func _ready() -> void:
 	await get_tree().process_frame
-	for id in ["arena", "town", "speedway"]:
+	for id in MapDB.ids():   # новая карта проходит тот же аудит автоматически
 		var m: Dictionary = MapDB.build(id)
 		var root_map: Node3D = m.root
 		var spawn: Transform3D = m.spawn
 		var info: Dictionary = m.info
 		add_child(root_map)
 		check(info.colliders > 10, "%s has colliders (%d)" % [id, m.info.colliders])
-		# Трамплин с большим полётом — только там, где есть куда лететь: на 200-метровом
-		# полигоне прыжок оканчивался стеной (h_t28).
-		check(info.has_ramp == (id == "speedway"), "%s: горка ожидаемая (%s)" % [id, str(info.has_ramp)])
+		# Трамплин с большим полётом — только там, где есть куда лететь: на замкнутом
+		# полигоне и в городе прыжок оканчивался стеной (замеры в h_t28).
+		var flies := id != "arena" and id != "town"
+		check(info.has_ramp == flies, "%s: горка ожидаемая (%s)" % [id, str(info.has_ramp)])
 		var ov := _road_overlaps(root_map)
 		check(ov.is_empty(), "%s: дорожные плиты не наложены друг на друга (%s)" % [id, str(ov)])
 		await get_tree().physics_frame

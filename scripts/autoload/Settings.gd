@@ -2,8 +2,8 @@ extends Node
 # Настройки игрока: картинка, счётчик кадров и раскладка клавиш.
 #
 # Файл лежит в user://, а не в репозитории: это состояние конкретного игрока, и в git
-# ему делать нечего. Значения по умолчанию совпадают с тем, что проект имел до
-# появления настроек, — первый запуск выглядит ровно как раньше.
+# ему делать нечего. Значения по умолчанию выбраны по замерам на самом слабом GPU,
+# который нам достался (Intel HD 630), — см. SCALE_STEPS.
 
 signal changed
 
@@ -23,15 +23,23 @@ const SHADOW_PRESETS := [
 	["ДАЛЬНИЕ (420 м)", 1, 420.0],
 ]
 
+# Внутренний масштаб 3D. Дефолт — 0.7, и это не лень, а арифметика: на Intel HD 630
+# при 1600×900 полный кадр с тенями, свечением и дымкой стоит 21 мс, а вертикалка
+# 60 Гц принимает 16.7 — не влезший кадр уходит в 33.3, то есть ровно в «30 fps».
+# С 0.7 тот же набор эффектов стоит 14.8 мс. На дискретной GPU ставят 1.0.
+const SCALE_STEPS := [0.7, 0.85, 1.0]
+const SCALE_NAMES := ["70%", "85%", "100%"]
+
 var vsync: int = VSync.ON
 var fps_limit := 0
-var shadow_preset := 2
-var ssao := true
-var ssil := true
+var shadow_preset := 1
+var ssao := false
+var ssil := false
 var fog := true
 var glow := true
-var msaa: int = Msaa.X4          # как в project.godot до появления настроек
-var screen_aa := true
+var msaa: int = Msaa.X2           # 2X: на Compatibility это единственное сглаживание
+var screen_aa := false
+var scale := 0.7
 var show_fps := true
 
 func _ready() -> void:
@@ -43,7 +51,7 @@ func values() -> Dictionary:
 	return {
 		"vsync": vsync, "fps_limit": fps_limit, "shadow_preset": shadow_preset,
 		"ssao": ssao, "ssil": ssil, "fog": fog, "glow": glow,
-		"msaa": msaa, "screen_aa": screen_aa, "show_fps": show_fps,
+		"msaa": msaa, "screen_aa": screen_aa, "scale": scale, "show_fps": show_fps,
 	}
 
 func set_value(key: String, v: Variant) -> void:
@@ -57,14 +65,15 @@ func set_value(key: String, v: Variant) -> void:
 		"glow": glow = bool(v)
 		"msaa": msaa = int(v)
 		"screen_aa": screen_aa = bool(v)
+		"scale": scale = clampf(float(v), 0.5, 1.0)
 		"show_fps": show_fps = bool(v)
 		_: return
 	save()
 	changed.emit()
 
 # Применяет всё, что живёт не в Environment конкретной сцены: вертикальная синхронизация,
-# потолок кадров и сглаживание окна. Освещение и пост-эффекты применяются из GameManager,
-# потому что Environment принадлежит сцене, а не автозагрузке.
+# потолок кадров, сглаживание и внутренний масштаб окна. Освещение и пост-эффекты
+# применяются из GameManager, потому что Environment принадлежит сцене, а не автозагрузке.
 func apply_window() -> void:
 	match vsync:
 		VSync.OFF: DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
@@ -74,7 +83,20 @@ func apply_window() -> void:
 	var w := get_window()
 	if w != null:
 		w.msaa_3d = msaa
-		w.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if screen_aa else Viewport.SCREEN_SPACE_AA_DISABLED
+		w.scaling_3d_scale = scale
+		# экранный сглаживатель движок Compatibility не знает: включать его можно только
+		# там, где он действительно работает, иначе настройка врёт игроку
+		var aa := screen_aa and supports_screen_aa()
+		w.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if aa else Viewport.SCREEN_SPACE_AA_DISABLED
+
+static func rendering_method() -> String:
+	return RenderingServer.get_current_rendering_method()
+
+static func supports_screen_aa() -> bool:
+	return rendering_method() != "gl_compatibility"
+
+static func supports_ssil() -> bool:
+	return rendering_method() == "forward_plus"
 
 func shadow_enabled() -> bool:
 	return int(SHADOW_PRESETS[shadow_preset_clamped()][1]) == 1
@@ -109,19 +131,21 @@ func load_values() -> void:
 	glow = bool(d.glow)
 	msaa = int(d.msaa)
 	screen_aa = bool(d.screen_aa)
+	scale = clampf(float(d.scale), 0.5, 1.0)
 	show_fps = bool(d.show_fps)
 	InputRouter.load_keys(cf)
 
 func reset() -> void:
 	vsync = VSync.ON
 	fps_limit = 0
-	shadow_preset = 2
-	ssao = true
-	ssil = true
+	shadow_preset = 1
+	ssao = false
+	ssil = false
 	fog = true
 	glow = true
-	msaa = Msaa.X4
-	screen_aa = true
+	msaa = Msaa.X2
+	screen_aa = false
+	scale = 0.7
 	show_fps = true
 	InputRouter.reset_keys()
 	save()

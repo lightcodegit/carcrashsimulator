@@ -76,7 +76,7 @@ func _release_inputs() -> void:
 func _apply_render() -> void:
 	if _env == null or hud == null: return
 	_env.ssao_enabled = Settings.ssao
-	_env.ssil_enabled = Settings.ssil
+	_env.ssil_enabled = Settings.ssil and Settings.supports_ssil()
 	_env.fog_enabled = Settings.fog
 	_env.glow_enabled = Settings.glow
 	_sun.shadow_enabled = Settings.shadow_enabled()
@@ -121,8 +121,10 @@ func _setup_env() -> void:
 	env.ssao_radius = 1.2
 	env.ssao_intensity = 1.4
 	# экранный непрямой свет вытаскивает из черноты то, что не освещено солнцем напрямую:
-	# припаркованные машины в тени домов были главным источником жалобы на темноту
-	env.ssil_enabled = true
+	# припаркованные машины в тени домов были главным источником жалобы на темноту.
+	# На Compatibility его нет — движок сам предупреждает, если включить, поэтому
+	# просим только там, где он существует.
+	env.ssil_enabled = Settings.supports_ssil()
 	env.ssil_intensity = 1.25
 	env.ssil_radius = 6.0
 	# дымка даёт глубину и прячет границу прорисовки на 620-метровой трассе

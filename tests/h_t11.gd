@@ -37,21 +37,23 @@ func _ready() -> void:
 			for c in gm.get_children():
 				if c is DirectionalLight3D:
 					suns += 1
-					long_shadow = long_shadow or (c as DirectionalLight3D).directional_shadow_max_distance >= 200.0
+					long_shadow = long_shadow or (c as DirectionalLight3D).directional_shadow_max_distance >= 100.0
 				if c is WorldEnvironment: env = (c as WorldEnvironment).environment
 			if env != null:
 				amb = env.ambient_light_source == Environment.AMBIENT_SOURCE_SKY
 			check(suns >= 2, "%s/%s солнце плюс заполняющий свет (%d)" % [map_id, car_id, suns])
 			check(amb, "%s/%s рассеянный свет от неба" % [map_id, car_id])
-			check(long_shadow, "%s/%s тени достают до горизонта карты" % [map_id, car_id])
+			check(long_shadow, "%s/%s тени хватает за машину с запасом" % [map_id, car_id])
 			# окружение: физическое небо, дымка и экранный непрямой свет — иначе кузова
 			# в тени домов остаются чёрными, а дальние карты обрываются
 			check(env != null and env.sky != null and env.sky.sky_material is PhysicalSkyMaterial,
 				"%s/%s небо физическое" % [map_id, car_id])
 			check(env != null and env.fog_enabled and env.fog_density > 0.0,
 				"%s/%s дымка включена" % [map_id, car_id])
-			check(env != null and env.ssil_enabled and env.ssil_intensity > 0.5,
-				"%s/%s экранный непрямой свет включён" % [map_id, car_id])
+			# SSIL живёт только на Forward+: на Compatibility движок его не знает, и
+			# требовать его было бы требованием несуществующей настройки
+			check(env != null and env.ssil_enabled == (Settings.ssil and Settings.supports_ssil()),
+				"%s/%s экранный непрямой свет следует настройке и движку" % [map_id, car_id])
 			check(env != null and env.reflected_light_source == Environment.REFLECTION_SOURCE_SKY,
 				"%s/%s отражения от неба" % [map_id, car_id])
 			gm.queue_free()

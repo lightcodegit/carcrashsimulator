@@ -19,6 +19,7 @@ const ACTION_NAMES := {
 const OPTIONS := [
 	["vsync", "ВЕРТИКАЛЬНАЯ СИНХРОНИЗАЦИЯ", ["ВЫКЛ", "ВКЛ", "АДАПТИВНАЯ"], [0, 1, 2]],
 	["fps_limit", "ПОТОЛОК КАДРОВ", ["БЕЗ ПОТОЛКА", "30", "60", "120"], [0, 30, 60, 120]],
+	["scale", "МАСШТАБ КАРТИНКИ", ["70%", "85%", "100%"], [0.7, 0.85, 1.0]],
 	["shadow_preset", "ТЕНИ", ["ВЫКЛ", "КОРОТКИЕ 120 М", "СРЕДНИЕ 260 М", "ДАЛЬНИЕ 420 М"], [0, 1, 2, 3]],
 	["msaa", "МСАА", ["НЕТ", "2×", "4×", "8×"], [0, 1, 2, 3]],
 ]
@@ -30,6 +31,13 @@ const CHECKS := [
 	["glow", "СВЕЧЕНИЕ ЯРКОГО"],
 	["show_fps", "СЧЁТЧИК КАДРОВ НА ЭКРАНЕ"],
 ]
+# Что из перечисленного живой движок действительно умеет. Показать строчку, которая
+# ничего не меняет, — значит соврать игроку.
+static func _supported(key: String) -> bool:
+	match key:
+		"ssil": return Settings.supports_ssil()
+		"screen_aa": return Settings.supports_screen_aa()
+	return true
 
 var _mono: SystemFont
 var _pages: Array[Control] = []
@@ -122,6 +130,13 @@ func _build_video() -> Control:
 	var host := VBoxContainer.new()
 	host.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	host.add_theme_constant_override("separation", 6)
+	if not Settings.supports_screen_aa() or not Settings.supports_ssil():
+		# без этой строки игрок искал бы глазами выключенные у движка пункты
+		var miss: Array[String] = []
+		if not Settings.supports_screen_aa(): miss.append("сглаживание")
+		if not Settings.supports_ssil(): miss.append("SSIL")
+		host.add_child(_note("Движок: %s · не поддерживается: %s" % [
+			Settings.rendering_method(), ", ".join(miss)]))
 	for o in OPTIONS:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
@@ -137,6 +152,7 @@ func _build_video() -> Control:
 		row.add_child(opt)
 		host.add_child(row)
 	for c in CHECKS:
+		if not _supported(c[0]): continue
 		var cb := CheckBox.new()
 		cb.text = c[1]
 		cb.focus_mode = Control.FOCUS_ALL
@@ -247,9 +263,11 @@ func refresh() -> void:
 	for n in _all_of("OptionButton"):
 		var key := String(n.get_meta("key"))
 		var vals: Array = n.get_meta("values")
-		var cur := int(Settings.get(key))
+		# сравнение вещественное: масштаб картинки — это 0.7/0.85/1.0, и int()
+		# схлопнул бы первые два в один и тот же пункт
+		var cur := float(Settings.get(key))
 		for i in vals.size():
-			if int(vals[i]) == cur: n.select(i)
+			if is_equal_approx(cur, float(vals[i])): n.select(i)
 	for n in _all_of("CheckBox"):
 		n.button_pressed = bool(Settings.get(String(n.get_meta("key"))))
 	for action in _keys:

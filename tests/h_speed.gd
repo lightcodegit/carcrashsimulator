@@ -1,7 +1,7 @@
 extends Node3D
 var _f := 0
 var _max_x := -1e9
-var _shot := not DisplayServer.is_headless()
+var _shot: bool = DisplayServer.get_name() != "headless"   # скриншоты имеют смысл только с живым рендером
 var gm: GameManager
 func _ready() -> void:
 	GameContext.select("sport", "speedway")

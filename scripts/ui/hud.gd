@@ -79,7 +79,6 @@ var _pause_panel: Control
 var _pause_label: Label
 var _run_stats: Label
 var _buttons: Array[Button] = []
-var _esc_hint: Label
 var _start_ms := 0
 var _prev_kmh := 0.0
 var _g := 0.0
@@ -272,8 +271,8 @@ func _build_pause(root: Control) -> void:
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_panel.add_child(dim)
 	var card := Panel.new()
-	card.position = Vector2(520, 236)
-	card.size = Vector2(560, 428)
+	card.position = Vector2(520, 244)
+	card.size = Vector2(560, 412)
 	card.add_theme_stylebox_override("panel", _style(8))
 	_pause_panel.add_child(card)
 	_pause_label = _label(Vector2(0, 28), 42)
@@ -305,11 +304,6 @@ func _build_pause(root: Control) -> void:
 		(b.pressed as Signal).connect(rows[i][1] as Callable)
 		card.add_child(b)
 		_buttons.append(b)
-	_esc_hint = _label(Vector2(0, 404), 13, Color(0.5, 0.56, 0.65))
-	_esc_hint.text = "ESC — продолжить"
-	_esc_hint.size = Vector2(560, 20)
-	_esc_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	card.add_child(_esc_hint)
 
 func _button(text: String) -> Button:
 	var b := Button.new()

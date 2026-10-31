@@ -82,6 +82,12 @@ func _ready() -> void:
 			check(_topmost_at(gm.hud, r.position + Vector2(6, r.size.y * 0.5)) == pb,
 				"пауза: %s не перекрыта другой панелью" % name)
 	check(gm.hud.pause_button("ПРОДОЛЖИТЬ").has_focus(), "пауза: фокус на первой кнопке")
+	# оверлей паузы не должен подписывать кнопки клавишами: кнопка «ПРОДОЛЖИТЬ» и есть
+	# способ продолжить, а строка «ESC — …» дублировала её словами
+	var overlay := ""
+	for c in gm.hud.get_children():
+		overlay += _texts(c)
+	check("ESC" not in overlay, "меню паузы не показывает надписи с клавишами (%s)" % overlay.left(120))
 	# «заново» должна обнулить журнал ударов и снять паузу
 	gm._crashes = 3
 	gm.hud.pause_button("ЗАПУСТИТЬ ЗАНОВО").emit_signal("pressed")
@@ -150,6 +156,11 @@ func _ready() -> void:
 	check(not get_tree().paused, "tree unpaused on menu return")
 	check(get_tree().current_scene != null and get_tree().current_scene.scene_file_path == "res://scenes/main_menu.tscn",
 		"menu button returns to main menu (%s)" % str(get_tree().current_scene.scene_file_path if get_tree().current_scene else null))
+	# Главное меню тоже больше не печатает раскладку строкой под кнопками: игрок просил
+	# убрать надписи с кейбиндами с оверлеев, а не перенести их из HUD сюда
+	var menu_texts := _texts(get_tree().current_scene)
+	check("ГАЗ:" not in menu_texts and "РУЧНИК:" not in menu_texts,
+		"в меню нет строки с раскладкой (%s)" % menu_texts.left(120))
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 

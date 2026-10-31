@@ -64,8 +64,8 @@ var _stat_top: Label
 var _stat_count: Label
 var _tip_label: Label
 var _fps_label: Label
+var _deform_bg: ColorRect
 var _deform_fill: ColorRect
-var _telemetry: Control
 var _deform := 0.0
 var _deform_area := Rect2(14, 192, 288, 8)
 var _pause_panel: Control
@@ -159,8 +159,7 @@ func _build_telemetry(root: Control) -> void:
 	var title := _label(Vector2(14, 10), 13, DIM)
 	title.text = "ТЕЛЕМЕТРИЯ"
 	panel.add_child(title)
-	panel.draw.connect(_draw_deform)
-	_telemetry = panel
+
 	_row(panel, 38, "ПЕРЕГРУЗКА")
 	_row(panel, 64, "ПИК ПЕРЕГРУЗКИ")
 	_row(panel, 90, "ВМЯТИНЫ")
@@ -169,24 +168,24 @@ func _build_telemetry(root: Control) -> void:
 	var cap := _label(Vector2(14, 170), 13, DIM)
 	cap.text = "КУЗОВ"
 	panel.add_child(cap)
-
-# Шкала деформации кузова: доля глубины самой большой вмятины от предельной. Показание
-# «суммарного отклонения» для этого не годится — там сотни метров на сильный краш,
-# и степень разрушения по нему не читается, поэтому здесь именно максимум.
-func _draw_deform() -> void:
-	if _telemetry == null: return
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(1, 1, 1, 0.08)
-	bg.set_corner_radius_all(1)
-	bg.draw(_telemetry, _deform_area)
-	var t := clampf(_deform / DEFORM_FULL, 0.0, 1.0)
-	if t <= 0.0: return
-	var fill := _deform_area.grow(-1.0)
-	fill.size.x *= t
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = OK.lerp(WARN, clampf(t * 2.0, 0.0, 1.0)).lerp(BAD, clampf((t - 0.6) / 0.4, 0.0, 1.0))
-	sb.set_corner_radius_all(1)
-	sb.draw(_telemetry, fill)
+	# Шкала деформации кузова: доля глубины самой большой вмятины от предельной.
+	# Показание «суммарного отклонения вершин» для этого не годится — там сотни метров
+	# на сильный краш, и степень разрушения по нему не читается.
+	# Два ColorRect вместо отрисовки: свой обработчик draw падает на null canvas_item,
+	# когда панель уже выгружается вместе со сценой.
+	_deform_fill = ColorRect.new()
+	_deform_fill.color = OK
+	_deform_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_deform_fill.position = _deform_area.position
+	_deform_fill.size = Vector2(0, _deform_area.size.y)
+	panel.add_child(_deform_fill)
+	_deform_bg = ColorRect.new()
+	_deform_bg.color = Color(1, 1, 1, 0.09)
+	_deform_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_deform_bg.position = _deform_area.position - Vector2(1, 1)
+	_deform_bg.size = _deform_area.size + Vector2(2, 2)
+	panel.add_child(_deform_bg)
+	panel.move_child(_deform_fill, panel.get_child_count() - 1)
 
 func _build_crash_log(root: Control) -> void:
 	var panel := Panel.new()
@@ -395,6 +394,8 @@ func _process(dt: float) -> void:
 		var d: float = _car.body.max_depth
 		if absf(d - _deform) > 1e-4:
 			_deform = d
-			_telemetry.queue_redraw()
+			var t: float = clampf(d / DEFORM_FULL, 0.0, 1.0)
+			_deform_fill.size.x = maxf(0.0, (_deform_bg.size.x - 2.0) * t)
+			_deform_fill.color = OK.lerp(WARN, clampf(t * 2.0, 0.0, 1.0)).lerp(BAD, clampf((t - 0.6) / 0.4, 0.0, 1.0))
 	if _tip_label.visible and _tip_until > 0 and Time.get_ticks_msec() > _tip_until:
 		_tip_label.visible = false

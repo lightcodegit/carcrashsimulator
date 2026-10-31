@@ -9,8 +9,25 @@ extends RigidBody3D
 
 const TUMBLE := 1.5          # безразмерный множитель момента: пилон крутится ~4-5 рад/с
 const MIN_HIT_MS := 3.0      # медленное касание (машина просто стоит рядом) кувырка не даёт
+const GROUP := "loose_prop"
 
 var height_m := 1.0
+var _home := Transform3D.IDENTITY
+
+func _ready() -> void:
+	add_to_group(GROUP)
+	# домашнее положение снимаем уже в дереве: до этого глобальный трансформ ещё
+	# не определён, а именно в него предмет должен возвращаться на «заново»
+	_home = global_transform
+
+# Рестарт возвращает сбитые предметы на место. Иначе за несколько заездов трасса
+# загружается обломками, и машина может родиться внутри конуса: solver выталкивает
+# её на несколько метров, и старт каждого заезда становится случайностью.
+func restore() -> void:
+	global_transform = _home
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	reset_physics_interpolation()
 
 func setup_tumble() -> void:
 	contact_monitor = true

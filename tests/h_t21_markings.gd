@@ -63,7 +63,7 @@ static func _kits(n: Node, out: Array) -> void:
 
 func _ready() -> void:
 	await get_tree().process_frame
-	for id in ["arena", "town", "speedway"]:
+	for id in MapDB.ids():
 		var m: Dictionary = MapDB.build(id)
 		var root: Node3D = m.root
 		add_child(root)

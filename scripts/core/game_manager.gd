@@ -10,6 +10,9 @@ var settings: SettingsMenu
 var _env: Environment
 var _sun: DirectionalLight3D
 var _spawn := Transform3D.IDENTITY
+var _map_root: Node3D
+var _endless := false
+var _recycle_wait := 0.5
 var _bounds := AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320))
 var _top_crash := 0.0
 var _crashes := 0
@@ -24,6 +27,8 @@ func _ready() -> void:
 	var m: Dictionary = MapDB.build(GameContext.map_id)
 	_spawn = m.spawn
 	_bounds = m.bounds
+	_map_root = m.root
+	_endless = bool(m.info.get("endless", false))
 	add_child(m.root)
 	car = CarRig.new()
 	add_child(car)
@@ -195,6 +200,13 @@ func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 
 func _physics_process(dt: float) -> void:
 	if _paused: return
+	if _endless:
+		# раз в полсекунды переносим плиты, оставшиеся за спиной, в хвост ленты: дорога
+		# не кончается, и машина едет по ней столько, сколько сможет
+		_recycle_wait -= dt
+		if _recycle_wait <= 0.0:
+			_recycle_wait = 0.5
+			MapDB.recycle(_map_root, car.chassis.global_position.x, 20.0)
 	TimeScale.set_hold(Input.is_action_pressed("slowmo"))
 	var pos := car.chassis.global_position
 	# Верхнюю границу не проверяем: над картой ничего не держит, и прыгнуть высоко —

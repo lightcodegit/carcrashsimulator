@@ -5,6 +5,7 @@ var car: CarRig
 var hud: HUD
 var camera: CameraRig
 var effects: EffectsDirector
+var skid: SkidMarks
 var _spawn := Transform3D.IDENTITY
 var _bounds := AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320))
 var _top_crash := 0.0
@@ -23,6 +24,11 @@ func _ready() -> void:
 	add_child(car)
 	car.build(VehicleDB.get_params(GameContext.car_id), get_world_3d())
 	car.respawn(_spawn)
+	# после car в дереве: свой _physics_process получает уже посчитанное за этот тик скольжение
+	skid = SkidMarks.new()
+	skid.name = "SkidMarks"
+	add_child(skid)
+	skid.setup(car)
 	effects = EffectsDirector.new()
 	add_child(effects)
 	effects.attach(car)
@@ -126,6 +132,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _respawn_now() -> void:
 	_flip = 0.0
 	car.respawn(_spawn)
+	skid.respawn()
 	hud.show_tip("")
 	TimeScale.set_hold(false)
 

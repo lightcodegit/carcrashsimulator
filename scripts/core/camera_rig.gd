@@ -2,8 +2,7 @@ class_name CameraRig
 extends Camera3D
 
 const SHAKE_DECAY := 1.5
-const FOLLOW_RATE := 9.0
-const TELEPORT_M := 8.0
+const SWAY_RATE := 6.0           # 1/с: как быстро направление погони догоняет курс машины
 const STANDOFF := 0.45         # насколько отойти от заслонившей поверхности
 const MIN_FROM := 1.8          # и не вплотную к машине, если места хватает
 const GUARD_STEPS := 4         # сколько раз переснять луч, обходя мелкие тела
@@ -15,14 +14,13 @@ var _orbit_yaw := 0.0
 var _orbit_pitch := 0.35
 var _orbit_dist := 9.0
 var _drag := false
-var _pos := Vector3.ZERO           # чистая позиция без шейка: инакше шейк накапливается и тянет камеру
-var _prev_target := Vector3.ZERO
-var _have_pos := false
+var _fwd := Vector3.ZERO           # сглаженный курс машины: единственное, что погоня помнит
+var _fwd_seen := false
 var _shake := 1.0              # множитель тряски: 0 — камера неподвижна даже в краше
 
 func setup(car: CarRig) -> void:
 	_car = car
-	_have_pos = false
+	_fwd_seen = false
 	# Плавностью заведует _process, и покадровая интерполяция физики нам только мешает:
 	# движок предупреждает «Interpolated Camera3D triggered from outside physics process»,
 	# потому что мы ставим трансформ вне физического тика.
@@ -39,7 +37,7 @@ func mode() -> int: return _mode
 
 func cycle_mode() -> int:
 	_mode = (_mode + 1) % 3
-	_have_pos = false
+	_fwd_seen = false
 	return _mode
 
 func add_trauma(t: float) -> void:
@@ -60,37 +58,39 @@ func _process(dt: float) -> void:
 	_trauma = maxf(0.0, _trauma - dt * SHAKE_DECAY)
 	var t := _trauma * _trauma
 	var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.35 * t * _shake
-	var target := _car.chassis.global_position
+	# рисуемое положение машины, не тиковое — см. CarRig.render_transform()
+	var gt := _car.render_transform()
+	var target: Vector3 = gt.origin
 	var look := target + Vector3(0, 0.6, 0)
 	match _mode:
 		0:
-			var fwd := _car.forward()
-			var speed := _car.chassis.linear_velocity.length()
+			# Погоня стоит на фиксированной дистанции за СГЛАЖЕННЫМ курсом машины:
+			# `target − курс·back + up` — чистая функция от рисуемого положения, своей
+			# прошлой позиции у неё нет. Прежний lerp позиции на 150 км/ч недобирал метр
+			# дистанции и гулял по полуметру каждый кадр: «камера отстаёт, отходит и
+			# возвращается, мелькает». Сглаживается только направление — это ровно то, за
+			# что погоню ценят: в повороте камера доворачивает следом, а не телепортируется.
+			var fwd_raw: Vector3 = gt.basis.z
+			fwd_raw.y = 0.0
+			if fwd_raw.length_squared() < 1e-6:
+				fwd_raw = Vector3(0.0, 0.0, 1.0)
+			else:
+				fwd_raw = fwd_raw.normalized()
+			if not _fwd_seen:
+				_fwd = fwd_raw
+				_fwd_seen = true
+			else:
+				_fwd = _fwd.lerp(fwd_raw, 1.0 - exp(-dt * SWAY_RATE)).normalized()
+			var speed := _car.chassis.linear_velocity.length()   # скорость — величина физическая, она не джиттерит
 			var back := 5.0 + minf(speed, 60.0) * 0.045     # на скорости отъезжаем дальше
 			var up := 1.9 + minf(speed, 60.0) * 0.010
-			var want := target - fwd * back + Vector3(0, up, 0)
-			if not _have_pos:
-				_pos = _pull(target, want)
-				_prev_target = target
-				_have_pos = true
-			else:
-				var delta := target - _prev_target
-				if delta.length() > TELEPORT_M:   # респавн/телепорт — без плавного доезда
-					_pos = want
-				else:
-					# наследуем движение машины целиком, сглаживаем только отклонение:
-					# чистый lerp позиции давал отставание на несколько метров на скорости
-					_pos += delta
-					_pos = _pos.lerp(want, 1.0 - exp(-dt * FOLLOW_RATE))
-				_prev_target = target
-				# к цели сквозь стены идти нельзя: сглаженная позиция может оказаться
-				# за уже проскочившим препятствием, поэтому ограничиваем именно её
-				_pos = _pull(target, _pos)
-			global_position = _pos + shake
+			# к цели сквозь стены идти нельзя: луч из машины в точку погони и там, и там
+			# считается по одному курсу, поэтому ограничение нигде не «тянет» камеру назад
+			global_position = _pull(target, target - _fwd * back + Vector3(0, up, 0)) + shake
 			_look_at(look)
 		1:
 			var hp: Vector3 = _car.body.hood_point(0.30, 0.14)
-			var eye := _car.chassis.global_transform * hp
+			var eye: Vector3 = gt * hp
 			global_position = eye + shake * 0.3
 			_look_at(eye + _car.forward() * 12.0 + Vector3(0, -0.45, 0))
 		2:

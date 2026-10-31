@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 GameContext="*res://scripts/autoload/GameContext.gd"
 TimeScale="*res://scripts/autoload/TimeScale.gd"
 InputRouter="*res://scripts/autoload/InputRouter.gd"
+Settings="*res://scripts/autoload/Settings.gd"
 
 [display]
 

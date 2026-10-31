@@ -6,6 +6,9 @@ var hud: HUD
 var camera: CameraRig
 var effects: EffectsDirector
 var skid: SkidMarks
+var settings: SettingsMenu
+var _env: Environment
+var _sun: DirectionalLight3D
 var _spawn := Transform3D.IDENTITY
 var _bounds := AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320))
 var _top_crash := 0.0
@@ -16,7 +19,6 @@ var _start_ms := 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # Esc и «в меню» должны работать и на паузе
-	_release_inputs()
 	TimeScale.set_hold(false)     # слоу-мо не должно переезжать в новый заезд
 	_setup_env()
 	var m: Dictionary = MapDB.build(GameContext.map_id)
@@ -32,6 +34,9 @@ func _ready() -> void:
 	skid.name = "SkidMarks"
 	add_child(skid)
 	skid.setup(car)
+	settings = SettingsMenu.new()
+	settings.name = "SettingsMenu"
+	add_child(settings)   # настройки живут на слое HUD, чтобы не оказаться под интерфейсом
 	effects = EffectsDirector.new()
 	add_child(effects)
 	effects.attach(car)
@@ -41,19 +46,49 @@ func _ready() -> void:
 	camera.make_current()
 	hud = HUD.new()
 	add_child(hud)
+	# настройки переселяются на слой HUD: как ребёнок Node3D они остались бы на слое 0
+	# и утонули бы под интерфейсом
+	settings.reparent(hud)
+	settings.closed.connect(_close_settings)
+	Settings.changed.connect(_apply_render)
 	hud.bind(car)
 	hud.menu_requested.connect(_to_menu)
-	_start_ms = Time.get_ticks_msec()
 	hud.resume_requested.connect(func() -> void: _set_paused(false))
 	hud.restart_requested.connect(_restart_map)
+	hud.settings_requested.connect(_open_settings)
 	car.impact.connect(_on_impact)
+	_start_ms = Time.get_ticks_msec()
+	_release_inputs()
+	_apply_render()
 
 # Состояние действий переживает смену сцены: уход в меню с зажатым W возвращал в игру
-# уже с нажатым газом и ручником, и машина начинала движение сама. Отжимаем всё перед
-# сборкой заезда — это release по уже известным именам, новых состояний не заводим.
+# уже с нажатым газом и ручником, и машина начинала движение сама. Отжимаем всё ПОСЛЕ
+# сбора HUD: экран настроек перехватывает нажатия только пока открыт, а на этапе
+# _ready он ещё скрыт, и его контролы успевали съесть Esc как ui_cancel.
+# Это release по уже известным именам из InputMap — новых состояний не заводим.
 func _release_inputs() -> void:
 	for a in InputMap.get_actions():
 		Input.action_release(a)
+
+# Настройки картинки применяются к конкретной сцене, потому что Environment и солнце
+# принадлежат заезду, а не автозагрузке. Вызывается при сборке сцены и на каждый
+# Settings.changed — экран настроек открыт и из меню, и из паузы.
+func _apply_render() -> void:
+	if _env == null or hud == null: return
+	_env.ssao_enabled = Settings.ssao
+	_env.ssil_enabled = Settings.ssil
+	_env.fog_enabled = Settings.fog
+	_env.glow_enabled = Settings.glow
+	_sun.shadow_enabled = Settings.shadow_enabled()
+	_sun.directional_shadow_max_distance = Settings.shadow_distance()
+	hud.set_fps_visible(Settings.show_fps)
+
+func _open_settings() -> void:
+	settings.open()
+
+func _close_settings() -> void:
+	settings.close()
+	if _paused: hud.set_paused(true)     # фокус возвращается на кнопки паузы
 
 func _setup_env() -> void:
 	var we := WorldEnvironment.new()
@@ -95,6 +130,7 @@ func _setup_env() -> void:
 	env.fog_sun_scatter = 0.25
 	we.environment = env
 	add_child(we)
+	_env = env
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, -32, 0)
 	sun.shadow_enabled = true
@@ -105,6 +141,7 @@ func _setup_env() -> void:
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_blend_splits = true
 	add_child(sun)
+	_sun = sun
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-22, 150, 0)
 	fill.light_energy = 0.45
@@ -136,6 +173,9 @@ func _physics_process(dt: float) -> void:
 	if _flip > 1.0: hud.show_tip("машина на крыше — R для рестарта")
 
 func _unhandled_input(event: InputEvent) -> void:
+	# пока открыт экран настроек, его события нам не нужны: там своя обработка,
+	# включая Esc для закрытия
+	if settings != null and settings.is_open(): return
 	if event.is_action_pressed("pause"):
 		_set_paused(not _paused)
 	elif _paused:

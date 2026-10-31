@@ -153,8 +153,11 @@ func _ready() -> void:
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
+# Только видимые контролы: экран настроек живёт внутри HUD и сам содержит слова
+# «РУЧНИК», «СЛОУ-МО», «РЕСТАРТ» — в свёрнутом состоянии он ничего не доказывает.
 func _texts(n: Node) -> String:
 	var out := ""
+	if n is Control and not (n as Control).visible: return out
 	if n is Label: out += (n as Label).text
 	for c in n.get_children():
 		out += _texts(c)

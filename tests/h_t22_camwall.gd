@@ -32,7 +32,7 @@ func _chase(heading: float) -> void:
 	car.respawn(Transform3D(Basis(Vector3.UP, heading), Vector3(0, 1.0, 0)))
 	while cam.mode() != 0:
 		cam.cycle_mode()
-	cam._have_pos = false
+	cam._fwd_seen = false
 
 func _ready() -> void:
 	_body(Vector3(600, -1, 0), Vector3(2400, 2, 900))     # пол: верх при y = 0

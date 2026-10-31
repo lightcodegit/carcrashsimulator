@@ -36,7 +36,7 @@ const SUSP_STIFFNESS := 120.0
 const SUSP_TRAVEL := 0.20
 const SUSP_DAMP_COMPRESS := 7.0
 const SUSP_DAMP_RELAX := 9.0
-const SUSP_MAX_G := 3.0            # предел силы подвески в единицах веса
+const SUSP_MAX_G := 6.0            # предел силы подвески в единицах веса
 const GRIP_REF := 8.0
 const RECENT_DECAY := 96.0         # км/ч за секунду
 const YAW_OFFSET := PI * 0.5       # VehicleBody3D едет носом в +Z (проверено), а проект живёт в «+X вперёд»
@@ -298,19 +298,23 @@ func wheel_contact(i: int) -> Vector3:
 	var w := _wheels[i]
 	return w.global_position - Vector3(0.0, w.wheel_radius, 0.0)
 
-# Удар — это резкое торможение, а не сам факт касания: поэтому заезд на рампу,
-# приземление после прыжка и лёгкое касание борта ударом не считаются. Меряем по окну
-# в несколько тиков: настоящая физика гасит скорость не мгновенно, как прежний
-# аркадный контроллер, и порог «за тик» не срабатывал вообще.
+# Удар — это гибель СКОРОСТИ КАК ТАКОВОЙ, а не смена её направления. Мерим полную
+# величину вектора: на гребне трамплина машина теряет 12 км/ч по горизонтали, зато
+# получает +13 м/с вверх (замер на 210 км/ч), то есть скорость просто повернула — и по
+# полной величине там потери почти нет. Приземление с 13-метрового подъёма тоже стоит
+# машине меньше 6 км/ч. Стена же или отбойник забирают скорость целиком, и поворот
+# сюда уже не оправдание. Замер по прежнему горизонтальному признаку на 280 км/ч давал
+# на трамплине 240 км/ч/с — то есть горка сама объявлялась ударом, ровно то, на что
+# жалуется игрок. Меряем по окну
 func _detect_impact(dt: float) -> void:
 	var v := chassis.linear_velocity
 	_hist.append(v)
 	while _hist.size() > IMPACT_WINDOW + 1: _hist.pop_front()
 	_impact_cooldown = maxf(_impact_cooldown - dt, 0.0)
-	var hspeed := _hspeed(v)
+	var fspeed := _speed(v)
 	var old: Vector3 = _hist[0]
 	var window := dt * float(_hist.size() - 1)
-	var decel := 0.0 if window <= 0.0 else (_hspeed(old) - hspeed) / window
+	var decel := 0.0 if window <= 0.0 else (_speed(old) - fspeed) / window
 	if decel > IMPACT_DECEL and _recent_speed > IMPACT_MIN_KMH and _impact_cooldown <= 0.0:
 		var dv := old - v
 		if dv.length_squared() > 0.25:
@@ -320,10 +324,10 @@ func _detect_impact(dt: float) -> void:
 			impact.emit(_recent_speed, point, -n)
 			body.apply_impact(point, n, _recent_speed)
 			_impact_cooldown = 1.0
-	_recent_speed = maxf(_recent_speed - RECENT_DECAY * dt, hspeed)
+	_recent_speed = maxf(_recent_speed - RECENT_DECAY * dt, fspeed)
 
-func _hspeed(v: Vector3) -> float:
-	return Vector3(v.x, 0.0, v.z).length() * 3.6
+func _speed(v: Vector3) -> float:
+	return v.length() * 3.6
 
 # Визуальные колёса ассета следят за физическими: ход подвески, угол поворота, качение.
 func _pose_wheels(dt: float) -> void:

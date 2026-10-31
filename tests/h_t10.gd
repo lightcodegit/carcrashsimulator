@@ -82,7 +82,9 @@ func _ready() -> void:
 		var info: Dictionary = m.info
 		add_child(root_map)
 		check(info.colliders > 10, "%s has colliders (%d)" % [id, m.info.colliders])
-		check(info.has_ramp or id == "town", "%s ramp expectation" % id)
+		# Трамплин с большим полётом — только там, где есть куда лететь: на 200-метровом
+		# полигоне прыжок оканчивался стеной (h_t28).
+		check(info.has_ramp == (id == "speedway"), "%s: горка ожидаемая (%s)" % [id, str(info.has_ramp)])
 		var ov := _road_overlaps(root_map)
 		check(ov.is_empty(), "%s: дорожные плиты не наложены друг на друга (%s)" % [id, str(ov)])
 		await get_tree().physics_frame
@@ -116,7 +118,10 @@ func _ready() -> void:
 			var n := String(mi.name)
 			if not (n.contains("roadRamp") or n.contains("roadBump")): continue
 			var box := _world_aabb(mi)
-			var top := MapDB.FLOOR_Y + 0.2
+			# Окно 0.12..0.24 м: горка обязана быть выше плоского полотна (0.002), но
+			# ниже низа коллайдера рамы (CarRig.CLEARANCE + 2 см), иначе для машины это
+			# стена, а не горка — на 280 км/ч кузов упирался в гребень (h_t28).
+			var top := MapDB.FLOOR_Y + 0.12
 			var best := -1e9
 			for fx in [0.25, 0.5, 0.75]:
 				for fz in [0.25, 0.5, 0.75]:

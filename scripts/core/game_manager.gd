@@ -41,25 +41,50 @@ func _setup_env() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
-	var p := ProceduralSkyMaterial.new()
-	p.sky_top_color = Color(0.35, 0.55, 0.85)
-	p.sky_horizon_color = Color(0.75, 0.78, 0.82)
-	sky.sky_material = p
+	# физическое небо вместо процедурного: рассеяние Рэлея, диск солнца и правильный
+	# градиент у горизонта — именно оно даёт машинам и асфальту правдоподобные отражения
+	var ps := PhysicalSkyMaterial.new()
+	ps.turbidity = 4.0
+	ps.sun_disk_scale = 2.0
+	ps.mie_eccentricity = 0.75      # рассеяние вперёд: солнце даёт тёплую дымку у горизонта
+	ps.use_debanding = true
+	sky.sky_material = ps
+	sky.radiance_size = Sky.RADIANCE_SIZE_512
 	env.sky = sky
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.05
-	env.glow_enabled = true
-	env.ssao_enabled = true
 	# небо как источник рассеянного света и отражений: иначе кузова в тени почти чёрные
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 1.0
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.0
+	env.tonemap_white = 4.0
+	env.glow_enabled = true
+	env.glow_intensity = 0.45
+	env.ssao_enabled = true
+	env.ssao_radius = 1.2
+	env.ssao_intensity = 1.4
+	# экранный непрямой свет вытаскивает из черноты то, что не освещено солнцем напрямую:
+	# припаркованные машины в тени домов были главным источником жалобы на темноту
+	env.ssil_enabled = true
+	env.ssil_intensity = 1.25
+	env.ssil_radius = 6.0
+	# дымка даёт глубину и прячет границу прорисовки на 620-метровой трассе
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.70, 0.76, 0.85)
+	env.fog_density = 0.0016
+	env.fog_aerial_perspective = 0.5
+	env.fog_sun_scatter = 0.25
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, -30, 0)
+	sun.rotation_degrees = Vector3(-48, -32, 0)
 	sun.shadow_enabled = true
-	sun.light_energy = 1.25
+	sun.light_energy = 1.35
+	sun.light_color = Color(1.0, 0.96, 0.90)
+	sun.light_angular_distance = 0.55     # мягкая граница тени, а не бритвенная
+	sun.directional_shadow_max_distance = 260.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_blend_splits = true
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-22, 150, 0)

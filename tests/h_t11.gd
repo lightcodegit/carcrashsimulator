@@ -21,19 +21,39 @@ func _ready() -> void:
 			check(gm.car.body.deformation() > 0.05, "%s/%s body deformed (%.2f м)" % [map_id, car_id, gm.car.body.deformation()])
 			gm._respawn_now()
 			check(gm.car.body.dent_count == 0 and gm.car.body.deformation() < 1e-6, "%s/%s respawn restored body" % [map_id, car_id])
-			# свет и материал кузова: собственный metallic затемнял машину до чёрного
+			# Кузовная краска: блеск дают лак и низкая шероховатость, а не metallic —
+			# он гасит диффуз, и машина в тени чернеет.
 			var mat: StandardMaterial3D = gm.car.body._mat
-			check(mat.metallic == 0.0, "%s/%s кузов не металлический (%.2f)" % [map_id, car_id, mat.metallic])
+			check(mat.metallic <= 0.25, "%s/%s металличность низкая (%.2f)" % [map_id, car_id, mat.metallic])
+			check(mat.roughness < 0.5, "%s/%s краска глянцевая (roughness %.2f)" % [map_id, car_id, mat.roughness])
+			check(mat.clearcoat_enabled and mat.clearcoat > 0.3,
+				"%s/%s лак включён (%.2f)" % [map_id, car_id, mat.clearcoat])
 			check(mat.albedo_texture != null, "%s/%s текстура colormap на месте" % [map_id, car_id])
 			check(mat.vertex_color_use_as_albedo, "%s/%s vertex color для потёртостей включён" % [map_id, car_id])
 			var suns := 0
 			var amb := false
+			var long_shadow := false
+			var env: Environment = null
 			for c in gm.get_children():
-				if c is DirectionalLight3D: suns += 1
-				if c is WorldEnvironment and c.environment != null:
-					amb = c.environment.ambient_light_source == Environment.AMBIENT_SOURCE_SKY
+				if c is DirectionalLight3D:
+					suns += 1
+					long_shadow = long_shadow or (c as DirectionalLight3D).directional_shadow_max_distance >= 200.0
+				if c is WorldEnvironment: env = (c as WorldEnvironment).environment
+			if env != null:
+				amb = env.ambient_light_source == Environment.AMBIENT_SOURCE_SKY
 			check(suns >= 2, "%s/%s солнце плюс заполняющий свет (%d)" % [map_id, car_id, suns])
 			check(amb, "%s/%s рассеянный свет от неба" % [map_id, car_id])
+			check(long_shadow, "%s/%s тени достают до горизонта карты" % [map_id, car_id])
+			# окружение: физическое небо, дымка и экранный непрямой свет — иначе кузова
+			# в тени домов остаются чёрными, а дальние карты обрываются
+			check(env != null and env.sky != null and env.sky.sky_material is PhysicalSkyMaterial,
+				"%s/%s небо физическое" % [map_id, car_id])
+			check(env != null and env.fog_enabled and env.fog_density > 0.0,
+				"%s/%s дымка включена" % [map_id, car_id])
+			check(env != null and env.ssil_enabled and env.ssil_intensity > 0.5,
+				"%s/%s экранный непрямой свет включён" % [map_id, car_id])
+			check(env != null and env.reflected_light_source == Environment.REFLECTION_SOURCE_SKY,
+				"%s/%s отражения от неба" % [map_id, car_id])
 			gm.queue_free()
 			await get_tree().process_frame
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

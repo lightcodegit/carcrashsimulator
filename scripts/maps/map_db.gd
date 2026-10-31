@@ -10,11 +10,12 @@ const P := "res://assets/props/"
 const CARS := "res://assets/cars/"
 const PROP := 1.2          # масштаб пропов: тот же, что у машины игрока (width 1.8 из 1.5)
 const WALK_Y := 0.2        # верх тротуара в городке: предметы на нём ставим на эту высоту
+const GROUP_PARKED := "parked_car"
 
-static func _mat(color: Color, rough := 0.7) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color; m.roughness = rough
-	return m
+static func _mat(color: Color) -> StandardMaterial3D:
+	# процедурные коробки (пол, тротуары, стены) получают то же зерно бетона, что и
+	# асфальт из ассетов, иначе они выглядят бумажными на его фоне
+	return Materials.concrete(color)
 
 static func box(root: Node3D, pos: Vector3, size: Vector3, color: Color, rot: Basis = Basis.IDENTITY) -> StaticBody3D:
 	var body := StaticBody3D.new()
@@ -111,6 +112,11 @@ static func ramp(root: Node3D, x: float, z: float) -> void:
 	kit(root, "roadRamp", Vector3(x, 0, z), 90, true, true)
 	kit(root, "roadStraight", Vector3(x + 10.0, 0, z), 90, false, true)
 
+# Имя с координатами: "." и ":" Godot в именах узлов молча заменяет, а одинаковые имена
+# среди соседей переименовывает в @Node3D@N, поэтому без координат пропы ненаходимы.
+static func _prop_name(path: String, pos: Vector3) -> String:
+	return "%s_%d_%d" % [path.get_file().get_basename().replace("-", "_"), int(pos.x), int(pos.z)]
+
 static func _aabb_in(n: Node3D) -> AABB:
 	var merged := AABB(); var first := true
 	for c in n.get_children():
@@ -128,13 +134,16 @@ static func prop(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: flo
 		push_warning("MapDB: ассет не найден " + path)
 		return null
 	var n: Node3D = ps.instantiate()
-	n.name = path.get_file()
+	n.name = _prop_name(path, pos)
 	var local := _aabb_in(n)
 	n.rotation.y = rot_y
 	n.scale = Vector3.ONE * sc
 	# сажаем низ модели на pos.y: у зданий/конусов начало координат в основании,
 	# а у колёс и покрышек — в центре оси, поэтому без правки они levитируют или тонут
 	n.position = Vector3(pos.x, pos.y - local.position.y * sc, pos.z)
+	if path.begins_with(CARS):
+		Materials.apply_tree(n, "car")
+		n.add_to_group(GROUP_PARKED)
 	root.add_child(n)
 	if solid:
 		var w: AABB = n.transform * local
@@ -157,7 +166,7 @@ static func loose(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: fl
 		push_warning("MapDB: ассет не найден " + path)
 		return null
 	var n: Node3D = ps.instantiate()
-	n.name = path.get_file()
+	n.name = _prop_name(path, pos)
 	var local := _aabb_in(n)
 	n.scale = Vector3.ONE * sc
 	# центр по X/Z и низ на y = 0 тела: у конусов основание в нуле, у покрышек — центр оси
@@ -272,6 +281,7 @@ static func _arena() -> Dictionary:
 	for k in 4:
 		kit(root, "treeLarge", Vector3(-80.0 + k * 50.0, 0, 40.0), 0, true)
 		kit(root, "treeSmall", Vector3(-60.0 + k * 50.0, 0, -50.0), 0, true)
+	Materials.apply_tree(root, "prop")
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(0, 1.0, 0)),
 		"bounds": AABB(Vector3(-110, -30, -110), Vector3(220, 70, 220)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true}}
@@ -336,6 +346,7 @@ static func _town() -> Dictionary:
 	var parked: Array[String] = [CARS + "sedan.glb", CARS + "truck.glb", CARS + "race.glb"]
 	for k in 6:
 		prop(root, parked[k % parked.size()], Vector3(-90.0 + k * 26.0, 0.0, -20.0), 1.0, PI * 0.5, true)
+	Materials.apply_tree(root, "prop")
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-120, 1.0, -24)),
 		"bounds": AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": false}}
@@ -390,6 +401,7 @@ static func _speedway() -> Dictionary:
 	# красные отбойники перед финишной стеной сбиваются, сама стена — нет
 	for k in 5:
 		loose_kit(root, "barrierRed", Vector3(578.0, 0, -5.0 + k * 2.5), 0, 25.0)
+	Materials.apply_tree(root, "prop")
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-10, 1.0, 0)),
 		"bounds": AABB(Vector3(-120, -30, -160), Vector3(780, 70, 320)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true}}

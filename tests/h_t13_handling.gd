@@ -109,14 +109,14 @@ func _physics_process(_dt: float) -> void:
 				var vel := car.chassis.linear_velocity
 				var fwd := Vector3(cos(car.heading), 0, -sin(car.heading))
 				var lat := (vel - fwd * vel.dot(fwd)).length() * 3.6
-				# ручник — тормоз для заноса, а не экстренный: блокируется только задняя
-				# ось (через chassis.brake Godot блокировал все четыре колеса, и на
-				# геймпаде это читалось как мгновенная остановка), поэтому торможение
-				# умеренное, но заметное, и машина обязана остаться в движении
-				check(car.speed_kmh() < _hb_speed - 8.0,
-					"E1 ручник тормозит (%.1f -> %.1f км/ч)" % [_hb_speed, car.speed_kmh()])
-				check(car.speed_kmh() > _hb_speed * 0.35,
-					"E1b ручник не останавливает мгновенно (%.1f -> %.1f км/ч)" % [_hb_speed, car.speed_kmh()])
+				# Ручник — тормоз для заноса, а не экстренный: блокируется только задняя
+				# ось (через chassis.brake Godot блокировал все четыре колеса, и на геймпаде
+				# это читалось как мгновенная остановка). Сила меряется в g: «потеря 8 км/ч
+				# за секунду» проходила и при 0.2 g, то есть при «ручник почти не тормозит».
+				var g := (_hb_speed - car.speed_kmh()) / 3.6 / 9.81
+				print("E1 ручник с зажатым газом: %.1f -> %.1f км/ч = %.2f g" % [_hb_speed, car.speed_kmh(), g])
+				check(g > 0.5, "E1 ручник тормозит ощутимо даже с газом (%.2f g)" % g)
+				check(g < 1.1, "E1b ручник не превращается в остановку (%.2f g)" % g)
 				check(lat > 3.0, "E2 ручник срывает в занос (боковая %.1f км/ч)" % lat)
 				check(car.heading > deg_to_rad(8.0), "E3 ручник доворачивает нос (%.0f°)" % rad_to_deg(car.heading))
 				print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

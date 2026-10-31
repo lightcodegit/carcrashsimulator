@@ -6,10 +6,12 @@ extends Node3D
 # сколько машина уводит в сторону, доворачивает ли она после отпускания руля (иначе
 # поворот — это занос) и не съедает ли само поворот скорость.
 const SPEEDS := [80.0, 140.0, 200.0, 260.0]
-const CARS := ["sport", "sedan"]
+const CARS := ["sport", "sedan", "limousine"]
 const HOLD := 60             # тиков полного руля (1 с)
 const COAST := 60            # тиков после отпускания
 const YAW_MIN := 15.0        # °/с: минимум, который был бы недостижим при старом потолке
+const T03_MIN := 6.0         # °: курс через 0.3 с — столько игрок ждёт от «поворачивает»
+const CORRIDOR_MAX := 90.0   # м дороги на 30° поворота при 200 км/ч
 const RESIDUAL_MAX := 15.0   # °: на сколько курс уползает после отпускания руля
 const SPEED_KEEP := 0.8      # долю скорости обязан сохранить
 const SIDE_MIN := 6.0        # м: боковой снос за секунду
@@ -22,7 +24,10 @@ var _yaw0 := 0.0
 var _z0 := 0.0
 var _v0 := 0.0
 var _yaw_hold := 0.0
+var _yaw_03 := 0.0
+var _corridor := 0.0
 var _max_side := 0.0
+var _x0 := 0.0
 var _tag := ""
 var _car_id := ""
 
@@ -79,6 +84,10 @@ func _step() -> void:
 	var side := v - fwd * v.dot(fwd)
 	side.y = 0.0
 	_max_side = maxf(_max_side, side.length())
+	if _t == 18:
+		_yaw_03 = absf(rad_to_deg(angle_difference(car.heading, _yaw0)))
+	if _corridor == 0.0 and absf(rad_to_deg(angle_difference(car.heading, _yaw0))) >= 30.0:
+		_corridor = absf(car.chassis.global_position.x - _x0)
 	if _t == HOLD:
 		_yaw_hold = rad_to_deg(angle_difference(car.heading, _yaw0))
 		Input.action_release("steer_left")

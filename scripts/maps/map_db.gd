@@ -116,10 +116,141 @@ static func _mesh_faces(m: Mesh) -> PackedVector3Array:
 			for q in v: faces.append(q)
 	return faces
 
+# SEGMENTY Kenney — это оболочки: у рампы есть ступени и два боковых торца, а дна и
+# задней стенки НЕТ (замер по геометрии roadRamp: 18 граней, 20 рёбер висят в воздухе).
+# Машина, оказавшаяся сзади трамплина, входила в открытый торец и пропадала внутри
+# (жалоба «сзади трамплинов можно пройти сквозь них, и вообще они невидимые сзади»), а
+# жёсткая посадка на дальний край проваливалась сквозь грань. kit() добавляет недостающие
+# плоскости: дно — всегда, торцы — там, где сегмент на них обрывается.
+static func _needs_closure(name: String) -> bool:
+	return name.begins_with("roadRamp") or name == "roadBump" or name == "ramp"
+
+static func _closure(m: Mesh) -> Array[Dictionary]:
+	var ab := m.get_aabb()
+	var x0 := ab.position.x
+	var x1 := ab.end.x
+	var y0 := ab.position.y
+	var z0 := ab.position.z
+	var z1 := ab.end.z
+	var verts := _mesh_vertices(m)
+	var have := _face_planes(m)
+	# дно уводим на 2 см НИЖЕ подола: совпадая с его плоскостью, оно начинает мерцать
+	# вместе с разметкой (тот же класс ошибки, что чинила h_t21)
+	var ybot := y0 - 0.02
+	var out: Array[Dictionary] = []
+	_add_quad(out, have, Vector3(x0, ybot, z0), Vector3(x1, ybot, z0), Vector3(x1, ybot, z1),
+		Vector3(x0, ybot, z1), Vector3(0.0, -1.0, 0.0), "grass", false)
+	# высоты торцов — по вершинам самого сегмента: у рампы задний торец обрывается на 2.7 м,
+	# у бугра оба сходят на нет и стенка не нужна
+	for side in [[z0, _height_at(verts, z0), Vector3(0.0, 0.0, -1.0)],
+			[z1, _height_at(verts, z1), Vector3(0.0, 0.0, 1.0)]]:
+		var z := float(side[0])
+		var top := float(side[1])
+		if top - y0 < 0.05: continue
+		# стенку начинаем от подола сегмента, а не от дна: дно уводим ниже, и видимая
+		# грань с такой кромкой уже торчала бы под асфальтом (h_t10 считает это провисанием)
+		_add_quad(out, have, Vector3(x0, y0, z), Vector3(x1, y0, z),
+			Vector3(x1, top, z), Vector3(x0, top, z), side[2] as Vector3, "grey",
+			top - y0 > 0.5)
+	return out
+
+static func _mesh_vertices(m: Mesh) -> PackedVector3Array:
+	var all := PackedVector3Array()
+	for i in m.get_surface_count():
+		for p in (m.surface_get_arrays(i)[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+			all.append(p)
+	return all
+
+static func _height_at(verts: PackedVector3Array, z: float) -> float:
+	var top := -INF
+	for p in verts:
+		if absf(p.z - z) < 0.06: top = maxf(top, p.y)
+	return top if is_finite(top) else 0.0
+
+# Плоскости уже имеющихся граней: не рисовать вторую совпадающую стенку — это ещё
+# и мерцание на том же самом месте.
+static func _face_planes(m: Mesh) -> Array[Dictionary]:
+	var planes: Array[Dictionary] = []
+	var faces := _mesh_faces(m)
+	for t in range(0, faces.size() - 2, 3):
+		var a := faces[t]; var b := faces[t + 1]; var c := faces[t + 2]
+		var n := (b - a).cross(c - a)
+		if n.length_squared() < 1e-8: continue
+		planes.append({"n": n.normalized(), "c": (a + b + c) / 3.0})
+	return planes
+
+static func _add_quad(out: Array[Dictionary], have: Array[Dictionary], a: Vector3, b: Vector3,
+		c: Vector3, d: Vector3, want: Vector3, mat_name: String, show: bool) -> void:
+	var tri := PackedVector3Array()
+	# порядок вершин подбираем по направлению нормали: грань обязана смотреть наружу
+	if (b - a).cross(c - a).dot(want) >= 0.0:
+		tri.append_array([a, b, c, a, c, d])
+	else:
+		tri.append_array([a, c, b, a, d, c])
+	var mid := (a + c) * 0.5
+	for p in have:
+		if absf((p["n"] as Vector3).dot(want)) > 0.99 and (p["c"] as Vector3).distance_to(mid) < 1.0:
+			return
+	var nrm := PackedVector3Array()
+	for t in range(0, tri.size() - 2, 3):
+		var f := (tri[t + 1] - tri[t]).cross(tri[t + 2] - tri[t]).normalized()
+		for k in 3: nrm.append(f)
+	out.append({"tri": tri, "n": nrm, "mat": mat_name, "show": show})
+
 static func _scaled_faces(faces: PackedVector3Array, sc: Vector3) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	for p in faces: out.append(Vector3(p.x * sc.x, p.y * sc.y, p.z * sc.z))
 	return out
+
+static func _uv_at(m: Mesh, p: Vector3) -> Vector2:
+	var pts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	for i in m.get_surface_count():
+		var arr := m.surface_get_arrays(i)
+		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var u: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV]
+		if u.size() != v.size(): continue
+		for k in v.size():
+			pts.append(v[k]); uvs.append(u[k])
+	var best := 0
+	var bd := INF
+	for k in pts.size():
+		var d := pts[k].distance_squared_to(p)
+		if d < bd: bd = d; best = k
+	return uvs[best] if bd < INF else Vector2.ZERO
+
+static func _mat_by_name(m: Mesh, mat_name: String) -> Material:
+	for i in m.get_surface_count():
+		var mat := m.surface_get_material(i)
+		if mat != null and mat.resource_name == mat_name: return mat
+	var first := m.surface_get_material(0)
+	return first if first != null else StandardMaterial3D.new()
+
+# Задняя стенка горки — отдельным узлом-оболочкой в локальных координатах сегмента, а не
+# новым мешем у самого сегмента: три теста и сама MapDB узнают плиту по resource_path её
+# меша (h_t10, h_t21), и подмена меша на собранный в коде потеряла бы эту идентичность.
+# Дно сюда не идёт: его не видно никогда.
+static func _closure_mesh(m: Mesh, close: Array[Dictionary]) -> ArrayMesh:
+	var tri := PackedVector3Array()
+	var nrm := PackedVector3Array()
+	var mat: Material = null
+	for e in close:
+		if not bool(e["show"]): continue
+		if mat == null: mat = _mat_by_name(m, String(e["mat"]))
+		tri.append_array(e["tri"] as PackedVector3Array)
+		nrm.append_array(e["n"] as PackedVector3Array)
+	if tri.size() < 3: return null
+	var uv := PackedVector2Array()
+	for p in tri: uv.append(_uv_at(m, p))
+	var arr: Array = []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = tri
+	arr[Mesh.ARRAY_NORMAL] = nrm
+	arr[Mesh.ARRAY_TEX_UV] = uv
+	var cm := ArrayMesh.new()
+	cm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	cm.surface_set_material(0, mat)
+	return cm
 
 static var _road_offsets := {}
 
@@ -161,8 +292,24 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	if m == null:
 		push_warning("MapDB: сегмент трассы не найден " + name)
 		return null
+	# Замыкаем только те сегменты, по которым едут: рампы и бугры. Пропы и плиты — свои
+	# оболочки, им это не нужно, а лишняя грань у дерева сбила бы проверку «декорации стоят
+	# на поверхности» (h_t10) своим нижним краем
+	var close: Array[Dictionary] = []
+	if solid and _needs_closure(name): close = _closure(m)
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
+	var drawn := false
+	for e in close:
+		if bool(e["show"]): drawn = true
+	# Лишняя поверхность нужна только там, где открытая грань действительно видна: задняя
+	# стенка рампы в полметра и выше. Плоским плитам и отбойникам хватает замкнутого
+	# коллайдера — вызовов отрисовки это не добавляет
+	if drawn:
+		var shell := MeshInstance3D.new()
+		shell.name = "shell"
+		shell.mesh = _closure_mesh(m, close)
+		mi.add_child(shell)
 	# имя с координатами: одинаковые имена среди соседей Godot молча переименовывает в @MeshInstance3D@N
 	mi.name = "kit_%s_%.0f_%.0f" % [name, pos.x, pos.z]
 	mi.scale = sc
@@ -188,7 +335,10 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		body.rotation.y = mi.rotation.y
 		var cs := CollisionShape3D.new()
 		var shape := ConcavePolygonShape3D.new()
-		shape.set_faces(_scaled_faces(_mesh_faces(m), sc))
+		var faces := _mesh_faces(m)
+		for e in close:
+			faces.append_array(e["tri"] as PackedVector3Array)
+		shape.set_faces(_scaled_faces(faces, sc))
 		# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
 		# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
 		shape.backface_collision = true

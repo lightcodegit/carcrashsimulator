@@ -56,6 +56,11 @@ const SUSP_TRAVEL := 0.20
 const SUSP_DAMP_COMPRESS := 7.0
 const SUSP_DAMP_RELAX := 9.0
 const SUSP_MAX_G := 6.0            # предел силы подвески в единицах веса
+# Гидроупор: с каким запасом низ кузова до асфальта начинает гасить вертикальную скорость
+# и насколько быстро (1/с). Без него жёсткая посадка пробивает подвеску, и дальше падает
+# уже коллайдер — а это не упругий удар, а трение кузова об дорогу.
+const BUMP_GAP := 0.10             # м: с какого запаса начинается упор
+const BUMP_DAMP := 40.0            # 1/с: как быстро упор съедает скорость вниз
 const GRIP_REF := 8.0
 const RECENT_DECAY := 96.0         # км/ч за секунду
 const YAW_OFFSET := PI * 0.5       # VehicleBody3D едет носом в +Z (проверено), а проект живёт в «+X вперёд»
@@ -70,6 +75,8 @@ var heading := 0.0
 var _wheels: Array[VehicleWheel3D] = []
 var _slip_normal := SLIP_BASE
 var _wheelbase := 2.6
+var _box_bottom := -0.2            # низ коллайдера рамы в системе координат кузова
+var _box_half := Vector3(0.9, 0.0, 1.9)
 var _traction_count := 0
 var _rear_count := 2
 var _drive_scale := 0.25
@@ -134,6 +141,8 @@ func build(p: VehicleParams, _world: World3D) -> void:
 	var col_bottom := -wr + CLEARANCE
 	var col_top := p.height - wr
 	shape.size = Vector3(p.width, col_top - col_bottom, p.length)
+	_box_bottom = col_bottom
+	_box_half = Vector3(p.width, 0.0, p.length) * 0.5
 	col.shape = shape
 	col.position = Vector3(0, (col_top + col_bottom) * 0.5, 0)
 	chassis.add_child(col)
@@ -351,6 +360,30 @@ func _drive(dt: float) -> void:
 			_skid[i] = clampf(s, 0.0, 1.0) * clampf(absf(vf) / SKID_MIN_MS, 0.0, 1.0)
 		else:
 			_skid[i] = 0.0
+	# Гидроупор подвески. Хода колёс на жёсткую посадку не хватает: кузов садится на
+	# коллайдер, и тормозит его дальше уже он, а не резина — замер: приземление после
+	# вылета с трассового трамплина на 270 км/ч давало 47 g и минус 110 км/ч за пять тиков.
+	# Запас мерим лучом вниз от рамы и берём самый НИЗКИЙ нижний угол коллайдера: при клевке
+	# нос уходит на полметра ниже центра, и именно он касается дороги первым. Упор толкает
+	# вверх и только против движения вниз, поэтому горизонтальную скорость отнять не может:
+	# скорость машины остаётся при машине.
+	if _grounded:
+		var from := chassis.global_position
+		var ray := PhysicsRayQueryParameters3D.create(from, from + Vector3(0.0, -2.0, 0.0),
+			chassis.collision_mask, [chassis.get_rid()])
+		ray.collide_with_areas = false
+		var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+		if not hit.is_empty():
+			var xf := chassis.global_transform
+			var low := INF
+			for sx in [-1.0, 1.0]:
+				for sz in [-1.0, 1.0]:
+					low = minf(low, (xf * Vector3(sx * _box_half.x, _box_bottom, sz * _box_half.z)).y)
+			var gap: float = low - (hit["position"] as Vector3).y
+			if gap < BUMP_GAP:
+				var bite := minf(1.0, (BUMP_GAP - gap) / maxf(BUMP_GAP, 0.001))
+				chassis.apply_central_impulse(Vector3.UP * params.mass *
+					(-BUMP_DAMP * minf(0.0, v.y)) * bite * dt)
 	# Тормоз передней оси на ручнике. Отдавать его в колёсный brake — значит потерять его
 	# ровно там, где жалобнее всего: с зажатым W на переднем колесе есть тяга, а Godot не
 	# применяет brake при nonzero engine_force (vehicle_body_3d.cpp:

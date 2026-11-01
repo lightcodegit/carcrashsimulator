@@ -49,6 +49,18 @@ var _worst := 0.0                 # худшее замедление на го�
 var _worst_v0 := Vector3.ZERO     # какие векторы скорости это замедление дали
 var _worst_v1 := Vector3.ZERO
 var _worst_y := 0.0
+# Жалоба «приземляется куда сильно — очень много теряется скорости» про САМО касание,
+# а прежний заезд обрывался на этом тике. Поэтому после посадки мерим ещё окно в 30
+# тиков, а «эпизодом горки» считаем всё от въезда на неё до конца этого окна: полёт,
+# который ей обязан, и приземление в это же окно.
+var _lt := -1
+var _lv0 := 0.0
+var _lvy := 0.0
+var _lpeak := 0.0
+var _lloss := 0.0
+var _lsink := ""
+var _lhist: Array[Vector3] = []
+var _episode := false
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -195,6 +207,12 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 	var air_run := 0
 	_hist = []
 	_worst = 0.0
+	_lt = -1
+	_lpeak = 0.0
+	_lloss = 0.0
+	_lsink = ""
+	_lhist = []
+	_episode = false
 	var jumped := false
 	var crossed := false
 	var reached := false
@@ -205,14 +223,16 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 		await get_tree().physics_frame
 		var p := gm.car.chassis.global_position
 		var grounded := gm.car._grounded
+		if p.x > a.position.x: _episode = true
 		max_y = maxf(max_y, p.y)
 		# Запас до порога удара: детектор срабатывает на 210 км/ч/с, а горка обязана
 		# давать в разы меньше. Мерим тем же окном в 4 тика, что и детектор.
 		var vel := gm.car.chassis.linear_velocity
-		_hist.append(vel)
+		if _lt < 0:
+			_hist.append(vel)
 		while _hist.size() > WINDOW + 1:
 			_hist.pop_front()
-		if _hist.size() == WINDOW + 1:
+		if _lt < 0 and _hist.size() == WINDOW + 1:
 			var d := (_hist[0].length() - _hist[WINDOW].length()) * 3.6 / (WINDOW / 60.0)
 			if d > _worst:
 				_worst = d
@@ -239,10 +259,19 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 			end = "вылет за границу"
 		elif _on_hill > 0:
 			end = "удар на горке"
-		elif crossed and jumped and grounded:
-			end = "приземлилась"
+		elif crossed and jumped and grounded and _lt < 0 and vel.y < 0.0:
+			# сажаём только касание НА СПУСКЕ: колёса теряют землю и на ступенях горки,
+			# и на вылете, когда машина ещё растёт
+			_lt = 0
+			_lv0 = gm.car.speed_kmh()
+			_lvy = vel.y
+			_lhist = [vel]
 		elif crossed and not jumped and p.x > a.end.x + ROLL_AFTER:
 			end = "прокатилась"
+		elif _other > 0:
+			# удар о чужое (отбойник, стену) важнее «машина встала»: иначе остановку после
+			# столкновения тест записывает горке
+			end = "цепнула постороннее"
 		elif p.x > a.position.x and gm.car.speed_kmh() < 2.0:
 			# 5-метровый трамплин на 60 км/ч по накату не берётся: машина встаёт на
 			# склоне и съезжает назад — это физика, а не «горка дала удар»
@@ -255,10 +284,29 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 			# машина ушла с полосы в сторону (прыжок под углом уводит за отбойник,
 			# дальше уже деревья и трибуны) — поведение горки тут не измеряется
 			end = "ушла с полосы"
-		elif _other > 0:
-			end = "цепнула постороннее"
+		if _lt >= 0:
+			_lt += 1
+			_lhist.append(gm.car.chassis.linear_velocity)
+			while _lhist.size() > WINDOW + 1:
+				_lhist.pop_front()
+			if _lhist.size() == WINDOW + 1:
+				var ld := (_lhist[0].length() - _lhist[WINDOW].length()) * 3.6 / (WINDOW / 60.0)
+				if ld > _lpeak:
+					_lpeak = ld
+					var touch: Array[String] = []
+					for b in gm.car.chassis.get_colliding_bodies():
+						if _ground_bodies.has(b): touch.append("пол")
+						elif _hill_bodies.has(b): touch.append("рампа")
+						else: touch.append(String(b.name))
+					_lsink = str(touch)
+			if _lt == 30:
+				_lloss = _lv0 - gm.car.speed_kmh()
+				_episode = false
+				end = "приземлилась"
 		prev = p
-		if end != "":
+		# окно посадки досчитываем до конца, даже если машина успела за что-то зацепиться:
+		# именно это окно и есть предмет жалобы
+		if end != "" and (_lt < 0 or _lt >= 30 or end != "приземлилась"):
 			break
 	var clean := end in ["приземлилась", "прокатилась", "остановилась на горке"]
 	print("%-34s проехала=%s полоса z=%+.1f горка x=%.0f..%.0f въезд=%3.0f км/ч подъём=%.2f м воздух=%3d тиков торможение=%3.0f км/ч/с ударов=%d (горка %d, посторонних %d) вмятин=%d — %s" % [
@@ -277,6 +325,11 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 			_worst_v0.y, _worst_v1.y, _worst_y]
 		check(_worst < MARGIN, "%s: горка тормозит с запасом до порога удара (%.0f км/ч/с, %s)" % [
 			tag, _worst, why])
+	if _lt >= 30:
+		print("%-34s ПОСАДКА: %.0f км/ч с vy=%.1f → потеря %.1f км/ч за 0.5 с, торможение %.0f км/ч/с, рама цепляет %s" % [
+			tag, _lv0, _lvy, _lloss, _lpeak, _lsink])
+		check(_lloss < 25.0, "%s: жёсткая посадка не съедает скорость (%.1f км/ч за 0.5 с)" % [tag, _lloss])
+		check(_lpeak < MARGIN, "%s: посадка ниже порога удара с тем же запасом (%.0f км/ч/с)" % [tag, _lpeak])
 	if label == "рампа" and kmh >= 210.0 and clean and off_req == 0.0 and yaw_deg == 0.0:
 		check(air > 5, "%s: на трамплине машина оторвалась (%d тиков в воздухе)" % [tag, air])
 
@@ -298,7 +351,9 @@ func _on_impact(speed: float, point: Vector3, normal: Vector3) -> void:
 		var n3 := b as Node3D
 		who += "%s@(%.1f,%.1f,%.1f) " % [(b as Node).name, n3.global_position.x,
 			n3.global_position.y, n3.global_position.z]
-	var ours := is_hill or (is_ground and near and not is_strange)
+	# в эпизоде горки (на ней, в полёте с неё и в окне посадки) касание дороги — её счёт:
+	# именно её полёт привёл машину в эту точку. Отбойник и стена остаются посторонними.
+	var ours := is_hill or (is_ground and (near or _episode) and not is_strange)
 	if ours:
 		_on_hill += 1
 	else:

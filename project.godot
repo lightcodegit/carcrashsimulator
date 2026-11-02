@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Car Crash Simulator"
+config/icon="res://assets/ui/logo_emblem.svg"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
@@ -29,18 +30,11 @@ window/stretch/mode="canvas"
 
 [physics]
 
-; Интерполяция физики включена: кадры на слабой GPU идут в 2-2.5 раза чаще, чем
-; физика считает 60 Гц, и без интерполяции машина в 44-58% кадров рисуется на том же
-; месте — это и есть «идёт отрывками» (замер: 58% стоящих кадров при 145 fps).
-common/physics_interpolation=true
 3d/default_linear_damp=0.0
+common/physics_interpolation=true
 
 [rendering]
 
-; Движок по умолчанию — Compatibility (OpenGL), а не Vulkan Forward+: на встроенных
-; GPU он почти вдвое дешевле (замерено на Intel HD 630 при 1600×900: 9.3 мс против
-; 18.6 мс на одном и том же содержимом) и не упирается в бюджет вертикалки 60 Гц.
-; Тот же движок использует web-сборка, поэтому картинка везде одинаковая.
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true

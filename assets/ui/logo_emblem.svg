@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- знак: янтарное кольцо (мотив спидометра), тёмный диск, машина смятым носом
+       в восьмиконечную звезду удара, три штриха скорости сзади -->
+  <circle cx="64" cy="64" r="58" fill="none" stroke="#f59e21" stroke-width="7"/>
+  <circle cx="64" cy="64" r="52" fill="#12141a"/>
+  <!-- штрихи скорости -->
+  <rect x="8" y="57" width="16" height="4.5" rx="2.2" fill="#e8eaee" opacity="0.85"/>
+  <rect x="12" y="66" width="12" height="4.5" rx="2.2" fill="#e8eaee" opacity="0.55"/>
+  <rect x="15" y="75" width="9" height="4.5" rx="2.2" fill="#e8eaee" opacity="0.3"/>
+  <!-- звезда удара -->
+  <path d="M109.4 57.6 L99.4 62.9 L107.7 70.5 L97 67.2 L100.2 77.4 L92.1 68.4 L87.2 78 L87.8 66 L77.6 69.2 L86.6 61.1 L77 56.2 L89 56.8 L85.8 46.6 L93.9 55.6 L98.8 46 L98.2 58 Z" fill="#f59e21"/>
+  <!-- кузов: силуэт с мятым носом -->
+  <path d="M26 78 L26 68 C26 62 30 60 34 59 L44 47 L60 46 L70 57 L78 59 L74 65 L80 70 L76 78 Z" fill="#e8eaee"/>
+  <!-- боковое окно -->
+  <path d="M47 50 L58 49 L66 56 L50 57.5 Z" fill="#12141a"/>
+  <!-- колёса -->
+  <circle cx="40" cy="78" r="7.5" fill="#12141a" stroke="#e8eaee" stroke-width="2.5"/>
+  <circle cx="66" cy="78" r="7.5" fill="#12141a" stroke="#e8eaee" stroke-width="2.5"/>
+</svg>

@@ -147,6 +147,10 @@ func load_keys(cf: ConfigFile) -> void:
 	_custom.clear()
 	if not cf.has_section(Settings.KEYS_SECTION): return
 	for action in cf.get_section_keys(Settings.KEYS_SECTION):
+		# ключа нет в раскладке (файл отредактирован вручную или action удалён в новой
+		# версии) — пропустить: иначе DEFAULTS[action] падает на середине и остальные
+		# бинды файла уже не загружаются
+		if not DEFAULTS.has(action): continue
 		var arr: Array = []
 		for tok in String(cf.get_value(Settings.KEYS_SECTION, action, "")).split(",", false):
 			var e := _decode(tok)

@@ -235,9 +235,10 @@ func _build_ui() -> void:
 	gt.width = 256
 	gt.height = 8
 	scrim.texture = gt
-	scrim.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	# левая вуаль тянется на всю логическую высоту: при вертикальном аспекте окна
+	# она кончилась бы посередине экрана
+	scrim.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	scrim.offset_right = 470
-	scrim.offset_bottom = 900
 	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(scrim)
 
@@ -306,16 +307,15 @@ func _build_nav(host: Control) -> void:
 func _build_panel(host: Control) -> void:
 	# панель раздела — тёмная полупрозрачная карточка поверх живого мира; высота
 	# подгоняется под контент (_fit_panel), чтобы под короткими разделами не висело
-	# пустое чёрное поле
+	# пустое чёрное поле. Приклеена к правому краю фиксированной шириной: на
+	# ультрашироких окнах процентная привязка растянула бы карточку на полэкрана
 	_panel = Panel.new()
 	_panel.name = "Panel"
 	_panel.add_theme_stylebox_override("panel", UiTheme.panel_style(10))
 	_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_panel.anchor_left = 0.56
+	_panel.anchor_left = 1.0
 	_panel.anchor_right = 1.0
-	_panel.anchor_top = 0.0
-	_panel.anchor_bottom = 0.0
-	_panel.offset_left = 0; _panel.offset_right = -56
+	_panel.offset_left = -700; _panel.offset_right = -56
 	_panel.offset_top = 150; _panel.offset_bottom = 560
 	host.add_child(_panel)
 	var holder := Control.new()
@@ -327,7 +327,10 @@ func _build_panel(host: Control) -> void:
 
 func _build_footer(host: Control) -> void:
 	var v := UiTheme.label("v0.39 · МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0", 13, UiTheme.FAINT, 500, true)
-	v.position = Vector2(UiTheme.MARGIN, 856)
+	# нижний левый угол якорем: на вытянутых по высоте окнах подвал не должен
+	# оставаться на уровне 856 px посередине экрана
+	v.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	v.offset_left = UiTheme.MARGIN; v.offset_top = -44; v.offset_bottom = -24
 	host.add_child(v)
 
 # ---- переключение разделов -------------------------------------------------

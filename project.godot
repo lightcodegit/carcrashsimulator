@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="Car Crash Simulator"
-config/icon="res://assets/ui/logo_emblem.svg"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/ui/logo_emblem.svg"
 
 [autoload]
 
@@ -26,7 +26,8 @@ Settings="*res://scripts/autoload/Settings.gd"
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
-window/stretch/mode="canvas"
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [physics]
 

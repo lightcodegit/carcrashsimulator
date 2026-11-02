@@ -138,7 +138,9 @@ func _ready() -> void:
 		_pages.append(sc)
 		call(builders[i], box)
 	_capture_label = UiTheme.label("", 15, UiTheme.AMBER, 500, true)
-	_capture_label.position = Vector2(UiTheme.CONTENT_X, 866)
+	_capture_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_capture_label.offset_left = UiTheme.CONTENT_X
+	_capture_label.offset_top = -40; _capture_label.offset_bottom = -10
 	add_child(_capture_label)
 
 # Родная полоса прокрутки — серое чужеродное пятно из дефолтной темы: фон гасим,
@@ -172,7 +174,11 @@ func _build_nav() -> void:
 		box.add_child(b)
 		_tabs_btn.append(b)
 	var bottom := VBoxContainer.new()
-	bottom.position = Vector2(UiTheme.MARGIN, 700)
+	# нижний левый угол: на вытянутых по высоте окнах кнопки не должны висеть
+	# на уровне 700 px посередине экрана
+	bottom.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	bottom.offset_left = UiTheme.MARGIN
+	bottom.offset_top = -206; bottom.offset_bottom = -104
 	bottom.add_theme_constant_override("separation", 10)
 	add_child(bottom)
 	# выход — главное действие экрана, ему идёт янтарная кнопка из action_style;

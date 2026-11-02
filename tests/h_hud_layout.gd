@@ -13,6 +13,11 @@ const VH := 900.0
 # держал отдельную подпись скорости поверх круга, а панель телеметрии несла пять строк.
 const COVER_MAX := 0.12
 const LABEL_MAX := 26          # сколько надписей допустимо на экране заезда
+# Адаптивный HUD (stretch canvas_items + aspect expand) прижимается к фактическим
+# углам окна, поэтому рамка меряется по видимому прямоугольнику, а не по
+# дизайн-1600×900: в headless он бывает квадратным.
+var VW := 1600.0
+var VH := 900.0
 const GONE := ["ГАБАРИТ ДЛИНЫ", "МАКС. ГЛУБИНА", "ПЕРЕГРУЗКА"]
 const MUST := ["ПИК ПЕРЕГРУЗКИ", "ВМЯТИНЫ", "КУЗОВ", "СЦЕПЛЕНИЕ", "ЖУРНАЛ УДАРОВ",
 	"ТЕЛЕМЕТРИЯ"]
@@ -28,6 +33,8 @@ func check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	await get_tree().process_frame
+	var vis := get_viewport().get_visible_rect().size
+	VW = vis.x; VH = vis.y
 	GameContext.select("sport", "arena")
 	gm = load("res://scenes/game.tscn").instantiate()
 	add_child(gm)

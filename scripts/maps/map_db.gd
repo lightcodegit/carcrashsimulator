@@ -76,10 +76,11 @@ static func box(root: Node3D, pos: Vector3, size: Vector3, color: Color, rot: Ba
 	root.add_child(body)
 	return body
 
-static func box_vis(root: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
+static func box_vis(root: Node3D, pos: Vector3, size: Vector3, color: Color,
+		rot: Basis = Basis.IDENTITY) -> MeshInstance3D:
 	var mi := MeshInstance3D.new(); var bm := BoxMesh.new()
 	bm.size = size; bm.material = _mat(color); mi.mesh = bm
-	mi.position = pos
+	mi.position = pos; mi.basis = rot
 	root.add_child(mi)
 	return mi
 
@@ -1303,10 +1304,17 @@ static func _bigcity() -> Dictionary:
 	# лесополоса за периметром: город не должен обрываться в пустоту
 	for k in 24:
 		var a := -470.0 + k * 40.0
-		kit(root, "treeLarge", Vector3(a, 0, -520.0), 0, true, false)
-		kit(root, "treeLarge", Vector3(a, 0, 520.0), 0, true, false)
-		kit(root, "treeLarge", Vector3(-520.0, 0, a), 0, true, false)
-		kit(root, "treeLarge", Vector3(520.0, 0, a), 0, true, false)
+		# тень пояса падает на пустой грунт за кольцом — снимаем её: 96 деревьев
+		# в проходе теней стоили городу тех самых кадров, из-за которых он падал
+		# ниже 50 FPS на встроенной графике
+		for pt in [Vector3(a, 0, -520.0), Vector3(a, 0, 520.0),
+				Vector3(-520.0, 0, a), Vector3(520.0, 0, a)]:
+			var belt := kit(root, "treeLarge", pt, 0, true, false)
+			_no_shadow(belt)
+			_far(belt, 420.0)
+	# обвеска: тротуары, парки, дворы, промзона и обочины кольца — после районов,
+	# чтобы порядок rng остался тем же, что при их расстановке
+	_bc_dress(root, rng, parked)
 	drop_shadows(root)
 	Materials.apply_tree(root, "prop")
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-430.0, 1.0, 0.0)),
@@ -1324,6 +1332,259 @@ static func _bc_spot(rng: RandomNumberGenerator, cx: float, cz: float, min_r: fl
 # улицы шириной 10 м с осью lane: [lane−5, lane+5] ∩ [node_x, node_x+20] ≠ ∅.
 static func _bc_crosses(node_x: float, lane: float) -> bool:
 	return node_x < lane + 5.0 and node_x > lane - 25.0
+
+# ---- городская мелочь -----------------------------------------------------
+# В Kenney-наборе нет скамеек, урн, столов и фонтанов, а без них город читается
+# макетом: поэтому эти предметы собраны из тех же процедурных ящиков, что пол и
+# бордюры, в той же плоской палитре. Твёрдыми делаем то, о что складывается кузов
+# (сиденье, спинка, чаша фонтана), ножки и крышки — только видимость.
+const WOOD_COL := Color(0.46, 0.31, 0.18)
+const METAL_COL := Color(0.33, 0.35, 0.39)
+const STONE_COL := Color(0.60, 0.60, 0.63)
+const WATER_COL := Color(0.20, 0.44, 0.60)
+const SIDEWALK_COL := Color(0.66, 0.66, 0.69)
+const PLAZA_COL := Color(0.58, 0.58, 0.62)
+
+# Мелочь (скамейки, урны, столы) тень не бросает: на Compatibility каждый caster
+# удваивается в проходе теней, а город после обвески держал 50 FPS вместо 60 — с
+# выключенными тенями мелочи вернулся к 60. Предметы выше метра тень сохраняют.
+static func _bench(root: Node3D, x: float, z: float, rot_deg: float) -> void:
+	var y := surface_y(x, z)
+	var b := Basis(Vector3.UP, deg_to_rad(rot_deg))
+	box(root, Vector3(x, y + 0.45, z), Vector3(1.8, 0.08, 0.55), WOOD_COL, b, true)
+	box(root, Vector3(x, y + 0.75, z) + b * Vector3(0, 0, -0.24),
+		Vector3(1.8, 0.5, 0.07), WOOD_COL, b, true)
+	for s in [-0.7, 0.7]:
+		var leg := box_vis(root, Vector3(x, y + 0.22, z) + b * Vector3(s, 0, 0),
+			Vector3(0.09, 0.44, 0.5), METAL_COL, b)
+		leg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+static func _bin(root: Node3D, x: float, z: float) -> void:
+	var y := surface_y(x, z)
+	box(root, Vector3(x, y + 0.42, z), Vector3(0.55, 0.84, 0.55), METAL_COL,
+		Basis.IDENTITY, true)
+	var lid := box_vis(root, Vector3(x, y + 0.87, z), Vector3(0.66, 0.06, 0.66), STONE_COL)
+	lid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+static func _picnic(root: Node3D, x: float, z: float, rot_deg: float) -> void:
+	var y := surface_y(x, z)
+	var b := Basis(Vector3.UP, deg_to_rad(rot_deg))
+	box(root, Vector3(x, y + 0.72, z), Vector3(1.7, 0.08, 0.95), WOOD_COL, b, true)
+	for s in [-0.62, 0.62]:
+		box(root, Vector3(x, y + 0.42, z) + b * Vector3(0, 0, s),
+			Vector3(1.7, 0.07, 0.3), WOOD_COL, b, true)
+	for s in [-0.6, 0.6]:
+		var leg := box_vis(root, Vector3(x, y + 0.36, z) + b * Vector3(s, 0, 0),
+			Vector3(0.1, 0.72, 0.9), METAL_COL, b)
+		leg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+# Фонтан: чаша из восьми гранитных граней по кругу, зеркало воды и колонна.
+static func _fountain(root: Node3D, x: float, z: float) -> void:
+	var y := surface_y(x, z)
+	for k in 8:
+		var a := k * TAU / 8.0
+		box(root, Vector3(x + cos(a) * 3.0, y + 0.3, z + sin(a) * 3.0),
+			Vector3(2.6, 0.6, 0.55), STONE_COL, Basis(Vector3.UP, -a))
+	box_vis(root, Vector3(x, y + 0.12, z), Vector3(5.4, 0.1, 5.4), WATER_COL)
+	box(root, Vector3(x, y + 1.0, z), Vector3(0.7, 2.0, 0.7), STONE_COL)
+
+# Ставим ли предмет у этой полосы улицы: нет — на перекрёстке, в проёме встречной
+# улицы и под бульварными горками/буграми.
+static func _bc_spot_free(along: float, lane: float, boulevard: bool) -> bool:
+	for c in [-220.0, 0.0, 220.0]:
+		if absf(along - c) < 24.0: return false
+	if boulevard:
+		for r in [[-150.0, -120.0], [110.0, 140.0], [270.0, 350.0], [-430.0, -400.0]]:
+			if along > float(r[0]) and along < float(r[1]): return false
+	return true
+
+# Отсечь предмет по дальности: на Compatibility это дешёвый CPU-коллинг, а туман
+# сцены скрывает точку исчезновения, так что картинка не меняется, а отрисовок
+# становится меньше. Для тротуарной мелочи и молодых деревьев в плотном городе
+# это и есть цена между «много деталей» и честными кадрами в секунду.
+static func _far(n: Node, dist: float) -> void:
+	if n is GeometryInstance3D:
+		var gi := n as GeometryInstance3D
+		gi.visibility_range_end = dist
+		gi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	for c in n.get_children():
+		_far(c, dist)
+
+# Выключить тени у узла с потомками (мелочь вроде кашпо: тень видна только вблизи,
+# а каждый caster удваивается в проходе теней).
+static func _no_shadow(n: Node) -> void:
+	if n is MeshInstance3D:
+		(n as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for c in n.get_children():
+		_no_shadow(c)
+
+static func _planter(root: Node3D, pos: Vector3, rot_deg: float) -> void:
+	_no_shadow(prop(root, A + "planter.glb", pos, 1.7 if rot_deg > 80.0 else 1.6, rot_deg, true))
+
+# Плотная обвеска города. Детерминирована тем же rng, что и районы: порядок вызовов
+# зафиксирован, поэтому одна и та же карта собирается одинаково от запуска к запуску.
+static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[String]) -> void:
+	# тротуарные плиты: полоса 7.6 м по обе стороны каждой улицы, сегментами — под
+	# перекрёстками её нет, иначе светлый борт шёл бы поперёк асфальта заплатки.
+	# Плита — только видимость, в _surfaces её нет (как у газона парка): предметы
+	# ставятся ДО обвески и сели по полу, а зарегистрированный сверху слой в 2.8 см
+	# заставил бы h_restart_props считать их утонувшими — 218 штук на ровном месте.
+	# Тень плите не нужна: она лежит на таком же полу.
+	for lane in [-220.0, 0.0, 220.0]:
+		for side in [-1.0, 1.0]:
+			var c: float = lane + side * 9.4
+			for k in 46:
+				var along := -460.0 + k * 20.0
+				if not _bc_spot_free(along + 10.0, lane as float, false): continue
+				var a := box_vis(root, Vector3(along + 10.0, 0.014, c),
+					Vector3(20, 0.028, 7.6), SIDEWALK_COL)
+				a.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var b := box_vis(root, Vector3(c, 0.014, along + 10.0),
+					Vector3(7.6, 0.028, 20), SIDEWALK_COL)
+				b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# тротуары: фонарь, урна, кашпо или молодое дерево каждые ~9 м с обеих сторон
+	for lane in [-220.0, 0.0, 220.0]:
+		for k in 98:
+			var along := -440.0 + k * 9.0
+			for side in [-6.6, 6.6]:
+				if not _bc_spot_free(along, lane, is_equal_approx(lane, 0.0)): continue
+				var px: float = along
+				var pz: float = lane + side
+				var roll := rng.randi() % 10
+				var node: Node = null
+				if roll < 3:
+					node = kit(root, "lightColored" if roll == 0 else "lightRed",
+						Vector3(px, 0, pz), 0, true, false)
+				elif roll < 5:
+					_bin(root, px, pz)
+				elif roll == 5:
+					_planter(root, Vector3(px, 0, pz), 0.0)
+				elif roll == 6:
+					# сбиваемое на тротуаре: конус и пилон летят от бампера, и город
+					# начинает реагировать на машину, а не стоять декорацией
+					node = loose(root, P + "cone.glb", Vector3(px, 0, pz), PROP, 0.0, 3.0)
+				elif roll == 7:
+					node = loose_kit(root, "pylon", Vector3(px, 0, pz), 0, 6.0)
+				else:
+					node = prop(root, A + "tree-small.glb", Vector3(px, 0, pz), 5.5,
+						rng.randf() * TAU, true)
+					_no_shadow(node)
+				if node != null: _far(node, 240.0)
+	# улицы вдоль Z: та же обвеска, повёрнутая на 90°
+	for lane in [-220.0, 0.0, 220.0]:
+		for k in 98:
+			var along := -440.0 + k * 9.0
+			for side in [-6.6, 6.6]:
+				if not _bc_spot_free(along, lane, false): continue
+				var px: float = lane + side
+				var pz: float = along
+				var roll := rng.randi() % 10
+				var node: Node = null
+				if roll < 3:
+					node = kit(root, "lightRed" if roll == 0 else "lightColored",
+						Vector3(px, 0, pz), 90, true, false)
+				elif roll < 5:
+					_bin(root, px, pz)
+				elif roll == 5:
+					_planter(root, Vector3(px, 0, pz), 90.0)
+				elif roll == 6:
+					node = loose(root, P + "debris-plate-a.glb", Vector3(px, 0, pz), PROP,
+						rng.randf() * 3.0, 9.0)
+				elif roll == 7:
+					node = loose_kit(root, "pylon", Vector3(px, 0, pz), 90, 6.0)
+				else:
+					node = prop(root, A + "tree-small.glb", Vector3(px, 0, pz), 5.5,
+						rng.randf() * TAU, true)
+					_no_shadow(node)
+				if node != null: _far(node, 240.0)
+	# парки: скамейки и столы у фонтана, кашпо вдоль газона, рощи по углам
+	var parks: Array = [[-335.0, 110.0], [-335.0, -110.0], [-335.0, -335.0], [-110.0, -335.0]]
+	for i in parks.size():
+		var cx: float = parks[i][0]
+		var cz: float = parks[i][1]
+		if i == 0: _fountain(root, cx, cz)
+		for k in 6:
+			var a := k * TAU / 6.0 + 0.3
+			var bx: float = cx + cos(a) * 24.0
+			var bz: float = cz + sin(a) * 24.0
+			_bench(root, bx, bz, rad_to_deg(-a) + 180.0)
+		for k in 3:
+			_picnic(root, cx - 40.0 + k * 40.0, cz + 52.0, 0.0)
+		for k in 14:
+			var t := prop(root, A + ("tree-large.glb" if k % 3 == 0 else "tree-small.glb"),
+				_bc_spot(rng, cx, cz, 40.0), 6.5 + rng.randf() * 3.0, rng.randf() * TAU, true)
+			_far(t, 320.0)
+		for k in 8:
+			_planter(root, _bc_spot(rng, cx, cz, 30.0), 0.0)
+	# деловой центр: площадь под башнями и карманы между ними. Без покрытия квартал
+	# выглядел бетонным полем (кадр проверки это показаль), поэтому плита площади,
+	# а в девяти карманах решётки — скамейка, кашпо и припаркованная машина.
+	for cx in [-110.0, 110.0]:
+		for cz in [-110.0, 110.0]:
+			var plaza := box_vis(root, Vector3(cx, 0.012, cz),
+				Vector3(184, 0.024, 184), PLAZA_COL)
+			plaza.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			for gx in 3:
+				for gz in 3:
+					var mx: float = cx - 30.0 + gx * 60.0
+					var mz: float = cz - 30.0 + gz * 60.0
+					_bench(root, mx, mz, 90.0 * ((gx + gz) % 4))
+					_planter(root, Vector3(mx + 4.0, 0, mz), 0.0)
+					if (gx + gz) % 2 == 0:
+						_far(prop(root, parked[rng.randi() % parked.size()],
+							Vector3(mx - 5.0, 0, mz + 6.0), 1.0,
+							PI * 0.5 * ((gx + gz) % 4), true), 260.0)
+			for k in 4:
+				var a := k * TAU / 4.0 + PI / 4.0
+				var bx: float = cx + cos(a) * 78.0
+				var bz: float = cz + sin(a) * 78.0
+				_bench(root, bx, bz, rad_to_deg(-a))
+				_planter(root, Vector3(bx + 3.0, 0, bz), 0.0)
+			kit(root, "flagCheckers", Vector3(cx - 84.0, 0, cz - 84.0), 0, false, false)
+			kit(root, "billboardLow", Vector3(cx + 84.0, 0, cz - 84.0), 90, true, false)
+	# жилые дворы: урны, баки-ящики, конусы, ещё деревья и заборы
+	for block in [[-110.0, 335.0], [110.0, 335.0], [110.0, -335.0]]:
+		var cx2: float = block[0]
+		var cz2: float = block[1]
+		for k in 6:
+			_bin(root, cx2 - 70.0 + k * 28.0, cz2 - 74.0)
+		for k in 4:
+			loose(root, P + "box.glb", Vector3(cx2 - 50.0 + k * 34.0, 0, cz2 + 66.0),
+				PROP, rng.randf() * 3.0, 14.0)
+		for k in 6:
+			_far(prop(root, A + "tree-large.glb", _bc_spot(rng, cx2, cz2, 40.0),
+				7.0 + rng.randf() * 2.5, rng.randf() * TAU, true), 320.0)
+		for k in 5:
+			loose(root, P + "cone.glb", Vector3(cx2 - 60.0 + k * 30.0, 0, cz2 - 20.0),
+				PROP, 0.0, 3.0)
+	# промзона: палатки, рельс, двойные мачты, барьеры вдоль фасада
+	for cx in [335.0, -335.0]:
+		for cz in [335.0, -110.0]:
+			kit(root, "tentClosedLong", Vector3(cx + 20.0, 0, cz + 70.0), 0, true, false)
+			kit(root, "rail", Vector3(cx - 20.0, 0, cz + 76.0), 90, true, false)
+			kit(root, "lightRedDouble", Vector3(cx + 76.0, 0, cz + 20.0), 0, true, false)
+			for k in 4:
+				kit(root, "barrierWall", Vector3(cx - 70.0 + k * 40.0, 0, cz - 78.0), 0,
+					true, false)
+			for k in 5:
+				loose(root, P + "debris-tire.glb",
+					Vector3(cx + 40.0 + k * 12.0, 0, cz - 60.0), PROP, rng.randf() * 3.0, 10.0)
+	# обочины кольца: флаги по углам, деревья и трава снаружи, барьеры внутри
+	for k in 12:
+		var a := -440.0 + k * 80.0
+		for side in [-470.0, 470.0]:
+			_far(prop(root, A + "tree-large.glb", Vector3(a, 0, side), 7.5,
+				rng.randf() * TAU, true), 300.0)
+			_far(prop(root, A + "tree-large.glb", Vector3(side, 0, a), 7.5,
+				rng.randf() * TAU, true), 300.0)
+	for k in 16:
+		var a := -400.0 + k * 55.0
+		loose_kit(root, "pylon", Vector3(a, 0, -432.0), 0, 6.0)
+		loose_kit(root, "pylon", Vector3(-432.0, 0, a), 90, 6.0)
+	for n in 8:
+		kit(root, "flagGreen" if n % 2 == 0 else "flagRed",
+			Vector3(-455.0 + n * 130.0, 0, -455.0), 0, false, false)
+		kit(root, "flagTankco", Vector3(455.0, 0, -455.0 + n * 130.0), 90, false, false)
 
 static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"

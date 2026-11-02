@@ -31,7 +31,9 @@ func _initialize() -> void:
 		ms, st["nodes"], st["meshes"], st["casters"], st["loose"]])
 	check(ms <= 1400, "сборка уложилась в бюджет (%d мс)" % ms)
 	check(st["nodes"] >= 4000, "город стал плотным, узлов %d" % st["nodes"])
-	check(st["nodes"] <= 9000, "узлов не больше бюджета (%d)" % st["nodes"])
+	check(st["nodes"] <= 9600, "узлов не больше бюджета (%d)" % st["nodes"])
 	check(st["casters"] <= 1400, "отбрасывают тень не больше бюджета (%d)" % st["casters"])
-	check(st["loose"] >= 120, "сбиваемой мелочи хватает (%d)" % st["loose"])
+	check(st["loose"] >= 700, "сбиваемой мелочи хватает (%d)" % st["loose"])
+	check(st["loose"] <= 1100,
+		"тел не больше бюджета физики (%d) — шаг физики растёт вместе с ними" % st["loose"])
 	quit(0 if _fails == 0 else 1)

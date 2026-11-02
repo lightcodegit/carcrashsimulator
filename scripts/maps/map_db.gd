@@ -572,7 +572,8 @@ static func loose_kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float
 static func _sit(y: float, x: float, z: float) -> float:
 	return y if y > 0.005 else surface_y(x, z)
 
-static func _wrap_loose(root: Node3D, visual: Node3D, local: AABB, pos: Vector3, rot_y: float, mass_kg: float) -> RigidBody3D:
+static func _wrap_loose(root: Node3D, visual: Node3D, local: AABB, pos: Vector3, rot_y: float,
+		mass_kg: float, tumble := true) -> RigidBody3D:
 	var body := LooseProp.new()
 	body.mass = mass_kg
 	body.continuous_cd = true     # иначе на 200 км/ч конус пролетает сквозь машину
@@ -601,7 +602,7 @@ static func _wrap_loose(root: Node3D, visual: Node3D, local: AABB, pos: Vector3,
 		cs.position = w.get_center()
 		body.add_child(cs)
 		body.height_m = w.size.y
-	body.setup_tumble()
+	if tumble: body.setup_tumble()
 	root.add_child(body)
 	return body
 
@@ -1254,7 +1255,11 @@ static func _bigcity() -> Dictionary:
 					0.0, 10.0)
 	# парк: живой газон одним ковром (тёмные плитки kit grass на общем светлом
 	# фоне читались как провалы), аллея больших деревьев, клумбы и низкие щиты
-	for block in [[-335.0, 110.0], [-335.0, -110.0], [-335.0, -335.0], [-110.0, -335.0]]:
+	# Парки: (-335,-110) из списка убран — этот квартал занимает промзона, и скамейки
+	# круговой посадки рождались внутри ангаров (solver выталкивал их на 0.8 м вниз,
+	# ловит h_restart_props). Взаём взят (335,110): до этого он не достался никому,
+	# и в городе был один пустой блок.
+	for block in BC_PARKS:
 		var cx: float = block[0]
 		var cz: float = block[1]
 		box_vis(root, Vector3(cx, 0.015, cz), Vector3(180, 0.03, 180), Color(0.30, 0.46, 0.28))
@@ -1344,6 +1349,11 @@ const STONE_COL := Color(0.60, 0.60, 0.63)
 const WATER_COL := Color(0.20, 0.44, 0.60)
 const SIDEWALK_COL := Color(0.66, 0.66, 0.69)
 const PLAZA_COL := Color(0.58, 0.58, 0.62)
+# Парковые кварталы ОДНИМ списком: районный цикл (газон, деревья) и обвеска
+# (скамейки, фонтан, кашпо) обязаны ходить по одним и тем же блокам. Два
+# независимых списка уже разъехались — обвеска ставила скамейки там, где
+# промзона держит ангары, и solver выталкивал их на 0.8 м вниз.
+const BC_PARKS := [[-335.0, 110.0], [-335.0, -335.0], [-110.0, -335.0], [335.0, 110.0]]
 
 # Мелочь (скамейки, урны, столы) тень не бросает: на Compatibility каждый caster
 # удваивается в проходе теней, а город после обвески держал 50 FPS вместо 60 — с
@@ -1378,6 +1388,62 @@ static func _picnic(root: Node3D, x: float, z: float, rot_deg: float) -> void:
 			Vector3(0.1, 0.72, 0.9), METAL_COL, b)
 		leg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
+# Сбиваемый предмет из процедурных ящиков: сборка становится ОДНИМ RigidBody с
+# коробкой по общему габариту. Россыпью куски летали бы по-разному и цепляли машину
+# насквозь, а единое тело улетает как предмет: ударил — унесло.
+static func _knock(root: Node3D, visual: Node3D, pos: Vector3, rot_deg: float, mass: float) -> RigidBody3D:
+	var local := AABB()
+	var first := true
+	for c in visual.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null: continue
+		var g: AABB = mi.transform * mi.get_aabb()
+		local = g if first else local.merge(g)
+		first = false
+	# Тень у летящей мелочи не нужна: двести урн и кашпо в проходе теней стоили
+	# городу больше тысячи лишних отрисовок, а след от них виден только вблизи.
+	_no_shadow(visual)
+	# Непрерывный CD оставлен включённым намеренно: без него удар на 223 км/ч
+	# разрешается неполно — машина теряет 23 км/ч, а урна проходит всего 0.8 м
+	# вместо десятков (замер p_fast). Цена — время шага физики, поэтому экономим
+	# НЕ отключением CD, а плотностью расстановки.
+	return _wrap_loose(root, visual, local, pos, deg_to_rad(rot_deg), mass)
+
+static func _knock_bin(root: Node3D, x: float, z: float, rot_deg: float) -> RigidBody3D:
+	var v := Node3D.new()
+	box_vis(v, Vector3(0, 0.42, 0), Vector3(0.55, 0.84, 0.55), METAL_COL)
+	box_vis(v, Vector3(0, 0.87, 0), Vector3(0.66, 0.06, 0.66), STONE_COL)
+	return _knock(root, v, Vector3(x, surface_y(x, z), z), rot_deg, 25.0)
+
+static func _knock_planter(root: Node3D, x: float, z: float, rot_deg: float) -> RigidBody3D:
+	var v := Node3D.new()
+	box_vis(v, Vector3(0, 0.24, 0), Vector3(0.9, 0.48, 0.9), STONE_COL)
+	box_vis(v, Vector3(0, 0.56, 0), Vector3(0.78, 0.2, 0.78), Color(0.30, 0.46, 0.28))
+	return _knock(root, v, Vector3(x, surface_y(x, z), z), rot_deg, 40.0)
+
+static func _knock_bench(root: Node3D, x: float, z: float, rot_deg: float) -> RigidBody3D:
+	var v := Node3D.new()
+	var b := Basis(Vector3.UP, deg_to_rad(rot_deg))
+	box_vis(v, Vector3(0, 0.45, 0), Vector3(1.8, 0.08, 0.55), WOOD_COL)
+	box_vis(v, b * Vector3(0, 0.75, -0.24), Vector3(1.8, 0.5, 0.07), WOOD_COL)
+	for sg in [-0.7, 0.7]:
+		box_vis(v, b * Vector3(sg, 0.22, 0), Vector3(0.09, 0.44, 0.5), METAL_COL)
+	return _knock(root, v, Vector3(x, surface_y(x, z), z), 0.0, 45.0)
+
+# Дорожный знак на ножке: лёгкий, но высокий — от удара встаёт на ребро и падает.
+static func _knock_sign(root: Node3D, x: float, z: float, rot_deg: float) -> RigidBody3D:
+	var v := Node3D.new()
+	box_vis(v, Vector3(0, 1.1, 0), Vector3(0.09, 2.2, 0.09), METAL_COL)
+	box_vis(v, Vector3(0, 2.35, 0), Vector3(0.86, 0.86, 0.07), Color(0.80, 0.20, 0.16))
+	return _knock(root, v, Vector3(x, surface_y(x, z), z), rot_deg, 18.0)
+
+static func _knock_hydrant(root: Node3D, x: float, z: float, rot_deg: float) -> RigidBody3D:
+	var v := Node3D.new()
+	box_vis(v, Vector3(0, 0.34, 0), Vector3(0.34, 0.68, 0.34), Color(0.72, 0.16, 0.14))
+	box_vis(v, Vector3(0, 0.74, 0), Vector3(0.46, 0.12, 0.46), Color(0.55, 0.12, 0.11))
+	box_vis(v, Vector3(0, 0.42, 0), Vector3(0.62, 0.12, 0.12), Color(0.55, 0.12, 0.11))
+	return _knock(root, v, Vector3(x, surface_y(x, z), z), rot_deg, 35.0)
+
 # Фонтан: чаша из восьми гранитных граней по кругу, зеркало воды и колонна.
 static func _fountain(root: Node3D, x: float, z: float) -> void:
 	var y := surface_y(x, z)
@@ -1387,6 +1453,15 @@ static func _fountain(root: Node3D, x: float, z: float) -> void:
 			Vector3(2.6, 0.6, 0.55), STONE_COL, Basis(Vector3.UP, -a))
 	box_vis(root, Vector3(x, y + 0.12, z), Vector3(5.4, 0.1, 5.4), WATER_COL)
 	box(root, Vector3(x, y + 1.0, z), Vector3(0.7, 2.0, 0.7), STONE_COL)
+
+# Попадает ли точка в заплатку перекрёстка: заплатка визуальная, её верх на 2.4 см
+# выше физической земли, и предмет, поставленный «на поверхность» в её границах,
+# на самом деле стоит на полу и выглядит утонувшим.
+static func _bc_on_patch(x: float, z: float) -> bool:
+	for ix in [-220.0, 0.0, 220.0]:
+		for iz in [-220.0, 0.0, 220.0]:
+			if absf(x - ix) < 21.0 and absf(z - iz) < 21.0: return true
+	return false
 
 # Ставим ли предмет у этой полосы улицы: нет — на перекрёстке, в проёме встречной
 # улицы и под бульварными горками/буграми.
@@ -1403,6 +1478,9 @@ static func _bc_spot_free(along: float, lane: float, boulevard: bool) -> bool:
 # становится меньше. Для тротуарной мелочи и молодых деревьев в плотном городе
 # это и есть цена между «много деталей» и честными кадрами в секунду.
 static func _far(n: Node, dist: float) -> void:
+	# prop()/loose()/kit() возвращают null на отсутствующем ассете, а вызов идёт
+	# прямо сюда — без проверки сборка карты падает на пустом месте
+	if n == null: return
 	if n is GeometryInstance3D:
 		var gi := n as GeometryInstance3D
 		gi.visibility_range_end = dist
@@ -1413,6 +1491,7 @@ static func _far(n: Node, dist: float) -> void:
 # Выключить тени у узла с потомками (мелочь вроде кашпо: тень видна только вблизи,
 # а каждый caster удваивается в проходе теней).
 static func _no_shadow(n: Node) -> void:
+	if n == null: return
 	if n is MeshInstance3D:
 		(n as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for c in n.get_children():
@@ -1444,26 +1523,30 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 				b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# тротуары: фонарь, урна, кашпо или молодое дерево каждые ~9 м с обеих сторон
 	for lane in [-220.0, 0.0, 220.0]:
-		for k in 98:
-			var along := -440.0 + k * 9.0
+		for k in 68:
+			var along := -440.0 + k * 13.0
 			for side in [-6.6, 6.6]:
 				if not _bc_spot_free(along, lane, is_equal_approx(lane, 0.0)): continue
 				var px: float = along
 				var pz: float = lane + side
 				var roll := rng.randi() % 10
 				var node: Node = null
-				if roll < 3:
+				if roll < 2:
 					node = kit(root, "lightColored" if roll == 0 else "lightRed",
 						Vector3(px, 0, pz), 0, true, false)
-				elif roll < 5:
-					_bin(root, px, pz)
+				elif roll < 4:
+					_knock_bin(root, px, pz, 0.0)
+				elif roll == 4:
+					_knock_planter(root, px, pz, 0.0)
 				elif roll == 5:
-					_planter(root, Vector3(px, 0, pz), 0.0)
+					_knock_sign(root, px, pz, 0.0)
 				elif roll == 6:
+					_knock_hydrant(root, px, pz, 0.0)
+				elif roll == 7:
 					# сбиваемое на тротуаре: конус и пилон летят от бампера, и город
 					# начинает реагировать на машину, а не стоять декорацией
 					node = loose(root, P + "cone.glb", Vector3(px, 0, pz), PROP, 0.0, 3.0)
-				elif roll == 7:
+				elif roll == 8:
 					node = loose_kit(root, "pylon", Vector3(px, 0, pz), 0, 6.0)
 				else:
 					node = prop(root, A + "tree-small.glb", Vector3(px, 0, pz), 5.5,
@@ -1472,25 +1555,29 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 				if node != null: _far(node, 240.0)
 	# улицы вдоль Z: та же обвеска, повёрнутая на 90°
 	for lane in [-220.0, 0.0, 220.0]:
-		for k in 98:
-			var along := -440.0 + k * 9.0
+		for k in 68:
+			var along := -440.0 + k * 13.0
 			for side in [-6.6, 6.6]:
 				if not _bc_spot_free(along, lane, false): continue
 				var px: float = lane + side
 				var pz: float = along
 				var roll := rng.randi() % 10
 				var node: Node = null
-				if roll < 3:
+				if roll < 2:
 					node = kit(root, "lightRed" if roll == 0 else "lightColored",
 						Vector3(px, 0, pz), 90, true, false)
-				elif roll < 5:
-					_bin(root, px, pz)
+				elif roll < 4:
+					_knock_bin(root, px, pz, 90.0)
+				elif roll == 4:
+					_knock_planter(root, px, pz, 90.0)
 				elif roll == 5:
-					_planter(root, Vector3(px, 0, pz), 90.0)
+					_knock_sign(root, px, pz, 90.0)
 				elif roll == 6:
+					_knock_hydrant(root, px, pz, 90.0)
+				elif roll == 7:
 					node = loose(root, P + "debris-plate-a.glb", Vector3(px, 0, pz), PROP,
 						rng.randf() * 3.0, 9.0)
-				elif roll == 7:
+				elif roll == 8:
 					node = loose_kit(root, "pylon", Vector3(px, 0, pz), 90, 6.0)
 				else:
 					node = prop(root, A + "tree-small.glb", Vector3(px, 0, pz), 5.5,
@@ -1498,7 +1585,7 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 					_no_shadow(node)
 				if node != null: _far(node, 240.0)
 	# парки: скамейки и столы у фонтана, кашпо вдоль газона, рощи по углам
-	var parks: Array = [[-335.0, 110.0], [-335.0, -110.0], [-335.0, -335.0], [-110.0, -335.0]]
+	var parks: Array = BC_PARKS
 	for i in parks.size():
 		var cx: float = parks[i][0]
 		var cz: float = parks[i][1]
@@ -1507,7 +1594,7 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 			var a := k * TAU / 6.0 + 0.3
 			var bx: float = cx + cos(a) * 24.0
 			var bz: float = cz + sin(a) * 24.0
-			_bench(root, bx, bz, rad_to_deg(-a) + 180.0)
+			_knock_bench(root, bx, bz, rad_to_deg(-a) + 180.0)
 		for k in 3:
 			_picnic(root, cx - 40.0 + k * 40.0, cz + 52.0, 0.0)
 		for k in 14:
@@ -1515,7 +1602,8 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 				_bc_spot(rng, cx, cz, 40.0), 6.5 + rng.randf() * 3.0, rng.randf() * TAU, true)
 			_far(t, 320.0)
 		for k in 8:
-			_planter(root, _bc_spot(rng, cx, cz, 30.0), 0.0)
+			var ps := _bc_spot(rng, cx, cz, 30.0)
+			_knock_planter(root, ps.x, ps.z, rng.randf() * 360.0)
 	# деловой центр: площадь под башнями и карманы между ними. Без покрытия квартал
 	# выглядел бетонным полем (кадр проверки это показаль), поэтому плита площади,
 	# а в девяти карманах решётки — скамейка, кашпо и припаркованная машина.
@@ -1528,8 +1616,9 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 				for gz in 3:
 					var mx: float = cx - 30.0 + gx * 60.0
 					var mz: float = cz - 30.0 + gz * 60.0
+					if _bc_on_patch(mx, mz) or _bc_on_patch(mx + 4.0, mz): continue
 					_bench(root, mx, mz, 90.0 * ((gx + gz) % 4))
-					_planter(root, Vector3(mx + 4.0, 0, mz), 0.0)
+					_knock_planter(root, mx + 4.0, mz, 0.0)
 					if (gx + gz) % 2 == 0:
 						_far(prop(root, parked[rng.randi() % parked.size()],
 							Vector3(mx - 5.0, 0, mz + 6.0), 1.0,

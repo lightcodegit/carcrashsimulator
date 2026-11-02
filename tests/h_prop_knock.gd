@@ -9,7 +9,7 @@ var car: CarRig
 var _prop: RigidBody3D
 var _start := Vector3.ZERO
 var _kind := ""
-var _queue: Array[String] = ["cone", "pylon", "barrier"]
+var _queue: Array[String] = ["cone", "pylon", "barrier", "bin", "planter", "bench", "sign", "hydrant"]
 var _v_before := 0.0
 var _got_v := false
 var _got_loss := false
@@ -30,7 +30,7 @@ func _ready() -> void:
 	# которой в игре нет, и предмет, который никогда не останавливается, выглядел бы нормально
 	var fpm := PhysicsMaterial.new(); fpm.friction = 0.0
 	fl.physics_material_override = fpm
-	fl.add_child(cs); add_child(fl); fl.global_position = Vector3(200, -1, 0)
+	fl.add_child(cs); add_child(fl); fl.global_position = Vector3(200, -1.0 - 0.01 + 1.0, 0)  # верх пола = FLOOR_Y
 	await get_tree().process_frame
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())
@@ -55,6 +55,11 @@ func _next() -> void:
 	match _kind:
 		"cone": _prop = MapDB.loose(self, "res://assets/props/cone.glb", Vector3.ZERO, MapDB.PROP, 0.0, 3.0)
 		"pylon": _prop = MapDB.loose_kit(self, "pylon", Vector3.ZERO, 0, 6.0)
+		"bin": _prop = MapDB._knock_bin(self, 0.0, 0.0, 0.0)
+		"planter": _prop = MapDB._knock_planter(self, 0.0, 0.0, 0.0)
+		"bench": _prop = MapDB._knock_bench(self, 0.0, 0.0, 0.0)
+		"sign": _prop = MapDB._knock_sign(self, 0.0, 0.0, 0.0)
+		"hydrant": _prop = MapDB._knock_hydrant(self, 0.0, 0.0, 0.0)
 		_: _prop = MapDB.loose_kit(self, "barrierWhite", Vector3.ZERO, 0, 25.0)
 	_start = _prop.global_position
 	_pf = 0
@@ -93,12 +98,14 @@ func _physics_process(_dt: float) -> void:
 			_prop.global_position.z, _prop.linear_velocity.length(), _max_y, tilt, loss, _impacts])
 		check(moved > 3.0, "%s улетел от удара (сдвиг %.2f м)" % [_kind, moved])
 		check(_max_y < 4.0, "%s не улетел в стратосферу (высота %.2f м)" % [_kind, _max_y])
-		if _kind == "barrier":
+		if _kind == "barrier" or _kind == "planter" or _kind == "bench":
+			# низкое и широкое: бампер бьёт около центра масс, поэтому предмет едет
+			# юзом, а не кувыркается — то же поведение, что у отбойника
 			# тяжёлый и широкий: на дороге с нулевым трением он едет юзом, а не кувыркается
 			# (именно поэтому у полов трения нет — машина не должна терять скорость от касания),
 			# зато заметно тормозит машину и уползает далеко
-			check(loss > 4.0, "тяжёлый отбойник тормозит машину (%.1f%%)" % loss)
-			check(moved > 8.0, "отбойник уползает далеко (%.2f м)" % moved)
+			check(loss > 4.0, "тяжёлый %s тормозит машину (%.1f%%)" % [_kind, loss])
+			check(moved > 8.0, "%s уползает далеко (%.2f м)" % [_kind, moved])
 		else:
 			check(tilt > 0.3 or _max_y > 0.3, "%s подброшен или опрокинут (наклон %.2f, высота %.2f)" % [_kind, tilt, _max_y])
 			check(loss < 12.0, "лёгкий предмет почти не тормозит (%.1f%%)" % loss)

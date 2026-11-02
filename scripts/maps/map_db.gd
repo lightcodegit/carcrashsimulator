@@ -564,7 +564,7 @@ static func street_lamp(root: Node3D, pos: Vector3, side: float) -> void:
 # Список карт. Тесты полигонов (h_map_props, h_markings, h_restart_props) перебирают его, поэтому новая карта
 # обязана появиться здесь — иначе она останется непроверенной.
 static func ids() -> Array[String]:
-	return ["arena", "town", "speedway", "circuit", "endless"]
+	return ["arena", "town", "speedway", "circuit", "endless", "bigcity"]
 
 static func build(id: String) -> Dictionary:
 	_surfaces.clear()
@@ -573,6 +573,7 @@ static func build(id: String) -> Dictionary:
 		"speedway": return _speedway()
 		"circuit": return _circuit()
 		"endless": return _endless()
+		"bigcity": return _bigcity()
 		_: return _arena()
 
 
@@ -1064,6 +1065,191 @@ static func _town() -> Dictionary:
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-120, 1.0, -24)),
 		"bounds": AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": false}}
+
+# «БОЛЬШОЙ ГОРОД» — километр на километр: периметр-кольцо, внутренняя сетка улиц
+# и 16 кварталов, поделённых на районы — деловой центр, жилые кварталы, промзона,
+# парк и стадион. Раскладка детерминирована (постоянный seed): игрок сравнивает
+# заезды между запусками, а h_all_maps строит каждый раз один и тот же город.
+# Кольцо сходится точно: четыре равных прямых по 45 плит и четыре одинаковых
+# поворота — угловые смещения взаимно гасятся (тот же расчёт, что на «ГОНКЕ»).
+static func _bigcity() -> Dictionary:
+	var root := Node3D.new(); root.name = "BigCity"
+	box(root, Vector3(0, FLOOR_Y - 1.0, 0), Vector3(1160, 2, 1160), Color(0.40, 0.41, 0.43),
+		Basis.IDENTITY, true)
+	var rng := RandomNumberGenerator.new(); rng.seed = 20261102
+	var t := TrackCursor.new()
+	t.root = root
+	t.pos = Vector3(-450.0, 0.0, -450.0)
+	t.h = 1
+	for edge in 4:
+		for k in 45:
+			t.tile("roadStraightLong")
+		t.tile("roadCornerLarger")
+	# внутренняя сетка: три улицы вдоль X и три вдоль Z; плиту убираем, если её
+	# отпечаток пересекается с полосой встречной улицы (ширина полосы 10, плита 20 —
+	# окно ±20), а разрыв перекрываем прямоугольником асфальта в уровне плит
+	for lane in [-220.0, 0.0, 220.0]:
+		for k in 41:
+			var x := -400.0 + k * 20.0
+			if _bc_crosses(x, -220.0) or _bc_crosses(x, 0.0) or _bc_crosses(x, 220.0): continue
+			# под бульварными горкой и буграми плит не должно быть: двойное полотно
+			if is_equal_approx(lane, 0.0) and (is_equal_approx(x, -140.0) or is_equal_approx(x, 120.0)
+					or (x >= 279.0 and x <= 321.0)): continue
+			kit(root, "roadStraightLong", Vector3(x, 0, lane + 5.0), 90, false, true)
+	for lane in [-220.0, 0.0, 220.0]:
+		for k in 41:
+			var z := -400.0 + k * 20.0
+			if _bc_crosses(z, -220.0) or _bc_crosses(z, 0.0) or _bc_crosses(z, 220.0): continue
+			kit(root, "roadStraightLong", Vector3(lane - 5.0, 0, z), 0, false, true)
+	for ix in [-220.0, 0.0, 220.0]:
+		for iz in [-220.0, 0.0, 220.0]:
+			box_vis(root, Vector3(ix, ROAD_TOP + 0.012, iz), Vector3(40, 0.02, 40), Color(0.30, 0.30, 0.33))
+			_surfaces.append({"rect": AABB(Vector3(ix - 20.0, 0.0, iz - 20.0), Vector3(40.0, 0.0, 40.0)),
+				"y": ROAD_TOP + 0.022})
+	# бульвар: арка на въезде, два «лежачих полицейских» и трамплин перед восточным
+	# кварталом — на длинной прямой до кольца разгон до 200 км/ч и прыжок честные
+	kit(root, "roadStart", Vector3(-420.0, 0, 5.0), 90, false, true)
+	kit(root, "roadBump", Vector3(-140.0, 0, 5.0), 90, true, true, Vector3(1.0, BUMP_Y, 1.0))
+	kit(root, "roadBump", Vector3(120.0, 0, 5.0), 90, true, true, Vector3(1.0, BUMP_Y, 1.0))
+	kit(root, "roadRampLong", Vector3(280.0, 0, 5.0), 90, true, true, Vector3(1.0, 1.0, 3.0))
+	# деловой центр: четыре квартала у слияния осей — процедурные башни разной
+	# высоты и цвета (Kenney-набор домов для «высоток» мал: домики даже втрое
+	# больше выглядят домиками), фонари на каждом перекрёстке, щиты и припаркованные
+	# машины между ними. Башня = box(): стена с честным коллайдером — в центр
+	# можно влететь на 200 км/ч, и кузов сложится о неё, как о настоящий город.
+	var tower_cols: Array[Color] = [Color(0.27, 0.31, 0.40), Color(0.46, 0.47, 0.50),
+		Color(0.52, 0.36, 0.28), Color(0.33, 0.36, 0.38)]
+	var types: Array[String] = ["building-type-a", "building-type-b", "building-type-c",
+		"building-type-d", "building-type-e", "building-type-f"]
+	var parked: Array[String] = [CARS + "sedan.glb", CARS + "truck.glb", CARS + "race.glb"]
+	for cx in [-110.0, 110.0]:
+		for cz in [-110.0, 110.0]:
+			for gx in 3:
+				for gz in 3:
+					var w := 16.0 + rng.randf() * 8.0
+					var d := 16.0 + rng.randf() * 8.0
+					var h := 22.0 + rng.randf() * 46.0
+					var px: float = cx - 60.0 + gx * 60.0 + rng.randf_range(-8.0, 8.0)
+					var pz: float = cz - 60.0 + gz * 60.0 + rng.randf_range(-8.0, 8.0)
+					box(root, Vector3(px, h * 0.5, pz), Vector3(w, h, d),
+						tower_cols[rng.randi() % tower_cols.size()])
+			for cz2 in [-110.0, 110.0]:
+				kit(root, "lightColored", Vector3(cx + 60.0, 0, cz2 - 5.0), 0, true, false)
+			kit(root, "billboard", Vector3(cx - 70.0, 0, cz), 90, true, false)
+			for n in 2:
+				prop(root, parked[rng.randi() % parked.size()], Vector3(cx - 20.0 + n * 40.0, 0,
+					cz + 78.0), 1.0, PI * 0.5, true)
+	# жилые кварталы: домики поменьше, заборы, деревья, сбитые конусы у въезда
+	for block in [[-110.0, 335.0], [110.0, 335.0], [110.0, -335.0]]:
+		var cx: float = block[0]
+		var cz: float = block[1]
+		for n in 10:
+			var p := _bc_spot(rng, cx, cz, 84.0)
+			var s := 7.0 + rng.randf() * 3.5
+			var rot := float(rng.randi() % 4) * PI * 0.5
+			prop(root, A + types[rng.randi() % types.size()] + ".glb", p, s, rot, true)
+		for n in 3:
+			prop(root, A + "fence-1x4.glb", Vector3(cx - 70.0 + n * 52.0, 0, cz + 80.0), 4.0, 0.0, true)
+		for n in 4:
+			prop(root, A + ("tree-large.glb" if n % 2 == 0 else "tree-small.glb"),
+				_bc_spot(rng, cx, cz, 84.0), 7.0, 0.0, true)
+		for n in 2:
+			prop(root, parked[rng.randi() % parked.size()], Vector3(cx + 30.0 + n * 34.0, 0,
+				cz - 84.0), 1.0, -PI * 0.5, true)
+		for n in 3:
+			loose(root, P + "cone.glb", Vector3(cx - 40.0 + n * 5.0, 0, cz - 60.0), PROP, 0.0, 3.0)
+	# промзона: длинные ангары-коробки с темной крышей, склады-тенты, забор по
+	# фасаду, контейнеры и покрышки на площадке, радар и вышки освещения
+	for cx in [335.0, -335.0]:
+		for cz in [335.0, -110.0]:
+			for n in 3:
+				var sx: float = cx - 60.0 + n * 60.0
+				box(root, Vector3(sx, 6.0, cz - 30.0), Vector3(44.0, 12.0, 26.0), Color(0.55, 0.56, 0.58))
+				box(root, Vector3(sx, 12.4, cz - 30.0), Vector3(40.0, 0.8, 22.0), Color(0.30, 0.31, 0.34))
+			kit(root, "tentLong", Vector3(cx - 30.0, 0, cz + 40.0), 0, true, false)
+			kit(root, "tent", Vector3(cx + 50.0, 0, cz + 40.0), 0, true, false)
+			kit(root, "pitsOffice", Vector3(cx + 70.0, 0, cz - 70.0), 90, true, false)
+			kit(root, "lightRedDouble", Vector3(cx - 80.0, 0, cz + 80.0), 0, true, false)
+			for n in 5:
+				kit(root, "fenceStraight", Vector3(cx - 80.0 + n * 40.0, 0, cz - 92.0), 0, true, false)
+			for n in 4:
+				loose(root, P + "box.glb", Vector3(cx - 60.0 + n * 40.0, 0, cz - 80.0), PROP,
+					rng.randf() * 3.0, 15.0)
+			for n in 3:
+				loose(root, P + "debris-tire.glb", Vector3(cx - 40.0 + n * 40.0, 0, cz - 66.0), PROP,
+					0.0, 10.0)
+	# парк: живой газон одним ковром (тёмные плитки kit grass на общем светлом
+	# фоне читались как провалы), аллея больших деревьев, клумбы и низкие щиты
+	for block in [[-335.0, 110.0], [-335.0, -110.0], [-335.0, -335.0], [-110.0, -335.0]]:
+		var cx: float = block[0]
+		var cz: float = block[1]
+		box_vis(root, Vector3(cx, 0.015, cz), Vector3(180, 0.03, 180), Color(0.30, 0.46, 0.28))
+		for n in 10:
+			kit(root, "treeLarge", _bc_spot(rng, cx, cz, 84.0), float(rng.randi() % 4) * 90.0,
+				true, false)
+		for n in 4:
+			kit(root, "treeSmall", _bc_spot(rng, cx, cz, 84.0), 0, true, false)
+		for n in 5:
+			prop(root, A + "planter.glb", _bc_spot(rng, cx, cz, 70.0), 3.2, 0.0, true)
+		kit(root, "billboardLow", Vector3(cx, 0, cz + 95.0), 0, true, false)
+	# стадион: крытые трибуны каре, арка в центре и клетчатые флаги — с трамплина
+	# бульвара сюда можно долететь по прямой
+	for side in 4:
+		for n in 4:
+			var along := -60.0 + n * 40.0
+			var sp := Vector3(335.0, 0, -335.0)
+			match side:
+				0: sp += Vector3(along, 0, -95.0)
+				1: sp += Vector3(along, 0, 95.0)
+				2: sp += Vector3(-95.0, 0, along)
+				3: sp += Vector3(95.0, 0, along)
+			kit(root, "grandStandCovered", sp, side * 90.0, true, false)
+	kit(root, "overheadRoundColored", Vector3(335.0, 0, -325.0), 90, false, false)
+	for n in 4:
+		kit(root, "flagCheckers", Vector3(285.0 + n * 34.0, 0, -240.0), 0, false, false)
+	for n in 3:
+		loose_kit(root, "pylon", Vector3(300.0 + n * 24.0, 0, -420.0), 0, 6.0)
+	# тротуары по периметру кварталов: бордюр 0.2 м — физическая стена, улица
+	# ощущается улицей, а не лентой асфальта в пустоте; стадион оставляем открытой
+	# площадью — его трибуны стоят впритык к линии бордюра
+	for cx in [-335.0, -110.0, 110.0, 335.0]:
+		for cz in [-335.0, -110.0, 110.0, 335.0]:
+			if is_equal_approx(cx, 335.0) and is_equal_approx(cz, -335.0): continue
+			box(root, Vector3(cx, 0.1, cz - 92.0), Vector3(190, 0.2, 4), Color(0.5, 0.5, 0.52))
+			box(root, Vector3(cx, 0.1, cz + 92.0), Vector3(190, 0.2, 4), Color(0.5, 0.5, 0.52))
+			box(root, Vector3(cx - 92.0, 0.1, cz), Vector3(4, 0.2, 184), Color(0.5, 0.5, 0.52))
+			box(root, Vector3(cx + 92.0, 0.1, cz), Vector3(4, 0.2, 184), Color(0.5, 0.5, 0.52))
+	# перекрёстки: plastic отбойники и конусы — сбить на проходе через квартал;
+	# уровень y=0: под линией нет тротуара, а на уровне бордюра предмет падал бы
+	# до пола и звенел на старте
+	for n in 5:
+		loose_kit(root, "barrierWhite", Vector3(-220.0 + n * 110.0, 0.0, -180.0), 0, 25.0)
+	for n in 4:
+		loose(root, P + "cone.glb", Vector3(100.0 + n * 4.0, 0, 208.0), PROP, 0.0, 3.0)
+	# лесополоса за периметром: город не должен обрываться в пустоту
+	for k in 24:
+		var a := -470.0 + k * 40.0
+		kit(root, "treeLarge", Vector3(a, 0, -520.0), 0, true, false)
+		kit(root, "treeLarge", Vector3(a, 0, 520.0), 0, true, false)
+		kit(root, "treeLarge", Vector3(-520.0, 0, a), 0, true, false)
+		kit(root, "treeLarge", Vector3(520.0, 0, a), 0, true, false)
+	drop_shadows(root)
+	Materials.apply_tree(root, "prop")
+	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-430.0, 1.0, 0.0)),
+		"bounds": AABB(Vector3(-560.0, -30.0, -560.0), Vector3(1120.0, 70.0, 1120.0)),
+		"info": {"colliders": root.get_child_count(), "has_ramp": true}}
+
+# Свободная точка квартала: кольцо 84..88 м от центра — не встать ни на улицу,
+# ни на бордюр тротуара (92 м).
+static func _bc_spot(rng: RandomNumberGenerator, cx: float, cz: float, min_r: float) -> Vector3:
+	var a := rng.randf() * TAU
+	var r := min_r + rng.randf() * (88.0 - min_r)
+	return Vector3(cx + cos(a) * r, 0.0, cz + sin(a) * r)
+
+# Плита, начатая в node_x (полоса 20 м вдоль оси), пересекает полосу встречной
+# улицы шириной 10 м с осью lane: [lane−5, lane+5] ∩ [node_x, node_x+20] ≠ ∅.
+static func _bc_crosses(node_x: float, lane: float) -> bool:
+	return node_x < lane + 5.0 and node_x > lane - 25.0
 
 static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"

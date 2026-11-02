@@ -199,8 +199,11 @@ func _rule(panel: Control, _accent: Color) -> void:
 func _build_speedo(root: Control) -> void:
 	_gauge = Gauge.new()
 	_gauge.font = UiTheme.sans_font(800)
-	_gauge.position = Vector2(28, 620)
-	_gauge.size = Vector2(232, 232)
+	# якорь на нижний левый угол: при другом аспекте окна (canvas_items+expand)
+	# логическая высота растёт, и без якоря круг повис бы в середине кадра
+	_gauge.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_gauge.offset_left = 28; _gauge.offset_right = 260
+	_gauge.offset_top = -280; _gauge.offset_bottom = -48
 	root.add_child(_gauge)
 	_gameplay.append(_gauge)
 
@@ -259,8 +262,11 @@ func _build_telemetry(root: Control) -> void:
 
 func _build_crash_log(root: Control) -> void:
 	var panel := Panel.new()
-	panel.position = Vector2(1276, 24)
-	panel.size = Vector2(300, 160)
+	# правый верхний угол якорем: на широких окнах логическая ширина растёт,
+	# и без якоря панель осталась бы висеть в середине неба
+	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	panel.offset_left = -324; panel.offset_right = -24
+	panel.offset_top = 24; panel.offset_bottom = 184
 	panel.add_theme_stylebox_override("panel", _style())
 	root.add_child(panel)
 	_gameplay.append(panel)
@@ -289,7 +295,9 @@ func _build_crash_log(root: Control) -> void:
 func _build_banners(root: Control) -> void:
 	# никакого баннера «УДАР» поверх экрана: только подсказка и журнал в панели
 	_tip_label = _label(Vector2(0, 596), 22, ACCENT, 600)
-	_tip_label.size = Vector2(1600, 32)
+	_tip_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_tip_label.offset_left = 0; _tip_label.offset_right = 0
+	_tip_label.offset_top = 596; _tip_label.offset_bottom = 628
 	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tip_label.visible = false
 	root.add_child(_tip_label)
@@ -299,8 +307,9 @@ func _build_banners(root: Control) -> void:
 # которую игрок попросил убрать — подсказки о кнопках теперь живут в меню паузы.
 func _build_fps(root: Control) -> void:
 	var panel := Panel.new()
-	panel.position = Vector2(1360, 852)
-	panel.size = Vector2(216, 32)
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	panel.offset_left = -240; panel.offset_right = -24
+	panel.offset_top = -48; panel.offset_bottom = -16
 	panel.add_theme_stylebox_override("panel", _style(8))
 	root.add_child(panel)
 	_fps_panel = panel

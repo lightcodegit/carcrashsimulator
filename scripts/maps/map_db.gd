@@ -1162,7 +1162,10 @@ static func _bigcity() -> Dictionary:
 					Vector3(rail_w, 0.18, 15), Color(0.85, 0.85, 0.88))
 	# бульвар: арка на въезде, два «лежачих полицейских» и трамплин перед восточным
 	# кварталом — на длинной прямой до кольца разгон до 200 км/ч и прыжок честные
-	kit(root, "roadStart", Vector3(-420.0, 0, 5.0), 90, false, true)
+	# арка на въезде: у roadStart ось полотна в 6.3 м от края плиты (см. _SEG), а не в 5,
+	# как у обычных плит — ставим её на lane + 6.3, иначе разметка арки уходит на 1.3 м
+	# вбок от линии улицы («кривые белые линии в начале карты»)
+	kit(root, "roadStart", Vector3(-420.0, 0, 6.3), 90, false, true)
 	kit(root, "roadBump", Vector3(-140.0, 0, 5.0), 90, true, true, Vector3(1.0, BUMP_Y, 1.0))
 	kit(root, "roadBump", Vector3(120.0, 0, 5.0), 90, true, true, Vector3(1.0, BUMP_Y, 1.0))
 	kit(root, "roadRampLong", Vector3(280.0, 0, 5.0), 90, true, true, Vector3(1.0, 1.0, 3.0))

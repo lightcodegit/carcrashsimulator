@@ -1,13 +1,24 @@
-extends Control
-# Главное меню в телеметрическом стиле: тёмные панели с тонкой обводкой, моноширинный
-# шрифт, живой 3D-превью выбранной машины и её спецификация.
+extends Node3D
+# Главное меню в духе BeamNG.drive: под интерфейсом живёт настоящая 3D-сцена —
+# выбранная машина стоит на показном полигоне, камера медленно её облетает. Слева —
+# вертикальное текстовое меню (без рамок-кнопок, янтарная полоса при наведении),
+# справа — панель текущего раздела: запуск, список машин, список карт, настройки,
+# выход. Выбор машины вживую подменяет модель в фоне. Физики в меню нет: модель
+# статична, поэтому фон дешёв даже на слабом GPU, но выглядит как мир, а не картинка.
 
+# Витрина VehicleDB: цифры и цвета зеркалят get_params (физика читает свою таблицу).
+# Формат: имя, id, описание, макс. скорость км/ч, масса кг, разгон м/с², акцент кузова.
 const CARS := [
-	["СЕДАН", "sedan", "Сбалансированный седан · 160 км/ч · 1300 кг\nСредняя жёсткость кузова — честная классика краш-тестов."],
-	["ПИКАП", "pickup", "Тяжёлый пикап · 140 км/ч · 1900 кг\nКузов держит удар, который ломает остальных."],
-	["СПОРТКАР", "sport", "Хрупкий спорткар · 210 км/ч · 1050 кг\nБыстрый и низкий: мнётся глубоко и эффектно."],
-	["ЛИМУЗИН", "limousine", "Растянутый седан · 175 км/ч · 2100 кг\nСамый длинный и самый тяжёлый: разгон и тормоз честные, а не спортивные."],
-	["БЕСКОНЕЧНОСТЬ", "infinity", "Машина бесконечности · без потолка скорости · 900 кг\nРазгон вчетверо сильнее спорткара: держаться за дорогу сможет не всегда."],
+	["СЕДАН", "sedan", "Сбалансированный седан · 160 км/ч · 1300 кг\nСредняя жёсткость кузова — честная классика краш-тестов.",
+		160.0, 1300.0, 7.0, Color(0.78, 0.18, 0.16)],
+	["ПИКАП", "pickup", "Тяжёлый пикап · 140 км/ч · 1900 кг\nКузов держит удар, который ломает остальных.",
+		140.0, 1900.0, 6.0, Color(0.16, 0.35, 0.72)],
+	["СПОРТКАР", "sport", "Хрупкий спорткар · 210 км/ч · 1050 кг\nБыстрый и низкий: мнётся глубоко и эффектно.",
+		210.0, 1050.0, 11.0, Color(0.85, 0.75, 0.2)],
+	["ЛИМУЗИН", "limousine", "Растянутый седан · 175 км/ч · 2100 кг\nСамый длинный и самый тяжёлый: разгон и тормоз честные, а не спортивные.",
+		175.0, 2100.0, 5.6, Color(0.10, 0.11, 0.16)],
+	["БЕСКОНЕЧНОСТЬ", "infinity", "Машина бесконечности · без потолка скорости · 900 кг\nРазгон вчетверо сильнее спорткара: держаться за дорогу сможет не всегда.",
+		INF, 900.0, 45.0, Color(0.62, 0.28, 0.95)],
 ]
 const MAPS := [
 	["АРЕНА", "arena", "Испытательный полигон: стены, столбы, отбойники,\nлежачий полицейский, слалом и краш-блок."],
@@ -16,335 +27,536 @@ const MAPS := [
 	["ГОНКА", "circuit", "Кольцо почти в километр: длинная прямая с трамплином, четыре\nповорота, трибуны, боксы и отбойники по всему периметру."],
 	["БЕСКОНЕЧНОСТЬ", "endless", "Дорога без конца: плиты за спиной переставляются вперёд,\nтак что хватает только терпения, а не длины карты."],
 ]
-const PANEL_BG := Color(0.045, 0.055, 0.075, 0.80)
-const PANEL_LINE := Color(0.36, 0.46, 0.60, 0.55)
-const DIM := Color(0.66, 0.73, 0.82)
-const ACCENT := Color(0.45, 0.8, 0.95)
 
-var _mono: SystemFont
-var _pivot: Node3D
-var _car_node: Node3D
-var _spec: Label
-var _car_opts: OptionButton
-var _map_opts: OptionButton
-var _preview_name: Label
-var _start_btn: Button
+enum Section { PLAY, VEHICLES, MAPS, SETTINGS, EXIT }
+
+var _car_i := 0
+var _map_i := 0
+var _section := Section.PLAY
+
+# 3D-фон
+var _car_mount: Node3D
+var _car_model: Node3D
+var _orbit: Node3D
+var _cam: Camera3D
+var _orbit_angle := 0.0
+
+# UI
+var _ui: CanvasLayer
+var _root: Control
+var _nav: Array[Button] = []
+var _panel: Control
 var _settings: SettingsMenu
-
-func _mono_font() -> SystemFont:
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["JetBrains Mono", "DejaVu Sans Mono", "Liberation Mono", "Nimbus Mono PS", "Courier New", "monospace"])
-	return f
+var _start_btn: Button
+var _env: Environment
+var _sun: DirectionalLight3D
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_mono = _mono_font()
-	add_child(_background())
-	add_child(_header())
-	_build_selectors()
-	_build_preview()
-	_build_footer()
-	_car_opts.grab_focus()
+	_build_world()
+	_build_ui()
+	# Меню обязано быть резким: Settings.scaling_3d_scale (0.7 по умолчанию) — это
+	# игровой компромисс слабой GPU, а витрина с машиной мылом быть не должна.
+	# Плюс фон меню живёт по тем же настройкам картинки, что и заезд: дымка,
+	# свечение, тени применяются к нему на лету, а не «когда-нибудь в игре» —
+	# ровно жалоба «настройки графики долго применяются»
+	_on_settings_changed()
+	Settings.changed.connect(_on_settings_changed)
+	_show_section(Section.PLAY)
+	_load_car(_car_i)
+	_nav[0].grab_focus()
 
-func _style(corner := 5) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = PANEL_BG
-	sb.set_border_width_all(1)
-	sb.border_color = PANEL_LINE
-	sb.set_corner_radius_all(corner)
-	sb.content_margin_left = 18; sb.content_margin_right = 18
-	sb.content_margin_top = 14; sb.content_margin_bottom = 14
-	return sb
+func _on_settings_changed() -> void:
+	var w := get_window()
+	if w != null: w.scaling_3d_scale = 1.0
+	if _env == null: return
+	_env.fog_enabled = Settings.fog
+	_env.fog_density = Settings.fog_density
+	_env.fog_aerial_perspective = Settings.fog_aerial
+	_env.fog_sun_scatter = Settings.fog_scatter
+	_env.glow_enabled = Settings.glow
+	_env.glow_intensity = Settings.glow_intensity
+	_env.glow_bloom = Settings.glow_bloom
+	_env.ssao_enabled = Settings.ssao
+	_env.ssil_enabled = Settings.ssil and Settings.supports_ssil()
+	_env.tonemap_mode = int(Settings.TONEMAPS[clampi(Settings.tonemap, 0, Settings.TONEMAPS.size() - 1)][1])
+	_env.tonemap_exposure = Settings.exposure
+	_env.tonemap_white = Settings.tonemap_white
+	_env.ambient_light_energy = Settings.ambient_energy()
+	_sun.shadow_enabled = Settings.shadow_enabled()
+	_sun.directional_shadow_max_distance = Settings.shadow_distance()
+	_sun.light_angular_distance = Settings.sun_soft
 
-func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE) -> Label:
-	var l := Label.new()
-	l.position = pos
-	l.add_theme_font_override("font", _mono)
-	l.add_theme_font_size_override("font_size", size_px)
-	l.add_theme_color_override("font_color", color)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
+# ---------------------------------------------------------------- живой 3D-мир
+# Фон меню — настоящая карта «Городок», собранная тем же MapDB, что и в заезде:
+# машины видны на улицах, где им предстоит разбиваться. Свет дневной, как в игре,
+# но без теней: витрине они не нужны, а на HD 630 это половина цены кадра.
+var _focus := Vector3.ZERO      # точка, вокруг которой камера кружит (спавн городка)
 
-func _background() -> Control:
-	var grad := TextureRect.new()
-	var g := Gradient.new()
-	g.colors = PackedColorArray([Color(0.085, 0.10, 0.135), Color(0.022, 0.028, 0.04)])
-	var gt := GradientTexture2D.new()
-	gt.gradient = g
-	gt.fill = GradientTexture2D.FILL_RADIAL
-	gt.fill_from = Vector2(0.62, 0.28)
-	gt.fill_to = Vector2(0.62, 1.35)
-	gt.width = 128; gt.height = 128
-	grad.texture = gt
-	grad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	grad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var grid := Control.new()
-	grid.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.draw.connect(func() -> void:
-		for x in range(0, 1601, 80):
-			grid.draw_line(Vector2(x, 0), Vector2(x, 900), Color(1, 1, 1, 0.022), 1.0)
-		for y in range(0, 901, 80):
-			grid.draw_line(Vector2(0, y), Vector2(1600, y), Color(1, 1, 1, 0.022), 1.0))
-	var host := Control.new()
-	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.add_child(grad)
-	host.add_child(grid)
-	return host
+func _build_world() -> void:
+	var we := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	var ps := ProceduralSkyMaterial.new()
+	ps.sky_top_color = Color(0.10, 0.28, 0.62)
+	ps.sky_horizon_color = Color(0.62, 0.74, 0.90)
+	ps.sky_curve = 0.32
+	ps.ground_bottom_color = Color(0.16, 0.17, 0.19)
+	ps.ground_horizon_color = ps.sky_horizon_color
+	ps.use_debanding = true
+	sky.sky_material = ps
+	env.sky = sky
+	if Settings.rendering_method() == "gl_compatibility":
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = Color(0.55, 0.62, 0.75)
+		env.ambient_light_energy = 0.25
+	else:
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+		env.ambient_light_energy = 1.0
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.70, 0.76, 0.85)
+	env.fog_density = 0.0018
+	_env = env
+	we.environment = env
+	add_child(we)
 
-func _header() -> Control:
-	var host := Control.new()
-	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var t := _label(Vector2(90, 52), 54)
-	t.text = "CAR CRASH SIMULATOR"
-	host.add_child(t)
-	var s := _label(Vector2(92, 122), 15, DIM)
-	s.text = "ПЕСОЧНИЦА АВТОКАТАСТРОФ · ВМЯТИНЫ БЕЗ ПРУЖИН · 3 МАШИНЫ · 3 КАРТЫ"
-	host.add_child(s)
-	var rule := ColorRect.new()
-	rule.color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.55)
-	rule.position = Vector2(92, 158)
-	rule.size = Vector2(620, 2)
-	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.add_child(rule)
-	return host
-
-func _build_selectors() -> void:
-	var car_panel := _card("МАШИНА", Vector2(90, 196), Vector2(620, 176))
-	_car_opts = _selector(CARS, Vector2(20, 48), car_panel.size.x - 40)
-	car_panel.add_child(_car_opts)
-	var car_desc := _desc(car_panel.size.x - 40)
-	car_panel.add_child(car_desc)
-	_wire(_car_opts, CARS, car_desc, true)
-	var map_panel := _card("КАРТА", Vector2(90, 392), Vector2(620, 176))
-	_map_opts = _selector(MAPS, Vector2(20, 48), map_panel.size.x - 40)
-	map_panel.add_child(_map_opts)
-	var map_desc := _desc(map_panel.size.x - 40)
-	map_panel.add_child(map_desc)
-	_wire(_map_opts, MAPS, map_desc, false)
-
-func _card(title_text: String, pos: Vector2, sz: Vector2) -> Panel:
-	var panel := Panel.new()
-	panel.position = pos
-	panel.size = sz
-	panel.add_theme_stylebox_override("panel", _style())
-	add_child(panel)
-	var t := _label(Vector2(18, 14), 13, DIM)
-	t.text = title_text
-	panel.add_child(t)
-	var rule := ColorRect.new()
-	rule.color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.35)
-	rule.position = Vector2(18, 38)
-	rule.size = Vector2(sz.x - 36, 1)
-	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(rule)
-	return panel
-
-func _selector(items: Array, pos: Vector2, w: float) -> OptionButton:
-	var opt := OptionButton.new()
-	opt.position = pos
-	opt.size = Vector2(w, 46)
-	opt.add_theme_font_override("font", _mono)
-	opt.add_theme_font_size_override("font_size", 20)
-	for it in items:
-		opt.add_item(it[0])
-	var norm := StyleBoxFlat.new()
-	norm.bg_color = Color(0.09, 0.11, 0.15, 0.95)
-	norm.set_border_width_all(1)
-	norm.border_color = PANEL_LINE
-	norm.set_corner_radius_all(4)
-	norm.content_margin_left = 14
-	opt.add_theme_stylebox_override("normal", norm)
-	opt.add_theme_stylebox_override("hover", norm)
-	var pressed := norm.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(0.14, 0.19, 0.26, 0.98)
-	pressed.border_color = ACCENT
-	opt.add_theme_stylebox_override("pressed", pressed)
-	opt.add_theme_stylebox_override("focus", pressed)
-	return opt
-
-func _desc(w: float) -> RichTextLabel:
-	var d := RichTextLabel.new()
-	d.position = Vector2(20, 104)
-	d.size = Vector2(w, 60)
-	d.add_theme_font_override("normal_font", _mono)
-	d.add_theme_font_size_override("normal_font_size", 14)
-	d.add_theme_color_override("default_color", Color(0.80, 0.85, 0.92))
-	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d.fit_content = true
-	d.bbcode_enabled = true
-	d.scroll_active = false
-	return d
-
-func _wire(opt: OptionButton, items: Array, desc: RichTextLabel, is_car: bool) -> void:
-	var refresh := func(idx: int) -> void:
-		var parts: Array = (items[idx][2] as String).split("\n")
-		desc.text = parts[0]
-		if parts.size() > 1:
-			desc.text += "\n[color=#7d8a9c]" + parts[1] + "[/color]"
-	opt.item_selected.connect(func(i: int) -> void:
-		refresh.call(i)
-		if is_car: _load_car(CARS[i][1])
-	)
-	refresh.call(0)
-
-func _build_preview() -> void:
-	var panel := Panel.new()
-	panel.position = Vector2(760, 196)
-	panel.size = Vector2(750, 512)
-	panel.add_theme_stylebox_override("panel", _style(6))
-	add_child(panel)
-	var t := _label(Vector2(18, 14), 13, DIM)
-	t.text = "ПРЕВЬЮ МОДЕЛИ"
-	panel.add_child(t)
-	_preview_name = _label(Vector2(0, 13), 15, ACCENT)
-	_preview_name.size = Vector2(panel.size.x - 20, 20)
-	_preview_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	panel.add_child(_preview_name)
-	var sv := SubViewport.new()
-	sv.size = Vector2i(714, 356)
-	sv.transparent_bg = true
-	sv.own_world_3d = true
-	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	sv.msaa_3d = Viewport.MSAA_4X
-	panel.add_child(sv)
-	var env := WorldEnvironment.new()
-	var e := Environment.new()
-	e.background_mode = Environment.BG_CLEAR_COLOR
-	e.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.environment = e
-	sv.add_child(env)
-	var key := DirectionalLight3D.new()
-	key.rotation_degrees = Vector3(-28, -32, 0)
-	key.light_energy = 1.35
-	key.shadow_enabled = true
-	sv.add_child(key)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-48, -32, 0)
+	sun.light_energy = 1.35
+	sun.light_color = Color(1.0, 0.96, 0.90)
+	sun.shadow_enabled = false
+	_sun = sun
+	add_child(sun)
 	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-12, 150, 0)
+	fill.rotation_degrees = Vector3(-22, 150, 0)
 	fill.light_energy = 0.45
-	fill.light_color = Color(0.72, 0.82, 1.0)
-	sv.add_child(fill)
-	var rim := OmniLight3D.new()
-	rim.position = Vector3(0, 3.2, -3.6)
-	rim.omni_range = 9.0
-	rim.light_color = ACCENT
-	rim.light_energy = 0.55
-	sv.add_child(rim)
-	var floor_mi := MeshInstance3D.new()
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(14, 14)
-	var fm := StandardMaterial3D.new()
-	fm.albedo_color = Color(0.07, 0.08, 0.10)
-	fm.roughness = 0.35
-	fm.metallic = 0.4
-	pm.material = fm
-	floor_mi.mesh = pm
-	sv.add_child(floor_mi)
-	_pivot = Node3D.new()
-	sv.add_child(_pivot)
-	var cam := Camera3D.new()
-	cam.fov = 38.0
-	# Витрина стоит на месте, а модель под ней крутится из _process — интерполяции
-	# физики тут нечего делать, и без отказа движок предупреждает
-	# «Interpolated Camera3D triggered from outside physics process».
-	cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	# look_at_from_position: обычный look_at требует узел уже в дереве
-	cam.look_at_from_position(Vector3(4.6, 2.35, 5.4), Vector3(0, 0.72, 0), Vector3.UP)
-	sv.add_child(cam)
-	var rect := TextureRect.new()
-	rect.texture = sv.get_texture()
-	rect.position = Vector2(18, 44)
-	rect.size = Vector2(714, 356)
-	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(rect)
-	_spec = _label(Vector2(18, 412), 14, Color(0.84, 0.88, 0.94))
-	_spec.size = Vector2(714, 88)
-	panel.add_child(_spec)
-	_load_car(CARS[0][1])
+	fill.light_color = Color(0.78, 0.85, 1.0)
+	add_child(fill)
 
-func _load_car(id: String) -> void:
-	var p: VehicleParams = VehicleDB.get_params(id)
-	if p == null: return
-	if _car_node != null and is_instance_valid(_car_node):
-		_pivot.remove_child(_car_node)
-		_car_node.queue_free()
-	var ps: PackedScene = load(p.model)
-	if ps == null: return
-	_car_node = ps.instantiate()
-	_pivot.add_child(_car_node)
-	var a: AABB = DentBody.measure(p.model).aabb
-	var s := 2.6 / maxf(0.001, a.size.z)          # нормируем длину модели в превью
-	Materials.apply_tree(_car_node, "car")
-	_car_node.scale = Vector3.ONE * s
-	_car_node.position = Vector3(-a.get_center().x * s, -a.position.y * s, -a.get_center().z * s)
-	_preview_name.text = id.to_upper()
-	# int(INF) — это не «бесконечность», а мусор, поэтому потолок скорости у машины
-	# без потолка печатается знаком, а не числом
-	var vmax_txt := "∞" if not is_finite(p.vmax_kmh) else "%d км/ч" % int(p.vmax_kmh)
-	_spec.text = "МАССА %d кг     МАКС %s     РАЗГОН %.1f м/с²\nДЛИНА %.2f м     ШИРИНА %.2f м     ВЫСОТА %.2f м\nТОРМОЗ %.1f м/с²     РУЛЬ %.0f °/с     СЦЕПЛЕНИЕ %.1f" % [
-		int(p.mass), vmax_txt, p.accel_max, p.length, p.width, p.height,
-		p.brake_decel, p.steer_rate_deg, p.grip]
+	var m: Dictionary = MapDB.build("town")
+	add_child(m.root)
+	# витрина стоит посередине города на главной улице: x=0 — центр карты,
+	# z=-19 — середина полосы (спавн заезда (-120,-24) лежит у края и у арки,
+	# для показа не годится)
+	_focus = Vector3(0.0, 0.02, -19.0)
+	_clear_showcase(m.root)
 
-func _build_footer() -> void:
-	var norm := StyleBoxFlat.new()
-	norm.bg_color = Color(0.10, 0.17, 0.24, 0.96)
-	norm.set_border_width_all(1)
-	norm.border_color = ACCENT
-	norm.set_corner_radius_all(5)
-	var hover := norm.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.16, 0.28, 0.38, 1.0)
-	_start_btn = _big_button("ЗАПУСК СИМУЛЯЦИИ", 24)
-	_start_btn.position = Vector2(90, 600)
-	_start_btn.size = Vector2(404, 76)
-	_start_btn.pressed.connect(_start)
-	add_child(_start_btn)
-	var cfg := _big_button("НАСТРОЙКИ", 19)
-	cfg.position = Vector2(514, 600)
-	cfg.size = Vector2(196, 76)
-	cfg.pressed.connect(_open_settings)
-	add_child(cfg)
-	_settings = SettingsMenu.new()
-	_settings.name = "SettingsMenu"
-	add_child(_settings)
-	_settings.closed.connect(func() -> void:
-		_settings.close()      # не просто visible = false: экран помнит, что он открыт
-		_start_btn.grab_focus())
-	var ver := _label(Vector2(760, 730), 13, Color(0.45, 0.52, 0.62))
-	ver.text = "МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0"
-	ver.size = Vector2(750, 22)
-	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	add_child(ver)
+	_car_mount = Node3D.new()
+	_car_mount.name = "CarMount"
+	_car_mount.position = _focus
+	add_child(_car_mount)
 
-func _big_button(text: String, size_px: int) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.focus_mode = Control.FOCUS_ALL
-	b.add_theme_font_override("font", _mono)
-	b.add_theme_font_size_override("font_size", size_px)
-	var norm := StyleBoxFlat.new()
-	norm.bg_color = Color(0.10, 0.17, 0.24, 0.96)
-	norm.set_border_width_all(1)
-	norm.border_color = ACCENT
-	norm.set_corner_radius_all(5)
-	b.add_theme_stylebox_override("normal", norm)
-	var hover := norm.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.16, 0.28, 0.38, 1.0)
-	b.add_theme_stylebox_override("hover", hover)
-	b.add_theme_stylebox_override("pressed", hover)
-	b.add_theme_stylebox_override("focus", hover)
-	return b
+	_orbit = Node3D.new()
+	_orbit.position = Vector3(_focus.x, 0.0, _focus.z)
+	add_child(_orbit)
+	_cam = Camera3D.new()
+	_cam.fov = 42.0
+	_cam.current = true
+	# облёт на 10.8 м: дальше деревьев (6-8 м от полосы) и сбитого хлама — витрина
+	# в кадре всегда; снос 3.8 держит машину в левой трети, панель не наезжает
+	_cam.position = Vector3(3.8, 2.5, 10.8)
+	_orbit.add_child(_cam)
 
-func _open_settings() -> void:
-	_settings.open()
-
-func _start() -> void:
-	GameContext.select(CARS[_car_opts.selected][1], MAPS[_map_opts.selected][1])
-	get_tree().change_scene_to_file("res://scenes/game.tscn")
+# Витрина не должна прятаться за декором: сносим сбитый хлам в 15 м от машины
+# (отбойник ровно на её полосе да конусы) и деревья, чей ствол попадает в кольцо
+# облёта. Городок для заезда при этом не меняется — расчистка только в меню.
+func _clear_showcase(root: Node3D) -> void:
+	for c in root.get_children():
+		var n3 := c as Node3D
+		if n3 == null: continue
+		var d := n3.global_position.distance_to(_focus)
+		if c is LooseProp and d < 15.0:
+			root.remove_child(c)
+			c.queue_free()
+		elif String(c.name).begins_with("tree") and d < 11.5:
+			root.remove_child(c)
+			c.queue_free()
 
 func _process(dt: float) -> void:
-	if _pivot != null:
-		_pivot.rotation.y += dt * 0.45
+	# медленный кинематографичный облёт: курс вокруг машины + лёгкое «дыхание» высоты.
+	# цель взгляда сдвинута ВПРАВО на 2.6 м: look_at ставит цель в центр экрана,
+	# поэтому именно сдвиг цели (а не позиции) укладывает машину в левую треть,
+	# где её правый борт не уходит под панель раздела
+	_orbit_angle += dt * 0.12
+	_orbit.rotation.y = _orbit_angle
+	if _cam != null:
+		_cam.position.y = 2.5 + sin(_orbit_angle * 1.3) * 0.18
+		var eye := _cam.global_position
+		var aim := _focus + Vector3(0.0, 0.7, 0.0)
+		var dir := (aim - eye).normalized()
+		var right := dir.cross(Vector3.UP).normalized()
+		_cam.look_at(aim + right * 2.6, Vector3.UP)
+
+func _load_car(i: int) -> void:
+	_car_i = clampi(i, 0, CARS.size() - 1)
+	if _car_model != null and is_instance_valid(_car_model):
+		_car_mount.remove_child(_car_model)
+		_car_model.queue_free()
+		_car_model = null
+	var id: String = CARS[_car_i][1]
+	var p: VehicleParams = VehicleDB.get_params(id)
+	if p == null: return
+	var ps: PackedScene = load(p.model)
+	if ps == null: return
+	var node: Node3D = ps.instantiate()
+	DentBody.stretch_model(node, p.body_stretch)
+	var a: AABB = DentBody.measure(p.model, p.body_stretch).aabb
+	var s := 4.6 / maxf(0.001, a.size.z)     # нормируем длину машины в мировые метры
+	Materials.apply_tree(node, "car")
+	node.scale = Vector3.ONE * s
+	node.position = Vector3(-a.get_center().x * s, -a.position.y * s, -a.get_center().z * s)
+	_car_mount.add_child(node)
+	_car_model = node
+
+# ---------------------------------------------------------------- UI
+func _build_ui() -> void:
+	_ui = CanvasLayer.new()
+	_ui.name = "MenuUI"
+	_ui.layer = 10
+	add_child(_ui)
+	_root = Control.new()
+	_root.name = "Root"
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.add_child(_root)
+
+	# скрим левее колонки: городок светлый, и белые буквы навигации на фасадах
+	# терялись — слева мягкая тёмная вуаль, как виньетка в BeamNG
+	var scrim := TextureRect.new()
+	var grad := Gradient.new()
+	grad.colors = PackedColorArray([Color(0.015, 0.02, 0.03, 0.78), Color(0.015, 0.02, 0.03, 0.0)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill = GradientTexture2D.FILL_LINEAR
+	gt.fill_from = Vector2(0.0, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = 256
+	gt.height = 8
+	scrim.texture = gt
+	scrim.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	scrim.offset_right = 470
+	scrim.offset_bottom = 900
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(scrim)
+
+	_build_logo(_root)
+	_build_nav(_root)
+	_build_panel(_root)
+	_build_footer(_root)
+
+	_settings = SettingsMenu.new()
+	_settings.name = "SettingsMenu"
+	_ui.add_child(_settings)
+	# закрыл настройки — возвращаемся на «НАЧАТЬ»; сам раздел SETTINGS ничего не рисует,
+	# он только открывает оверлей (иначе closed → open → closed — вечный круг)
+	_settings.closed.connect(func() -> void:
+		_settings.close()
+		_show_section(Section.PLAY))
+
+func _build_logo(host: Control) -> void:
+	# логотип: процедурная эмблема (краш-звезда с машиной) + вордмарк из двух
+	# строк — белая «CAR CRASH», янтарный «SIMULATOR», как BEAMNG + .DRIVE
+	var row := HBoxContainer.new()
+	row.position = Vector2(UiTheme.MARGIN - 8, 40)
+	row.add_theme_constant_override("separation", 18)
+	host.add_child(row)
+	var mark := TextureRect.new()
+	mark.texture = load("res://assets/ui/logo_emblem.svg")
+	mark.custom_minimum_size = Vector2(96, 96)
+	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(mark)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", -10)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(col)
+	# наклонный экстрасмелый: две строки собраны в один блок, вторая — со сдвигом,
+	# как у спортивных брендов; обводка держит буквы на любом фоне городка
+	var l1 := UiTheme.label("CAR CRASH", 46, Color.WHITE, 800)
+	l1.add_theme_font_override("font", UiTheme.sans_font(800, true))
+	l1.add_theme_constant_override("outline_size", 8)
+	l1.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
+	col.add_child(l1)
+	var l2 := UiTheme.label("SIMULATOR", 40, UiTheme.AMBER, 800)
+	l2.add_theme_font_override("font", UiTheme.sans_font(800, true))
+	l2.add_theme_constant_override("outline_size", 8)
+	l2.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
+	l2.add_theme_constant_override("margin_left", 60)
+	col.add_child(l2)
+
+func _build_nav(host: Control) -> void:
+	var box := VBoxContainer.new()
+	box.position = Vector2(UiTheme.MARGIN, 250)
+	box.custom_minimum_size = Vector2(UiTheme.NAV_W, 0)
+	box.add_theme_constant_override("separation", 6)
+	host.add_child(box)
+	var items := ["НАЧАТЬ", "МАШИНЫ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"]
+	for idx in items.size():
+		var b := UiTheme.nav_item(items[idx], idx == 0)
+		b.custom_minimum_size = Vector2(UiTheme.NAV_W, 0)
+		var sec: int = idx
+		b.pressed.connect(func() -> void: _show_section(sec))
+		box.add_child(b)
+		_nav.append(b)
+	UiTheme.nav_mark_active(_nav[0], true)
+
+func _build_panel(host: Control) -> void:
+	# панель раздела — тёмная полупрозрачная карточка поверх живого мира; высота
+	# подгоняется под контент (_fit_panel), чтобы под короткими разделами не висело
+	# пустое чёрное поле
+	_panel = Panel.new()
+	_panel.name = "Panel"
+	_panel.add_theme_stylebox_override("panel", UiTheme.panel_style(10))
+	_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_panel.anchor_left = 0.56
+	_panel.anchor_right = 1.0
+	_panel.anchor_top = 0.0
+	_panel.anchor_bottom = 0.0
+	_panel.offset_left = 0; _panel.offset_right = -56
+	_panel.offset_top = 150; _panel.offset_bottom = 560
+	host.add_child(_panel)
+	var holder := Control.new()
+	holder.name = "PanelContent"
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	holder.offset_left = 26; holder.offset_right = -26
+	holder.offset_top = 22; holder.offset_bottom = -22
+	_panel.add_child(holder)
+
+func _build_footer(host: Control) -> void:
+	var v := UiTheme.label("v0.39 · МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0", 13, UiTheme.FAINT, 500, true)
+	v.position = Vector2(UiTheme.MARGIN, 856)
+	host.add_child(v)
+
+# ---- переключение разделов -------------------------------------------------
+func _show_section(sec: int) -> void:
+	_section = sec
+	for n in _nav.size():
+		UiTheme.nav_mark_active(_nav[n], n == sec)
+	if sec == Section.SETTINGS:
+		# меню под оверлеем настроек гаснем полностью: полупрозрачный фон
+		# превращал подписи навигации в двойной текст поверх вкладок
+		_root.visible = false
+		_settings.open()
+		return
+	_root.visible = true
+	_settings.close()
+	# снимаем с родителя сразу: queue_free откладывает удаление на кадр, и за этот
+	# кадр в дереве живут две панели — тесты и поиск по имени видели призраков
+	var holder := _panel.get_node("PanelContent")
+	for c in holder.get_children():
+		holder.remove_child(c)
+		c.queue_free()
+	match sec:
+		Section.PLAY: _panel_play()
+		Section.VEHICLES: _panel_vehicles()
+		Section.MAPS: _panel_maps()
+		Section.EXIT: _panel_exit()
+	_fit_panel()
+
+func _panel_play() -> void:
+	var s := _scroller()
+	var title := UiTheme.label("НАЧАТЬ", 34, Color.WHITE, 800)
+	s.add_child(title)
+	s.add_child(_sep())
+	_kv(s, "МАШИНА", String(CARS[_car_i][0]))
+	var cdesc := UiTheme.label(String(CARS[_car_i][2]).split("\n")[0], 14, UiTheme.DIM)
+	cdesc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cdesc.custom_minimum_size = Vector2(560, 0)
+	s.add_child(cdesc)
+	_kv(s, "КАРТА", String(MAPS[_map_i][0]))
+	var mdesc := UiTheme.label(String(MAPS[_map_i][2]).replace("\n", " "), 14, UiTheme.DIM)
+	mdesc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mdesc.custom_minimum_size = Vector2(560, 0)
+	s.add_child(mdesc)
+	s.add_child(_spacer(10))
+	_start_btn = UiTheme.action_button("ЗАПУСТИТЬ СИМУЛЯЦИЮ", 24)
+	_start_btn.custom_minimum_size = Vector2(560, 64)
+	_start_btn.pressed.connect(start_game)
+	s.add_child(_start_btn)
+	s.add_child(_spacer(6))
+	var hint := UiTheme.label("Машину и карту меняй в разделах слева · Enter — запуск", 13, UiTheme.FAINT)
+	s.add_child(hint)
+
+# Карточка выбора: имя + описание живут внутри одной кнопки — список читается
+# цельно, а не «подпись где-то под кнопкой», как было в черновике. Строка строки
+# машины длиннее строки карты (см. CARS): у машин добавляется цветовой слом кузова
+# справа — три полосы характеристик, чтобы сравнивать машины глазами, а не по тексту.
+func _pick_card(items: Array, i: int, sel: bool, meta_key: String, cb: Callable) -> Button:
+	var row: Array = items[i]
+	var card := Button.new()
+	card.flat = false
+	card.text = ""
+	card.focus_mode = Control.FOCUS_ALL
+	card.add_theme_stylebox_override("normal", UiTheme.card_style(sel))
+	card.add_theme_stylebox_override("hover", UiTheme.card_style(true))
+	card.add_theme_stylebox_override("pressed", UiTheme.card_style(true))
+	card.add_theme_stylebox_override("focus", UiTheme.card_style(true))
+	var spec := row.size() > 3
+	card.custom_minimum_size = Vector2(560, 92 if spec else 72)
+	# высота задана явно: вложенный VBox не участвует в минимальном размере
+	# кнопки (Button меряет только свой text), без этого карточки схлопывались в строку
+	card.set_meta(meta_key, i)
+	card.pressed.connect(cb)
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(host)
+	if spec:
+		var accent: Color = row[6]
+		var slom := ColorRect.new()
+		slom.color = Color(accent.r, accent.g, accent.b, 0.92)
+		slom.position = Vector2(16, 16); slom.size = Vector2(5, 56)
+		slom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		host.add_child(slom)
+		# левый блок — VBox: свободный Label вне контейнера не сжимается до
+		# заданной ширины (минимальный размер текста распуляет его), и описание
+		# machines залезало на полосы характеристик; контейнер width задаёт насильно
+		var lbox := VBoxContainer.new()
+		lbox.position = Vector2(32, 12); lbox.size = Vector2(296, 70)
+		lbox.add_theme_constant_override("separation", 4)
+		lbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		host.add_child(lbox)
+		var nm := UiTheme.label(String(row[0]), 21, UiTheme.AMBER_HI if sel else Color.WHITE, 700)
+		lbox.add_child(nm)
+		var fl := UiTheme.label(String(row[2]).split("\n")[1], 13, UiTheme.DIM, 500)
+		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		fl.max_lines_visible = 2
+		fl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		lbox.add_child(fl)
+		var vmax: float = row[3]
+		_stat(host, 344, 10, "СКОРОСТЬ", "∞" if not is_finite(vmax) else "%d км/ч" % int(vmax),
+			clampf(vmax / 220.0, 0.0, 1.0))
+		_stat(host, 344, 38, "МАССА", "%d кг" % int(row[4]), clampf(row[4] / 2200.0, 0.0, 1.0))
+		_stat(host, 344, 66, "РАЗГОН", "%.1f м/с²" % float(row[5]), clampf(row[5] / 45.0, 0.0, 1.0))
+	else:
+		var col := VBoxContainer.new()
+		col.set_anchors_preset(Control.PRESET_FULL_RECT)
+		col.offset_left = 16; col.offset_right = -16
+		col.offset_top = 10; col.offset_bottom = -10
+		col.add_theme_constant_override("separation", 2)
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		host.add_child(col)
+		var nm2 := UiTheme.label(String(row[0]), 21, UiTheme.AMBER_HI if sel else Color.WHITE, 700)
+		col.add_child(nm2)
+		var sub := UiTheme.label(String(row[2]).split("\n")[0], 13, UiTheme.DIM, 500)
+		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(sub)
+	return card
+
+# Одна строка паспорта машины: подпись, значение и полоса относительно шкалы
+# (за максимум принят лучший показатель ростера, поэтому полосы сравнимы).
+func _stat(host: Control, x: float, y: float, title: String, val: String, t: float) -> void:
+	var lab := UiTheme.label(title, 11, UiTheme.FAINT, 600)
+	lab.position = Vector2(x, y)
+	host.add_child(lab)
+	var v := UiTheme.label(val, 11, Color.WHITE, 700)
+	v.position = Vector2(x + 106, y)
+	v.size = Vector2(66, 16)
+	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	host.add_child(v)
+	var bg := ColorRect.new()
+	bg.color = UiTheme.LINE
+	bg.position = Vector2(x, y + 17); bg.size = Vector2(172, 4)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(bg)
+	var fill := ColorRect.new()
+	fill.color = UiTheme.AMBER
+	fill.position = Vector2(x, y + 17); fill.size = Vector2(172.0 * t, 4)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(fill)
+
+func _panel_vehicles() -> void:
+	var s := _scroller()
+	s.add_child(UiTheme.label("МАШИНЫ", 30, Color.WHITE, 800))
+	s.add_child(UiTheme.label("выбор сразу подменяет машину в фоне", 13, UiTheme.FAINT))
+	s.add_child(_sep())
+	for i in CARS.size():
+		s.add_child(_pick_card(CARS, i, i == _car_i, "car_i", select_car.bind(i)))
+
+func _panel_maps() -> void:
+	var s := _scroller()
+	s.add_child(UiTheme.label("КАРТЫ", 30, Color.WHITE, 800))
+	s.add_child(_sep())
+	for i in MAPS.size():
+		s.add_child(_pick_card(MAPS, i, i == _map_i, "map_i", select_map.bind(i)))
+
+func _panel_exit() -> void:
+	var s := _scroller()
+	s.add_child(UiTheme.label("ВЫХОД", 30, Color.WHITE, 800))
+	s.add_child(_sep())
+	s.add_child(UiTheme.label("Выйти из Car Crash Simulator?", 18, UiTheme.DIM))
+	s.add_child(_spacer(14))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	s.add_child(row)
+	var yes := UiTheme.action_button("ВЫЙТИ", 20)
+	yes.custom_minimum_size = Vector2(200, 56)
+	yes.pressed.connect(func() -> void: get_tree().quit())
+	row.add_child(yes)
+	var no := UiTheme.ghost_button("ОСТАТЬСЯ", 18)
+	no.custom_minimum_size = Vector2(160, 56)
+	no.pressed.connect(func() -> void: _show_section(Section.PLAY))
+	row.add_child(no)
+
+# ---- хуки для логики и тестов ---------------------------------------------
+func select_car(i: int) -> void:
+	_load_car(i)
+	if _section == Section.PLAY or _section == Section.VEHICLES:
+		_show_section(_section)
+
+func select_map(i: int) -> void:
+	_map_i = clampi(i, 0, MAPS.size() - 1)
+	if _section == Section.PLAY or _section == Section.MAPS:
+		_show_section(_section)
+
+func start_game() -> void:
+	GameContext.select(String(CARS[_car_i][1]), String(MAPS[_map_i][1]))
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/game.tscn")
+
+# ---- мелкие строительные помощники -----------------------------------------
+var _cur_sc: ScrollContainer = null
+
+func _scroller() -> VBoxContainer:
+	var sc := ScrollContainer.new()
+	sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_panel.get_node("PanelContent").add_child(sc)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 8)
+	sc.add_child(box)
+	_cur_sc = sc
+	return box
+
+# Панель высотой ровно по контенту (пол: 220, потолок 640 — дальше скролл).
+func _fit_panel() -> void:
+	if _cur_sc == null: return
+	var box := _cur_sc.get_child(0) as VBoxContainer
+	if box == null: return
+	var need := box.get_combined_minimum_size().y + 44.0
+	_panel.offset_bottom = _panel.offset_top + clampf(need, 220.0, 640.0)
+
+func _kv(parent: Node, k: String, v: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	parent.add_child(row)
+	var kl := UiTheme.label(k, 13, UiTheme.FAINT, 700, true)
+	kl.custom_minimum_size = Vector2(120, 0)
+	row.add_child(kl)
+	row.add_child(UiTheme.label(v, 20, Color.WHITE, 700))
+
+func _sep() -> Control:
+	var r := ColorRect.new()
+	r.color = UiTheme.LINE
+	r.custom_minimum_size = Vector2(0, 1)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+func _spacer(h: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(0, h)
+	return c

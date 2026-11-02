@@ -139,6 +139,22 @@ static func _mesh_faces(m: Mesh) -> PackedVector3Array:
 # краю, отбивается от неё. Полотно остаётся наезжаемым, а дно и задние стенки добавляет
 # _closure — сквозь горку по-прежнему нельзя (страхует h_ramp_solid, борт — h_curbs).
 static func _collider_faces(m: Mesh, name: String) -> PackedVector3Array:
+	# Арка старта — не полотно, а рамка: её стойки обязаны быть твёрдыми, иначе сквозь
+	# них проезжают (жалоба «сквозь арку можно проехать»). Из коллайдера убраны
+	# горизонтальные грани у земли — с ними арка блокирует ХУЖЕ: колесо запрыгивает на
+	# сопланарный пол и проходит стойку насквозь (замер: удар 0 км/ч, x=−395.9), без них
+	# стойка держит (удар 99 км/ч, остановка у x=−412). Полотно под аркой даёт плита.
+	# Ряд пилонов сдвинут из-под пролёта ворот: там рамка толкала пилон на 0.33 м, и он
+	# проседал на 6 мм (ловит h_restart_props).
+	if name == "roadStart":
+		var all := _mesh_faces(m)
+		var walls := PackedVector3Array()
+		for t in range(0, all.size() - 2, 3):
+			var a := all[t]; var b := all[t + 1]; var c := all[t + 2]
+			var n := (b - a).cross(c - a)
+			if absf(n.y) > 0.9 * n.length() and (a.y + b.y + c.y) / 3.0 < 0.35: continue
+			walls.append(a); walls.append(b); walls.append(c)
+		return walls
 	if not name.begins_with("road"): return _mesh_faces(m)
 	var faces := PackedVector3Array()
 	for surf in m.get_surface_count():
@@ -858,7 +874,7 @@ static func _circuit() -> Dictionary:
 	# плитой. Трамплин взят растянутым (×3): 5.2 м высоты на 60 м — это 5°, и прыжок
 	# остаётся прыжком даже на 300 км/ч, а не ударом носом в грань (замер на арена-рампе:
 	# 15° машина начинала складываться с 250 км/ч).
-	t.tile("roadStart")
+	t.tile("roadStart", true)
 	for k in 3:
 		t.tile("roadStraightLong")
 	t.tile("roadStartPositions")
@@ -957,8 +973,8 @@ static func _decorate(root: Node3D, f: AABB, infill: AABB) -> void:
 		kit(root, "lightRedDouble", Vector3(-120.0 + k * 50.0, 0, out_z0 - 3.0), 0, true, false)
 		kit(root, "lightRed", Vector3(-120.0 + k * 50.0, 0, out_z1 + 3.0), 180, true, false)
 	kit(root, "radarEquipment", Vector3(out_x0 + 8.0, 0, in_z0 + 8.0), 0, true, false)
-	# арка над стартом — без коллайдера, как roadStart на трассе: под ней проезжают,
-	# и луч тесту она перекрывает полосу
+	# арка над стартом — без коллайдера: под ней проезжают, и луч тесту она
+	# перекрывает полосу (стойки roadStart твёрдые, этот навес — декорация)
 	kit(root, "overheadRound", Vector3(-132.0, 0, -55.0), 90, false, false)
 	for k in 4:
 		kit(root, "tentLong", Vector3(in_x0 + 6.0 + k * 26.0, 0, in_z1 - 6.0), 0, true, false)
@@ -1048,7 +1064,7 @@ static func _town() -> Dictionary:
 		# первую плиту заняла стартовая арка: её разметка легла бы ровно на разметку плиты
 		if k > 0: kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, -19), 90, false, true)
 		kit(root, "roadStraightLong", Vector3(-140.0 + k * 20.0, 0, 41), 90, false, true)
-	kit(root, "roadStart", Vector3(-140, 0, -17.7), 90, false, true)   # арка на въезде в город
+	kit(root, "roadStart", Vector3(-140, 0, -17.7), 90, true, true)   # арка на въезде в город
 	for k in 24:
 		box_vis(root, Vector3(-140 + k * 12.0, 0.03, -24), Vector3(6.0, 0.02, 0.3), Color(0.85, 0.82, 0.4))
 		box_vis(root, Vector3(-140 + k * 12.0, 0.03, 36), Vector3(6.0, 0.02, 0.3), Color(0.85, 0.82, 0.4))
@@ -1165,7 +1181,7 @@ static func _bigcity() -> Dictionary:
 	# арка на въезде: у roadStart ось полотна в 6.3 м от края плиты (см. _SEG), а не в 5,
 	# как у обычных плит — ставим её на lane + 6.3, иначе разметка арки уходит на 1.3 м
 	# вбок от линии улицы («кривые белые линии в начале карты»)
-	kit(root, "roadStart", Vector3(-420.0, 0, 6.3), 90, false, true)
+	kit(root, "roadStart", Vector3(-420.0, 0, 6.3), 90, true, true)
 	kit(root, "roadBump", Vector3(-140.0, 0, 5.0), 90, true, true, Vector3(1.0, BUMP_Y, 1.0))
 	kit(root, "roadBump", Vector3(120.0, 0, 5.0), 90, true, true, Vector3(1.0, BUMP_Y, 1.0))
 	kit(root, "roadRampLong", Vector3(280.0, 0, 5.0), 90, true, true, Vector3(1.0, 1.0, 3.0))
@@ -1313,7 +1329,7 @@ static func _speedway() -> Dictionary:
 	var root := Node3D.new(); root.name = "Speedway"
 	box(root, Vector3(280, FLOOR_Y - 1.0, 0), Vector3(700, 2, 300), Color(0.32, 0.32, 0.34), Basis.IDENTITY, true)
 	# полотно из плит Kenney Racing Kit (10 x 20), дорога вдоль +X, центр по z = 0
-	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, false, true)          # стартовая арка
+	kit(root, "roadStart", Vector3(-20, 0, 6.3), 90, true, true)          # стартовая арка
 	for k in 31:
 		# k=1 и k=2 заняли трамплин (x=20..50) с его посадочной плитой, k=12 — полицейский
 		if k != 1 and k != 2 and k != 12:
@@ -1349,7 +1365,7 @@ static func _speedway() -> Dictionary:
 		# пилоны стоят прямо на полотне — их и предполагается сбивать. Под трамплин и
 		# его посадочную плиту не ставим: полотно там наклонено, а предмету известно
 		# только плоское, так что пилон тонул в горке и выпрыгивал на старте заезда
-		var px := -14.0 + k * 22.0
+		var px := 8.0 + k * 22.0
 		if px > 18.0 and px < 60.0: continue
 		loose_kit(root, "pylon", Vector3(px, 0, 3.2 * (1 if k % 2 == 0 else -1)), 0, 6.0)
 	# конусы вдоль пит-лейна и стопки покрышек у боксов

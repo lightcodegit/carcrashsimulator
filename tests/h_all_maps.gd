@@ -6,7 +6,7 @@ func check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	await get_tree().process_frame
-	for map_id in ["arena", "town", "speedway"]:
+	for map_id in ["arena", "town", "speedway", "bigcity"]:
 		for car_id in ["sedan", "pickup", "sport"]:
 			GameContext.select(car_id, map_id)
 			var gm: GameManager = load("res://scenes/game.tscn").instantiate()

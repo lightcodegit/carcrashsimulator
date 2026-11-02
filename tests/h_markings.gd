@@ -61,6 +61,23 @@ static func _kits(n: Node, out: Array) -> void:
 	for c in n.get_children():
 		_kits(c, out)
 
+# Мировая координата оси полотна плиты вдоль её поперечной оси. У roadStart она
+# не в центре плиты (6.3 против 5.0 у обычных), и прямая постановка без поправки
+# уводит белую линию арки на 1.3 м вбок — жалоба «кривые линии в начале Большого
+# Города». Сравниваем арку с соседней плитой: ось обязана совпадать.
+static func _lateral_center(p: MeshInstance3D) -> float:
+	var cx := 0.0
+	var n := 0
+	for s in p.mesh.get_surface_count():
+		var mat := p.mesh.surface_get_material(s)
+		if mat == null or mat.resource_name != "road": continue
+		for v in (p.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+			cx += v.x
+			n += 1
+	if n == 0: return INF
+	var w: Vector3 = p.global_transform * Vector3(cx / float(n), 0.1, 10.0)
+	return w.dot(p.global_transform.basis.x.normalized())
+
 func _ready() -> void:
 	await get_tree().process_frame
 	for id in MapDB.ids():
@@ -96,6 +113,30 @@ func _ready() -> void:
 		check(plates > 5, "%s: дорожных сегментов %d" % [id, plates])
 		check(lifted == plates, "%s: полотно всех плит приподнято над полом (%d из %d)" % [id, lifted, plates])
 		check(proud > 10, "%s: белая разметка выше своего асфальта (%d граней)" % [id, proud])
+		var arches := 0
+		for mi in kits:
+			var p := mi as MeshInstance3D
+			if String(p.mesh.resource_path.get_file().get_basename()) != "roadStart": continue
+			var best: MeshInstance3D = null
+			var bd := INF
+			for mi2 in kits:
+				var q := mi2 as MeshInstance3D
+				if String(q.mesh.resource_path.get_file().get_basename()) != "roadStraightLong": continue
+				# сравнивать можно только плиты с той же поперечной осью: у кольца рядом
+				# плиты повёрнуты, и их «поперечная координата» считается в другом
+				# направлении
+				if absf(p.global_transform.basis.x.dot(q.global_transform.basis.x)) < 0.99: continue
+				var d: float = p.global_position.distance_to(q.global_position)
+				if d < bd: bd = d; best = q
+			if best == null: continue
+			var la := _lateral_center(p)
+			var lb := _lateral_center(best)
+			if not is_finite(la) or not is_finite(lb): continue
+			if absf(la - lb) > 0.15:
+				arches += 1
+				print("  %s: арка на %.2f, соседняя плита на %.2f (сдвиг %.2f м)" % [
+					id, la, lb, la - lb])
+		check(arches == 0, "%s: арки старта стоят по оси улицы (%d со сдвигом)" % [id, arches])
 		root.queue_free()
 		await get_tree().process_frame
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

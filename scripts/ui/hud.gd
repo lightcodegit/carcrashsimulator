@@ -1,7 +1,9 @@
 class_name HUD
 extends CanvasLayer
-# HUD в стиле технической телеметрии: тёмные панели с тонкой обводкой, моноширинные
-# цифры, круговой спидометр с рисками и красной зоной, лог ударов, показания кузова.
+# HUD в стиле технической телеметрии: тёмные панели с тонкой обводкой, круговой
+# спидометр с рисками и красной зоной, лог ударов, показания кузова. Шрифт — тот же,
+# что в главном меню (UiTheme.sans_font), веса как в меню: заголовки 700, значения 700,
+# подписи 500–600, циферблат 800.
 
 signal menu_requested
 signal resume_requested
@@ -79,7 +81,6 @@ class Gauge extends Control:
 				HORIZONTAL_ALIGNMENT_CENTER, 140, 11, Color(1, 1, 1, 0.35))
 
 var _car: CarRig
-var _mono: SystemFont
 var _gauge: Gauge
 var _rows: Array[Label] = []
 var _v_peak: Label           # пик перегрузки за заезд
@@ -122,14 +123,8 @@ var _fps_avg := 60.0
 var _fps_frames := 0
 var _fps_win_ms := -1     # −1 = «окно ещё не открыто»: 0 был бы легальным тиком на старте
 
-func _mono_font() -> SystemFont:
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["JetBrains Mono", "DejaVu Sans Mono", "Liberation Mono", "Nimbus Mono PS", "Courier New", "monospace"])
-	return f
-
 func _ready() -> void:
 	layer = 10
-	_mono = _mono_font()
 	_start_ms = Time.get_ticks_msec()
 	var root := Control.new()
 	root.name = "Root"
@@ -158,10 +153,10 @@ func _style(sb_corner := 10) -> StyleBoxFlat:
 	sb.content_margin_top = 10; sb.content_margin_bottom = 10
 	return sb
 
-func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE) -> Label:
+func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE, weight := 500) -> Label:
 	var l := Label.new()
 	l.position = pos
-	l.add_theme_font_override("font", _mono)
+	l.add_theme_font_override("font", UiTheme.sans_font(weight))
 	l.add_theme_font_size_override("font_size", size_px)
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
@@ -170,10 +165,10 @@ func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE) -> Label:
 	return l
 
 func _row(panel: Control, y: float, title: String) -> Label:
-	var t := _label(Vector2(14, y), 12, DIM)
+	var t := _label(Vector2(14, y), 12, DIM, 600)
 	t.text = title
 	panel.add_child(t)
-	var v := _label(Vector2(0, y - 2), 16)
+	var v := _label(Vector2(0, y - 2), 16, Color.WHITE, 700)
 	v.size = Vector2(panel.size.x - 28, 22)
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(v)
@@ -182,11 +177,11 @@ func _row(panel: Control, y: float, title: String) -> Label:
 
 # Подпись шкалы слева и её процент справа, над самой полосой.
 func _caption(panel: Control, y: float, title: String) -> Label:
-	var v := _label(Vector2(0, y - 2), 12, DIM)
+	var v := _label(Vector2(0, y - 2), 12, DIM, 600)
 	v.size = Vector2(panel.size.x - 28, 18)
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(v)
-	var t := _label(Vector2(14, y), 12, DIM)
+	var t := _label(Vector2(14, y), 12, DIM, 600)
 	t.text = title
 	panel.add_child(t)
 	return v
@@ -203,7 +198,7 @@ func _rule(panel: Control, _accent: Color) -> void:
 
 func _build_speedo(root: Control) -> void:
 	_gauge = Gauge.new()
-	_gauge.font = _mono
+	_gauge.font = UiTheme.sans_font(800)
 	_gauge.position = Vector2(28, 620)
 	_gauge.size = Vector2(232, 232)
 	root.add_child(_gauge)
@@ -216,7 +211,7 @@ func _build_telemetry(root: Control) -> void:
 	panel.add_theme_stylebox_override("panel", _style())
 	root.add_child(panel)
 	_gameplay.append(panel)
-	var title := _label(Vector2(14, 8), 12, ACCENT)
+	var title := _label(Vector2(14, 8), 12, ACCENT, 700)
 	title.text = "ТЕЛЕМЕТРИЯ"
 	panel.add_child(title)
 	_rule(panel, ACCENT)
@@ -269,19 +264,19 @@ func _build_crash_log(root: Control) -> void:
 	panel.add_theme_stylebox_override("panel", _style())
 	root.add_child(panel)
 	_gameplay.append(panel)
-	var title := _label(Vector2(14, 8), 12, ACCENT)
+	var title := _label(Vector2(14, 8), 12, ACCENT, 700)
 	title.text = "ЖУРНАЛ УДАРОВ"
 	panel.add_child(title)
 	_rule(panel, ACCENT)
-	var cap := _label(Vector2(14, 42), 12, DIM)
+	var cap := _label(Vector2(14, 42), 12, DIM, 600)
 	cap.text = "ЛУЧШИЙ УДАР"
 	panel.add_child(cap)
-	_stat_top = _label(Vector2(0, 38), 20)
+	_stat_top = _label(Vector2(0, 38), 20, Color.WHITE, 700)
 	_stat_top.text = "—"
 	_stat_top.size = Vector2(272, 26)
 	_stat_top.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(_stat_top)
-	_stat_count = _label(Vector2(14, 68), 12, DIM)
+	_stat_count = _label(Vector2(14, 68), 12, DIM, 600)
 	_stat_count.text = "УДАРОВ: 0"
 	panel.add_child(_stat_count)
 	for i in 4:
@@ -293,7 +288,7 @@ func _build_crash_log(root: Control) -> void:
 
 func _build_banners(root: Control) -> void:
 	# никакого баннера «УДАР» поверх экрана: только подсказка и журнал в панели
-	_tip_label = _label(Vector2(0, 596), 22, ACCENT)
+	_tip_label = _label(Vector2(0, 596), 22, ACCENT, 600)
 	_tip_label.size = Vector2(1600, 32)
 	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tip_label.visible = false
@@ -310,7 +305,7 @@ func _build_fps(root: Control) -> void:
 	root.add_child(panel)
 	_fps_panel = panel
 	_gameplay.append(panel)
-	_fps_label = _label(Vector2(8, 6), 14)
+	_fps_label = _label(Vector2(8, 6), 14, Color.WHITE, 600)
 	_fps_label.size = Vector2(200, 20)
 	_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_fps_label.text = "— FPS"
@@ -335,7 +330,7 @@ func _build_pause(root: Control) -> void:
 	card.size = Vector2(380, 480)   # ровно под четыре строку меню: пустого хвоста быть не должно
 	card.add_theme_stylebox_override("panel", _style(8))
 	_pause_panel.add_child(card)
-	_pause_label = _label(Vector2(24, 24), 40)
+	_pause_label = _label(Vector2(24, 24), 40, Color.WHITE, 800)
 	_pause_label.text = "ПАУЗА"
 	_pause_label.size = Vector2(332, 52)
 	card.add_child(_pause_label)

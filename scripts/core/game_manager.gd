@@ -183,6 +183,18 @@ func _setup_env() -> void:
 	sun.directional_shadow_max_distance = 260.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_blend_splits = true
+	# Байасы дефолта (0.1 / 2.0) рассчитаны на Forward+ с атласом 4096; в Compatibility
+	# атлас 2048 на четыре сплита, и на поясе 30–60 м нормальный байас уезжает на
+	# метры: тень отрывалась от основания борта и машины («тени ломаются, когда
+	# подъезжаешь»). Зажатые байасы держат контакт, сплиты сдвинуты так, чтобы пояс
+	# 25–70 м — куда падает край тени 60-метровой башни — попал в среднюю зону, а не
+	# в хвостовую.
+	sun.shadow_bias = 0.02
+	sun.shadow_normal_bias = 0.6
+	sun.directional_shadow_split_1 = 0.06
+	sun.directional_shadow_split_2 = 0.25
+	sun.directional_shadow_split_3 = 0.55
+	sun.directional_shadow_fade_start = 0.9
 	add_child(sun)
 	_sun = sun
 	var fill := DirectionalLight3D.new()

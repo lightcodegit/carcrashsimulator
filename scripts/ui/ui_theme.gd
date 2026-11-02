@@ -240,10 +240,12 @@ static func check_tex(checked: bool) -> ImageTexture:
 				if minf(d1, d2) < 2.4: col = Color(0.98, 0.98, 1.0)
 				img.set_pixel(x, y, Color(col.r, col.g, col.b, a))
 			else:
-				# тёмная площадка со светлой рамкой
-				var edge := _rounded_rect_alpha(p, float(sz) - 2.0, 4.0)
-				var col := Color(0.06, 0.065, 0.08, 0.9 * a)
-				if edge < 0.2: col = Color(0.8, 0.83, 0.88, 0.55 * a)
+				# рамка — кольцо фиксированной толщины: внутренний прямоугольник
+				# с тем же скруглением, что внешний минус отступ, иначе на углах
+				# «рамка» расходилась пятном и квадратик выглядел обрезанным
+				var inner := _rounded_rect_alpha(p - Vector2(1.5, 1.5), float(sz) - 3.0, 3.5)
+				var col := Color(0.07, 0.075, 0.09, 0.95 * a) if inner >= 0.5 \
+					else Color(0.72, 0.76, 0.82, 0.9 * a)
 				img.set_pixel(x, y, col)
 	var tex := ImageTexture.create_from_image(img)
 	_tex_cache[key] = tex

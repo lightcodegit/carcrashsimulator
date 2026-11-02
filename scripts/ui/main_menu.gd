@@ -128,6 +128,15 @@ func _build_world() -> void:
 	sun.light_energy = 1.35
 	sun.light_color = Color(1.0, 0.96, 0.90)
 	sun.shadow_enabled = false
+	# те же байасы и сплиты, что в заезде: если игрок включил тени в настройках,
+	# витрина обязана показывать их тем же качеством
+	sun.shadow_bias = 0.02
+	sun.shadow_normal_bias = 0.6
+	sun.directional_shadow_split_1 = 0.06
+	sun.directional_shadow_split_2 = 0.25
+	sun.directional_shadow_split_3 = 0.55
+	sun.directional_shadow_fade_start = 0.9
+	sun.directional_shadow_blend_splits = true
 	_sun = sun
 	add_child(sun)
 	var fill := DirectionalLight3D.new()

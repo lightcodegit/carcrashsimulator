@@ -30,6 +30,7 @@ const OPTIONS := [
 	["tonemap", "ТОНМАППИНГ", ["НЕЙТРАЛЬНЫЙ", "ФИЛЬМ", "КИНО (ACES)"], [0, 1, 2], 1],
 ]
 const CHECKS := [
+	["fullscreen", "ПОЛНОЭКРАННЫЙ РЕЖИМ", 0],
 	["ssao", "ТЕНЬ КОНТАКТА (SSAO)", 0],
 	["ssil", "НЕПРЯМОЙ СВЕТ (SSIL)", 0],
 	["fog", "ДЫМКА И ТУМАН", 0],
@@ -59,7 +60,7 @@ const SLIDERS := [
 ]
 # Порядок секций вкладки ГРАФИКА: заголовок -> ключи строк из OPTIONS/CHECKS/SLIDERS.
 const VIDEO_SECTIONS := [
-	["ОКНО И КАДР", ["vsync", "fps_limit", "scale", "msaa", "screen_aa", "show_fps"]],
+	["ОКНО И КАДР", ["fullscreen", "vsync", "fps_limit", "scale", "msaa", "screen_aa", "show_fps"]],
 	["СВЕТ И ТЕНИ", ["shadow_preset", "sun_soft", "ambient", "tonemap", "exposure", "tonemap_white"]],
 	["АТМОСФЕРА", ["fog", "fog_density", "fog_aerial", "fog_scatter"]],
 	["ЭФФЕКТЫ", ["glow", "glow_intensity", "glow_bloom", "ssao", "ssao_radius", "ssao_intensity", "ssil"]],

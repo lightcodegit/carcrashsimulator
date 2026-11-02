@@ -13,6 +13,9 @@ signal changed
 const FILE := "user://settings.cfg"
 const SECTION := "video"
 const KEYS_SECTION := "keys"
+# Геометрия окна — не «настройка картинки», а состояние игрока: живёт в своей секции
+# того же файла, не участвует в сбросе пресета и не показывается в UI.
+const WIN_SECTION := "window"
 
 enum VSync { OFF, ON, ADAPTIVE }
 enum Msaa { DISABLED = 0, X2 = 1, X4 = 2, X8 = 3 }
@@ -112,6 +115,11 @@ var slowmo := 0.3
 # как выглядит сам экран настроек
 var tier_extended := false
 var preset := 1
+# окно: полноэкранный режим — настройка, размер/позиция — запоминаемое состояние
+var fullscreen := false
+var _win_rect := Rect2i(0, 0, 1600, 900)
+var _win_max := false
+var _win_save_at := 0
 
 # Заводские значения снимаются до чтения файла: _init гарантированно раньше _ready,
 # и это единственный честный источник «как на заводе» для кнопки сброса.
@@ -122,8 +130,40 @@ func _init() -> void:
 
 func _ready() -> void:
 	load_values()
+	restore_window_geometry()
 	apply_window()
 	changed.connect(apply_window)
+
+# Восстановление — ровно один раз на старте: если дёргать размер из apply_window,
+# он воевал бы с каждым пользовательским ресайзом.
+func restore_window_geometry() -> void:
+	if fullscreen: return
+	var scr := DisplayServer.screen_get_size()
+	var r := _win_rect
+	if r.size.x < 320 or r.size.y < 240: return
+	if _win_max:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(r.size)
+	# сохранённая позиция могла остаться от отключённого монитора: возвращаем на экран
+	var pos := r.position
+	pos.x = clampi(pos.x, -r.size.x + 160, scr.x - 160)
+	pos.y = clampi(pos.y, 0, scr.y - 160)
+	DisplayServer.window_set_position(pos)
+
+# Запоминаем только оконный режим: в maximized/fullscreen размер — это весь экран,
+# и запись затёрла бы настоящую геометрию. У Window нет сигнала о перемещении,
+# поэтому прямоугольник опрашивается в _process — сравнение двух Rect2i копеечное.
+func _capture_window() -> void:
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN: return
+	_win_max = mode == DisplayServer.WINDOW_MODE_MAXIMIZED
+	if _win_max: return
+	var r := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+	if r == _win_rect: return
+	_win_rect = r
+	_win_save_at = Time.get_ticks_msec() + 500
 
 func values() -> Dictionary:
 	return {
@@ -135,7 +175,7 @@ func values() -> Dictionary:
 		"fog_density": fog_density, "fog_aerial": fog_aerial, "fog_scatter": fog_scatter,
 		"ssao_radius": ssao_radius, "ssao_intensity": ssao_intensity, "sun_soft": sun_soft,
 		"ambient": ambient, "fov": fov, "shake": shake, "slowmo": slowmo,
-		"tier_extended": tier_extended, "preset": preset,
+		"tier_extended": tier_extended, "preset": preset, "fullscreen": fullscreen,
 	}
 
 func set_value(key: String, v: Variant, persist := true) -> void:
@@ -186,6 +226,16 @@ func apply_window() -> void:
 		VSync.ADAPTIVE: DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ADAPTIVE)
 		_: DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
 	Engine.max_fps = maxi(fps_limit, 0)
+	if fullscreen:
+		if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	elif DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		# выход из полноэкранного возвращает на запомненную геометрию, а не на 1600×900
+		DisplayServer.window_set_mode(
+			DisplayServer.WINDOW_MODE_MAXIMIZED if _win_max else DisplayServer.WINDOW_MODE_WINDOWED)
+		if not _win_max:
+			DisplayServer.window_set_size(_win_rect.size)
+			DisplayServer.window_set_position(_win_rect.position)
 	var w := get_window()
 	if w != null:
 		w.msaa_3d = msaa
@@ -194,6 +244,14 @@ func apply_window() -> void:
 		# там, где он действительно работает, иначе настройка врёт игроку
 		var aa := screen_aa and supports_screen_aa()
 		w.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if aa else Viewport.SCREEN_SPACE_AA_DISABLED
+
+# Дебаунс геометрии: ресайз перетаскиванием генерирует событие на каждый пиксель,
+# писать cfg на каждом — дисковый IO ради состояния окна.
+func _process(_dt: float) -> void:
+	_capture_window()
+	if _win_save_at == 0 or Time.get_ticks_msec() < _win_save_at: return
+	_win_save_at = 0
+	save()
 
 static func rendering_method() -> String:
 	return RenderingServer.get_current_rendering_method()
@@ -227,6 +285,11 @@ func save() -> void:
 	var d := values()
 	for key in d:
 		cf.set_value(SECTION, key, d[key])
+	cf.set_value(WIN_SECTION, "x", _win_rect.position.x)
+	cf.set_value(WIN_SECTION, "y", _win_rect.position.y)
+	cf.set_value(WIN_SECTION, "w", _win_rect.size.x)
+	cf.set_value(WIN_SECTION, "h", _win_rect.size.y)
+	cf.set_value(WIN_SECTION, "max", _win_max)
 	InputRouter.save_keys(cf)
 	cf.save(FILE)
 
@@ -250,6 +313,14 @@ func load_values() -> void:
 			d[key] = raw
 	for key in d:
 		set_value(key, d[key], false)
+	if cf.has_section(WIN_SECTION):
+		var x := int(cf.get_value(WIN_SECTION, "x", _win_rect.position.x))
+		var y := int(cf.get_value(WIN_SECTION, "y", _win_rect.position.y))
+		var w := int(cf.get_value(WIN_SECTION, "w", _win_rect.size.x))
+		var h := int(cf.get_value(WIN_SECTION, "h", _win_rect.size.y))
+		if w >= 320 and h >= 240:
+			_win_rect = Rect2i(x, y, w, h)
+		_win_max = bool(cf.get_value(WIN_SECTION, "max", false))
 	InputRouter.load_keys(cf)
 	changed.emit()
 

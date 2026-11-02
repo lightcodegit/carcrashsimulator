@@ -103,10 +103,41 @@ static func wedge(root: Node3D, origin: Vector3, length: float, height: float, w
 	root.add_child(body)
 	return body
 
+# Гребень бордюра: два клина сходятся вершинами на линии center (подъём 0.2 м по 0.6 м
+# с каждой стороны). Колесо наезжает на пологую грань с любой стороны; прежняя стенка
+# box 0.2 м — вертикальная грань, для колеса на 108 км/ч это сплошной удар (страхует
+# h_curbs).
+static func _curb_ridge(root: Node3D, center: Vector3, axis: Vector3, length: float) -> void:
+	var a := rad_to_deg(atan2(-axis.z, axis.x))
+	for s in [-1.0, 1.0]:
+		var b := wedge(root, center + axis * (0.6 * s), 0.6, 0.2, length, Color(0.5, 0.5, 0.52))
+		b.rotation_degrees.y = a if s < 0.0 else a + 180.0
+
 static func _mesh_faces(m: Mesh) -> PackedVector3Array:
 	var faces := PackedVector3Array()
 	for s in m.get_surface_count():
 		var arr := m.surface_get_arrays(s)
+		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var ix: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		if ix.size() >= 3:
+			for t in range(0, ix.size(), 3):
+				faces.append(v[ix[t]]); faces.append(v[ix[t + 1]]); faces.append(v[ix[t + 2]])
+		else:
+			for q in v: faces.append(q)
+	return faces
+
+# Коллайдер дорожных сегментов — только полотно (материал road). Юбки (grass) и боковые
+# поребрики (grey: у бугра они торчат над землёй до 1.0 м, у горки идут вдоль всего
+# склона) делают из края горки или бугра невидимую стену — колесо, соскользнувшее к
+# краю, отбивается от неё. Полотно остаётся наезжаемым, а дно и задние стенки добавляет
+# _closure — сквозь горку по-прежнему нельзя (страхует h_ramp_solid, борт — h_curbs).
+static func _collider_faces(m: Mesh, name: String) -> PackedVector3Array:
+	if not name.begins_with("road"): return _mesh_faces(m)
+	var faces := PackedVector3Array()
+	for surf in m.get_surface_count():
+		var mat := m.surface_get_material(surf)
+		if mat == null or mat.resource_name != "road": continue
+		var arr := m.surface_get_arrays(surf)
 		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var ix: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
 		if ix.size() >= 3:
@@ -338,7 +369,7 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		body.rotation.y = mi.rotation.y
 		var cs := CollisionShape3D.new()
 		var tri := ConcavePolygonShape3D.new()
-		var faces := _mesh_faces(m)
+		var faces := _collider_faces(m, name)
 		for e in close:
 			faces.append_array(e["tri"] as PackedVector3Array)
 		tri.set_faces(_scaled_faces(faces, sc))
@@ -1222,16 +1253,17 @@ static func _bigcity() -> Dictionary:
 		kit(root, "flagCheckers", Vector3(285.0 + n * 34.0, 0, -240.0), 0, false, false)
 	for n in 3:
 		loose_kit(root, "pylon", Vector3(300.0 + n * 24.0, 0, -420.0), 0, 6.0)
-	# тротуары по периметру кварталов: бордюр 0.2 м — физическая стена, улица
-	# ощущается улицей, а не лентой асфальта в пустоте; стадион оставляем открытой
-	# площадью — его трибуны стоят впритык к линии бордюра
+	# тротуары по периметру кварталов: гребень 0.2 м — колесо наезжает на пологую
+	# грань с любой стороны, а не отстреливается от стенки; при этом край тротуара
+	# всё ещё ощущается краем улицы, а не лентой асфальта в пустоте. Стадион
+	# оставляем открытой площадью — его трибуны стоят впритык к линии бордюра
 	for cx in [-335.0, -110.0, 110.0, 335.0]:
 		for cz in [-335.0, -110.0, 110.0, 335.0]:
 			if is_equal_approx(cx, 335.0) and is_equal_approx(cz, -335.0): continue
-			box(root, Vector3(cx, 0.1, cz - 92.0), Vector3(190, 0.2, 4), Color(0.5, 0.5, 0.52))
-			box(root, Vector3(cx, 0.1, cz + 92.0), Vector3(190, 0.2, 4), Color(0.5, 0.5, 0.52))
-			box(root, Vector3(cx - 92.0, 0.1, cz), Vector3(4, 0.2, 184), Color(0.5, 0.5, 0.52))
-			box(root, Vector3(cx + 92.0, 0.1, cz), Vector3(4, 0.2, 184), Color(0.5, 0.5, 0.52))
+			_curb_ridge(root, Vector3(cx, 0, cz - 92.0), Vector3(0, 0, 1), 190.0)
+			_curb_ridge(root, Vector3(cx, 0, cz + 92.0), Vector3(0, 0, 1), 190.0)
+			_curb_ridge(root, Vector3(cx - 92.0, 0, cz), Vector3(1, 0, 0), 184.0)
+			_curb_ridge(root, Vector3(cx + 92.0, 0, cz), Vector3(1, 0, 0), 184.0)
 	# перекрёстки: plastic отбойники и конусы — сбить на проходе через квартал;
 	# уровень y=0: под линией нет тротуара, а на уровне бордюра предмет падал бы
 	# до пола и звенел на старте

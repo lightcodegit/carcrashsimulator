@@ -211,6 +211,7 @@ func _load_car(i: int) -> void:
 	var ps: PackedScene = load(p.model)
 	if ps == null: return
 	var node: Node3D = ps.instantiate()
+	if node == null: return
 	DentBody.stretch_model(node, p.body_stretch)
 	var a: AABB = DentBody.measure(p.model, p.body_stretch).aabb
 	var s := 4.6 / maxf(0.001, a.size.z)     # нормируем длину машины в мировые метры

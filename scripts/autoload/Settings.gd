@@ -293,9 +293,33 @@ func save() -> void:
 	InputRouter.save_keys(cf)
 	cf.save(FILE)
 
+# Значение из файла мог написать человек руками или испортить прошлая версия игры:
+# Array у bool-ключа, Dictionary у числового. Прямой bool(raw)/int(raw) на таких
+# значениях — это ошибка времени выполнения, после которой load_values обрывается
+# посередине, и ВСЕ остальные настройки молча остаются дефолтными (проверено на
+# враждебном settings.cfg). Поэтому приведение с проверкой типа и запасным значением.
+static func _as_bool(raw: Variant, fallback: bool) -> bool:
+	if raw is bool: return raw
+	if raw is int or raw is float: return int(raw) != 0
+	if raw is String:
+		var t := (raw as String).to_lower()
+		return t == "1" or t == "true" or t == "yes" or t == "on"
+	return fallback
+
+static func _as_num(raw: Variant, fallback: float) -> float:
+	if raw is int or raw is float: return float(raw)
+	if raw is String and (raw as String).is_valid_float(): return (raw as String).to_float()
+	return fallback
+
 func load_values() -> void:
 	var cf := ConfigFile.new()
-	if cf.load(FILE) != OK:
+	var err := cf.load(FILE)
+	if err != OK:
+		# Полусгоревший файл (дисок кончился посреди save) иначе молча стирается
+		# первым же следующим save: сохраняем копию, чтобы пользователь мог вернуть
+		# свои бинды и настройки руками
+		if err == ERR_PARSE_ERROR and FileAccess.file_exists(FILE):
+			DirAccess.copy_absolute(FILE.replace(".cfg", ""), FILE + ".bad")
 		InputRouter.load_keys(cf)
 		return
 	var d := values()
@@ -304,23 +328,27 @@ func load_values() -> void:
 		var raw: Variant = cf.get_value(SECTION, key, d[key])
 		var want: Variant = d[key]
 		if typeof(want) == TYPE_BOOL:
-			d[key] = bool(raw)
+			d[key] = _as_bool(raw, bool(want))
 		elif NUMS.has(key) and typeof(want) == TYPE_INT:
-			d[key] = clampi(int(raw), int(NUMS[key][0]), int(NUMS[key][1]))
+			d[key] = clampi(int(_as_num(raw, float(want))), int(NUMS[key][0]), int(NUMS[key][1]))
 		elif NUMS.has(key):
-			d[key] = clampf(float(raw), float(NUMS[key][0]), float(NUMS[key][1]))
-		else:
+			d[key] = clampf(_as_num(raw, float(want)), float(NUMS[key][0]), float(NUMS[key][1]))
+		elif key == "preset":
+			# единственный числовой ключ вне NUMS: без границы preset=-1 читался
+			# как последний пресет списка, а preset=1000 — как «СВОЁ»
+			d[key] = clampi(int(_as_num(raw, float(want))), 0, int(PRESET_CUSTOM))
+		elif raw is String or raw is int or raw is float or raw is bool:
 			d[key] = raw
 	for key in d:
 		set_value(key, d[key], false)
 	if cf.has_section(WIN_SECTION):
-		var x := int(cf.get_value(WIN_SECTION, "x", _win_rect.position.x))
-		var y := int(cf.get_value(WIN_SECTION, "y", _win_rect.position.y))
-		var w := int(cf.get_value(WIN_SECTION, "w", _win_rect.size.x))
-		var h := int(cf.get_value(WIN_SECTION, "h", _win_rect.size.y))
+		var x := int(_as_num(cf.get_value(WIN_SECTION, "x", _win_rect.position.x), 0.0))
+		var y := int(_as_num(cf.get_value(WIN_SECTION, "y", _win_rect.position.y), 0.0))
+		var w := int(_as_num(cf.get_value(WIN_SECTION, "w", _win_rect.size.x), 0.0))
+		var h := int(_as_num(cf.get_value(WIN_SECTION, "h", _win_rect.size.y), 0.0))
 		if w >= 320 and h >= 240:
 			_win_rect = Rect2i(x, y, w, h)
-		_win_max = bool(cf.get_value(WIN_SECTION, "max", false))
+		_win_max = _as_bool(cf.get_value(WIN_SECTION, "max", false), false)
 	InputRouter.load_keys(cf)
 	changed.emit()
 

@@ -542,6 +542,13 @@ func _take(event: InputEvent) -> void:
 		mapped = m
 	if mapped == null: return
 	InputRouter.rebind(_capturing, mapped)
+	var taken := InputRouter.find_owner(mapped, _capturing)
+	if taken != "":
+		# событие осталось у другого действия по умолчанию: предупреждаем, а не
+		# отказываем — иначе игрок не понял бы, почему газ и тормоз жмутся вместе
+		_capture_label.text = "Клавиша уже есть у «%s» — назначена всё равно" % 			String(ACTION_NAMES.get(taken, taken.to_upper()))
+		refresh()
+		return
 	_end_capture()
 
 static func _is_echo(e: InputEvent) -> bool:

@@ -43,6 +43,7 @@ const HB_THROTTLE := 0.22
 # из прежней жалобы на геймпад.
 const HB_FRONT_G := 0.30
 const REVERSE_RATIO := 0.18        # задний ход — 18% от vmax
+const REVERSE_LAG := 0.5           # с удержания педали на остановке до включения задней
 const GRAVITY := 9.81
 # Предел торможения по сцеплению: шины легковушки держат ~1.1 g, спорткар на сликах —
 # ~1.3 g. Замедление выше этого физически невозможно: машина встаёт в одну точку, и
@@ -95,6 +96,7 @@ var _rear_scale := 0.5
 var _steer := 0.0
 var _pedal := 0.0
 var _hand_pedal := 0.0             # ручник тоже набирает давление, а не включается по щелчку
+var _rev_lag := 0.0                # с удержания педали на остановке (REVERSE_LAG)
 var nitro := 0.0                 # сколько форсажа в баке (единицы params.nitro_capacity)
 var nitro_active := false        # горит ли он прямо сейчас
 var _nitro_was := false
@@ -296,8 +298,14 @@ func _drive(dt: float) -> void:
 		nitro = maxf(nitro - params.nitro_drain * dt, 0.0)
 	else:
 		nitro = minf(nitro + params.nitro_refill * dt, params.nitro_capacity)
-	# S — тормоз, пока машина катится вперёд, и задний ход, когда она почти встала
-	var reverse := brake_in > 0.0 and vf < 0.6 and not hand
+	# S — тормоз, пока машина катится вперёд. На остановке педаль сначала ДЕРЖИТ
+	# машину, и только после REVERSE_LAG удержания включается задний ход: прежняя
+	# мгновенная реверс-тяга отбрасывала машину назад ровно в тот момент, когда
+	# водитель ждал остановки, — «торможу, а машина едет назад». Обратный ход
+	# держит сам себя: пока vf ушёл за -0.6, тяга не требует лага.
+	var holding := brake_in > 0.0 and vf < 0.6 and not hand
+	_rev_lag = _rev_lag + dt if holding else 0.0
+	var reverse := holding and (vf < -0.6 or _rev_lag >= REVERSE_LAG)
 	if reverse:
 		var back := clampf(1.0 - absf(vf) / (vmax * REVERSE_RATIO), 0.0, 1.0)
 		drive = -brake_in * params.mass * params.accel_max * 0.55 * back
@@ -308,11 +316,18 @@ func _drive(dt: float) -> void:
 	# педаль — состояние, а не мгновенное чтение: иначе короткое касание курка или
 	# клавиши отдаёт полным тормозом за один тик
 	_pedal = move_toward(_pedal, brake_in, PEDAL_RISE * dt)
-	if reverse or hand:
+	# Педаль считается НЕЗАВИСИМО от ручника: раньше «ручник или педаль» исключали
+	# друг друга, и зажатыми вместе машина тормозила СЛАБЕЕ, чем одной педалью —
+	# жалоба «тормозить очень сложно и кнопкой назад, и ручником». Задняя ось не
+	# получит двойного счёта: там доли сравниваются максимумом ниже, в цикле колёс.
+	if reverse:
 		pass
 	elif _pedal > 0.0:
 		service = params.mass * minf(params.brake_decel, BRAKE_MAX_G * GRAVITY) * _pedal * dt
-	elif throttle <= 0.0:
+	elif throttle <= 0.0 and not hand:
+		# накат при зажатом ручнике не в счёт: окно чистого ручника (0.74–0.87 g)
+		# замерялось и проверяется без него, а плюс 1.8 м/с² на четыре колеса сдвигает
+		# его до 0.98 g (замер h-прогона после этой правки)
 		service = params.mass * COAST_DECEL * dt
 	# Ручник — ТОЛЬКО задняя ось. Через chassis.brake его нельзя дать на одно колесо:
 	# Godot рассылает свойство всем колёсам разом (vehicle_body_3d.cpp: set_brake
@@ -360,7 +375,12 @@ func _drive(dt: float) -> void:
 		# блокировка четырёх колёс стирала 0.8 g и на геймпаде читалась как мгновенная
 		# остановка. Доли передней оси здесь нет — она приходит импульсом по телу ниже:
 		# на переднем колёсе с тягой колёсный brake не применяется.
-		w.brake = service * _brake_scale + (rear_brake * _rear_scale if rear else 0.0)
+		# На задней оси педаль и ручник НЕ складываются (за то же колесо нельзя взять
+		# две нормы тормоза): берётся большая из двух долей, поэтому вместе они дают
+		# не меньше, чем по отдельности.
+		var pedal_share := service * _brake_scale
+		var hand_share := rear_brake * _rear_scale if rear else 0.0
+		w.brake = maxf(pedal_share, hand_share)
 		w.wheel_friction_slip = SLIP_HANDBRAKE if locked else _slip_normal
 		if w.is_in_contact():
 			_grounded = true

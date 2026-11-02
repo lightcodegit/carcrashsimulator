@@ -94,6 +94,31 @@ func _joy_event(jd: Array) -> InputEvent:
 	m.axis_value = jd[2]
 	return m
 
+static func _same_event(a: InputEvent, b: InputEvent) -> bool:
+	if a == null or b == null: return false
+	if (a is InputEventKey) and (b is InputEventKey):
+		var ka := a as InputEventKey
+		var kb := b as InputEventKey
+		var va := ka.physical_keycode if ka.physical_keycode != 0 else ka.keycode
+		var vb := kb.physical_keycode if kb.physical_keycode != 0 else kb.keycode
+		return va == vb
+	if (a is InputEventJoypadButton) and (b is InputEventJoypadButton):
+		return (a as InputEventJoypadButton).button_index == (b as InputEventJoypadButton).button_index
+	if (a is InputEventJoypadMotion) and (b is InputEventJoypadMotion):
+		var ma := a as InputEventJoypadMotion
+		var mb := b as InputEventJoypadMotion
+		return ma.axis == mb.axis and signi(ma.axis_value) == signi(mb.axis_value)
+	return a.is_class(b.get_class()) and a.as_text() == b.as_text()
+
+# Действие, которое сейчас держит это событие (кроме исключённого). Нужен и UI, и
+# самому rebind: одна клавиша на два действия заставляла бы жать газ вместе с тормозом.
+func find_owner(ev: InputEvent, except_action: String) -> String:
+	for other in DEFAULTS.keys():
+		if other == except_action: continue
+		for e in InputMap.action_get_events(other):
+			if _same_event(e, ev): return other
+	return ""
+
 # Переопределение: заменяет только тот класс устройств, к которому относится событие.
 func rebind(action: String, ev: InputEvent) -> void:
 	if not DEFAULTS.has(action): return
@@ -105,6 +130,23 @@ func rebind(action: String, ev: InputEvent) -> void:
 	kept.append(ev)
 	_custom[action] = kept
 	_rebuild(action)
+	# Если игрок раньше сам назначил это событие другому действию, снимаем его там:
+	# иначе одна клавиша жала бы два действия. Дефолтный конфликт (W у газа) здесь не
+	# решается: модель замещения класса не умеет выражать «клавиш нет вовсе», а
+	# молча оставить действие без бинда хуже, чем предупредить в интерфейсе.
+	for other in _custom.keys():
+		if other == action: continue
+		var arr2: Array = (_custom[other] as Array).duplicate()
+		var left: Array = []
+		var stripped := false
+		for e in arr2:
+			if _same_event(e, ev):
+				stripped = true
+				continue
+			left.append(e)
+		if stripped:
+			_custom[other] = left
+			_rebuild(other)
 	Settings.save()
 
 func clear_binding(action: String) -> void:
@@ -151,8 +193,12 @@ func load_keys(cf: ConfigFile) -> void:
 		# версии) — пропустить: иначе DEFAULTS[action] падает на середине и остальные
 		# бинды файла уже не загружаются
 		if not DEFAULTS.has(action): continue
+		var raw: Variant = cf.get_value(Settings.KEYS_SECTION, action, "")
+		# значение мог испортить ручной правкой (массив или словарь вместо строки):
+		# String(dict) — ошибка выполнения, и за ней не дочитываются остальные бинды
+		if not (raw is String): continue
 		var arr: Array = []
-		for tok in String(cf.get_value(Settings.KEYS_SECTION, action, "")).split(",", false):
+		for tok in (raw as String).split(",", false):
 			var e := _decode(tok)
 			if e != null: arr.append(e)
 		if not arr.is_empty(): _custom[action] = arr

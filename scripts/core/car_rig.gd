@@ -225,6 +225,11 @@ func respawn(tf: Transform3D) -> void:
 	chassis.reset_physics_interpolation()
 	_steer = 0.0
 	_pedal = 0.0
+	# Лаг заднего хода и давление ручника — состояние педалей: без сброса новый
+	# заезд стартует с уже накопленным _rev_lag, и задний ход включается мгновенно
+	# вместо REVERSE_LAG, а _hand_pedal даёт передней оси долю тормоза с первого кадра
+	_rev_lag = 0.0
+	_hand_pedal = 0.0
 	# новый заезд — полный бак, и огонь в выхлопе должен погаснуть, а не мигать
 	nitro = params.nitro_capacity
 	if nitro_active:
@@ -476,6 +481,7 @@ func wheel_count() -> int:
 # Точка контакта i-го колеса. Godot сам двигает узел колеса вдоль хода подвески, а высота
 # покоя равна радиусу (замерено в h_susp_ground), поэтому минус радиус по Y — это поверхность.
 func wheel_contact(i: int) -> Vector3:
+	if i < 0 or i >= _wheels.size(): return Vector3.ZERO
 	var w := _wheels[i]
 	return w.global_position - Vector3(0.0, w.wheel_radius, 0.0)
 

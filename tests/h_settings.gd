@@ -310,6 +310,6 @@ func _finish() -> void:
 		f.store_string(_backup)
 		f.close()
 	else:
-		DirAccess.remove_absolute(OS.get_user_data_dir() + "/settings.cfg")
+		DirAccess.remove_absolute("user://settings.cfg")
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

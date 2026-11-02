@@ -31,7 +31,13 @@ func _ready() -> void:
 	add_child(m.root)
 	car = CarRig.new()
 	add_child(car)
-	car.build(VehicleDB.get_params(GameContext.car_id), get_world_3d())
+	var params: VehicleParams = VehicleDB.get_params(GameContext.car_id)
+	if params == null:
+		# id мог прийти из сохранённого контекста старой версии игры: без машины
+		# сцена была бы чёрным экраном, поэтому берём первую из списка и ругаемся
+		push_error("GameManager: машина '%s' не найдена, ставим первую" % GameContext.car_id)
+		params = VehicleDB.get_params(VehicleDB.ids()[0])
+	car.build(params, get_world_3d())
 	car.respawn(_spawn)
 	# после car в дереве: свой _physics_process получает уже посчитанное за этот тик скольжение
 	skid = SkidMarks.new()

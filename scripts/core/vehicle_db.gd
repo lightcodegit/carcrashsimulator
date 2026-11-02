@@ -14,12 +14,12 @@ static func get_params(id: String) -> VehicleParams:
 		"sedan":
 			p.model = "res://assets/cars/sedan.glb"
 			p.mass = 1300; p.accel_max = 7.0; p.vmax_kmh = 160; p.brake_decel = 13.5
-			p.steer_rate_deg = 230; p.grip = 8.0; p.width = 1.8
+			p.steer_rate_deg = 300; p.grip = 8.0; p.width = 1.8
 			p.accent_color = Color(0.78, 0.18, 0.16)
 		"pickup":
 			p.model = "res://assets/cars/truck.glb"
 			p.mass = 1900; p.accel_max = 6.0; p.vmax_kmh = 140; p.brake_decel = 12.0
-			p.steer_rate_deg = 185; p.grip = 6.0; p.width = 2.0
+			p.steer_rate_deg = 240; p.grip = 6.0; p.width = 2.0
 			p.accent_color = Color(0.16, 0.35, 0.72)
 		"infinity":
 			# «Машина бесконечности»: паспортного потолка нет (vmax = INF, и кривая
@@ -28,7 +28,7 @@ static func get_params(id: String) -> VehicleParams:
 			# неуправляемой игрушкой, а не машиной, которой можно ехать.
 			p.model = "res://assets/cars/race.glb"
 			p.mass = 900; p.accel_max = 45.0; p.vmax_kmh = INF; p.brake_decel = 16.2
-			p.steer_rate_deg = 310; p.grip = 12.0; p.width = 1.9
+			p.steer_rate_deg = 390; p.grip = 12.0; p.width = 1.9
 			p.accent_color = Color(0.62, 0.28, 0.95)
 		"limousine":
 			# Лимузин — растянутый кузов седана (DentBody.stretch_model): длиннее на 45%,
@@ -42,13 +42,13 @@ static func get_params(id: String) -> VehicleParams:
 			p.mass = 2100; p.accel_max = 5.6; p.vmax_kmh = 175; p.brake_decel = 13.0
 			# сцепление 7.5: ниже седановского (машина высокая и тяжёлая), но не «грузовое»
 			# — с шестёркой на 260 км/ч руль давал 12.5°/с, и вписаться было нельзя
-			p.steer_rate_deg = 185; p.grip = 7.5; p.width = 1.9
+			p.steer_rate_deg = 240; p.grip = 7.5; p.width = 1.9
 			p.accent_color = Color(0.10, 0.11, 0.16)
 			p.nitro_accel = 5.5; p.nitro_vmax = 1.25
 		"sport":
 			p.model = "res://assets/cars/race.glb"
 			p.mass = 1050; p.accel_max = 11.0; p.vmax_kmh = 210; p.brake_decel = 16.2
-			p.steer_rate_deg = 280; p.grip = 9.0; p.width = 1.9
+			p.steer_rate_deg = 360; p.grip = 9.0; p.width = 1.9
 			p.accent_color = Color(0.85, 0.75, 0.2)
 		_:
 			return null

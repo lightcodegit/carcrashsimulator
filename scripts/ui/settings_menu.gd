@@ -85,6 +85,7 @@ var _pages: Array[Control] = []
 var _sliders := {}            # key -> [HSlider, Label, множитель, формат]
 var _bind_btns := {}          # action -> [кнопка клавиатуры, кнопка геймпада]
 var _preset_cards: Array[Button] = []
+var _preset_titles: Array[Label] = []
 var _custom_note: Label
 var _capture_label: Label
 var _capturing := ""
@@ -96,25 +97,40 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	var dim := ColorRect.new()
-	# почти непрозрачно: живой мир угадывается фоном, но подписи меню за оверлеем
-	# не должны складываться в двойной текст с вкладками
-	dim.color = Color(0.02, 0.025, 0.035, 0.97)
+	# мир за спиной угадывается, но не мешает чтению; меню под оверлеем скрыто
+	# владельцем экрана, двойного текста больше нет — затемнение легче прежнего
+	dim.color = Color(0.02, 0.025, 0.035, 0.86)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
+	var head := UiTheme.label("НАСТРОЙКИ", 30, Color.WHITE, 800)
+	head.position = Vector2(UiTheme.MARGIN, 24)
+	add_child(head)
+	var hsub := UiTheme.label("всё применяется сразу · файл настроек пишется после тишины", 13, UiTheme.FAINT)
+	hsub.position = Vector2(UiTheme.MARGIN, 62)
+	add_child(hsub)
 	_build_nav()
-	var host := Control.new()
+	# содержимое — в панели тем же языком, что карточка разделов главного меню:
+	# скругление, тень, поля; раньше список настроек висел прямо на затемнении
+	var host := Panel.new()
 	host.name = "Content"
+	host.add_theme_stylebox_override("panel", UiTheme.panel_style(10))
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
-	host.offset_left = UiTheme.CONTENT_X; host.offset_right = -48
-	host.offset_top = 64; host.offset_bottom = -64
+	host.offset_left = UiTheme.CONTENT_X; host.offset_right = -56
+	host.offset_top = 96; host.offset_bottom = -56
 	add_child(host)
+	var holder := Control.new()
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	holder.offset_left = 26; holder.offset_right = -26
+	holder.offset_top = 20; holder.offset_bottom = -20
+	host.add_child(holder)
 	var builders := ["_quality_page", "_video_page", "_camera_page", "_controls_page"]
 	for i in builders.size():
 		var sc := ScrollContainer.new()
 		sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		sc.visible = i == 0
-		host.add_child(sc)
+		holder.add_child(sc)
+		_style_scrollbar(sc)
 		var box := VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_theme_constant_override("separation", 8)
@@ -122,12 +138,28 @@ func _ready() -> void:
 		_pages.append(sc)
 		call(builders[i], box)
 	_capture_label = UiTheme.label("", 15, UiTheme.AMBER, 500, true)
-	_capture_label.position = Vector2(400, 862)
+	_capture_label.position = Vector2(UiTheme.CONTENT_X, 866)
 	add_child(_capture_label)
+
+# Родная полоса прокрутки — серое чужеродное пятно из дефолтной темы: фон гасим,
+# захват делаем тонким, на наведении он белеет янтарём.
+func _style_scrollbar(sc: ScrollContainer) -> void:
+	var vb := sc.get_v_scroll_bar()
+	var ghost := StyleBoxFlat.new()
+	ghost.bg_color = Color(0, 0, 0, 0)
+	vb.add_theme_stylebox_override("scroll", ghost)
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = UiTheme.LINE
+	grab.set_corner_radius_all(3)
+	vb.add_theme_stylebox_override("grabber", grab)
+	var hot := grab.duplicate() as StyleBoxFlat
+	hot.bg_color = UiTheme.AMBER_SOFT
+	vb.add_theme_stylebox_override("grabber_highlight", hot)
+	vb.add_theme_stylebox_override("grabber_pressed", hot)
 
 func _build_nav() -> void:
 	var box := VBoxContainer.new()
-	box.position = Vector2(UiTheme.MARGIN, 84)
+	box.position = Vector2(UiTheme.MARGIN, 120)
 	box.custom_minimum_size = Vector2(UiTheme.NAV_W, 0)
 	box.add_theme_constant_override("separation", 6)
 	add_child(box)
@@ -143,14 +175,21 @@ func _build_nav() -> void:
 	bottom.position = Vector2(UiTheme.MARGIN, 700)
 	bottom.add_theme_constant_override("separation", 10)
 	add_child(bottom)
+	# выход — главное действие экрана, ему идёт янтарная кнопка из action_style;
+	# сброс остаётся призраком, но с рамкой: без неё он выглядел просто подписью
+	# (flat у ghost-кнопки молча глотает normal-стильбокс — тот же кворк, что в навигации)
 	var reset := UiTheme.ghost_button("СБРОСИТЬ ВСЁ")
-	reset.custom_minimum_size = Vector2(280, 44)
+	reset.flat = false
+	reset.custom_minimum_size = Vector2(280, 46)
+	var rsb := UiTheme.card_style(false)
+	rsb.content_margin_top = 12; rsb.content_margin_bottom = 12
+	reset.add_theme_stylebox_override("normal", rsb)
 	reset.pressed.connect(func() -> void:
 		Settings.reset()
 		refresh())
 	bottom.add_child(reset)
-	var closeb := UiTheme.ghost_button("ЗАКРЫТЬ")
-	closeb.custom_minimum_size = Vector2(280, 44)
+	var closeb := UiTheme.action_button("ЗАКРЫТЬ", 16)
+	closeb.custom_minimum_size = Vector2(280, 46)
 	closeb.pressed.connect(func() -> void: closed.emit())
 	bottom.add_child(closeb)
 
@@ -195,18 +234,31 @@ func _quality_page(box: VBoxContainer) -> void:
 	box.add_child(grid)
 	for i in PRESET_CARDS.size():
 		var c := Button.new()
-		c.text = "%s\n%s за кадр\n%s" % [PRESET_CARDS[i][0], PRESET_CARDS[i][1], PRESET_CARDS[i][2]]
+		c.text = ""
 		c.focus_mode = Control.FOCUS_ALL
 		c.custom_minimum_size = Vector2(500, 108)
-		c.add_theme_font_override("font", UiTheme.sans_font())
-		c.add_theme_font_size_override("font_size", 17)
-		c.add_theme_color_override("font_color", UiTheme.TEXT)
-		c.add_theme_color_override("font_hover_color", Color.WHITE)
-		c.add_theme_color_override("font_focus_color", Color.WHITE)
 		c.add_theme_stylebox_override("normal", UiTheme.card_style(false))
 		c.add_theme_stylebox_override("hover", UiTheme.card_style(true))
 		c.add_theme_stylebox_override("pressed", UiTheme.card_style(true))
 		c.add_theme_stylebox_override("focus", UiTheme.card_style(true))
+		# содержимое карточки — три подписанных строки, а не каша из \n:
+		# имя пресета, цена кадра и что в него входит
+		var col := VBoxContainer.new()
+		col.set_anchors_preset(Control.PRESET_FULL_RECT)
+		col.offset_left = 18; col.offset_right = -18
+		col.offset_top = 12; col.offset_bottom = -12
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_theme_constant_override("separation", 3)
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(col)
+		var t := UiTheme.label(String(PRESET_CARDS[i][0]), 19, Color.WHITE, 800)
+		var ms := UiTheme.label("%s за кадр" % String(PRESET_CARDS[i][1]), 14, UiTheme.AMBER, 700, true)
+		var d := UiTheme.label(String(PRESET_CARDS[i][2]), 13, UiTheme.DIM, 500)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(t)
+		col.add_child(ms)
+		col.add_child(d)
+		_preset_titles.append(t)
 		var idx := i
 		c.pressed.connect(func() -> void:
 			Settings.apply_preset(idx)
@@ -267,6 +319,7 @@ func _row_for(key: String) -> Control:
 func _option_row(o: Array) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
+	row.add_theme_stylebox_override("panel", _rowline())
 	row.set_meta("tier", int(o[4]))
 	var lab := UiTheme.label(String(o[1]), 16, UiTheme.TEXT, 500)
 	lab.custom_minimum_size = Vector2(400, 0)
@@ -305,6 +358,7 @@ func _slider_row(sl: Array) -> Control:
 	var mul: float = float(sl[6])
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
+	row.add_theme_stylebox_override("panel", _rowline())
 	row.set_meta("tier", int(sl[7]))
 	var lab := UiTheme.label(String(sl[1]), 16, UiTheme.TEXT, 500)
 	lab.custom_minimum_size = Vector2(400, 0)
@@ -421,6 +475,13 @@ func _begin_capture(action: String) -> void:
 	_capturing = action
 	_capture_label.text = "Нажмите клавишу или кнопку для «%s» · ESC отменяет" % \
 		String(ACTION_NAMES.get(action, action.to_upper()))
+	# клетка, которая ждёт назначение, подсвечивается янтарём и просит клавишу:
+	# без этого непонятно, куда смотрит экран
+	var pair: Array = _bind_btns.get(action, [])
+	if pair.size() == 2:
+		var kb := pair[0] as Button
+		kb.text = "НАЖМИ КЛАВИШУ…"
+		kb.add_theme_stylebox_override("normal", UiTheme.card_style(true))
 
 func _end_capture() -> void:
 	_capturing = ""
@@ -498,8 +559,14 @@ func refresh() -> void:
 		var pair: Array = _bind_btns[action]
 		(pair[0] as Button).text = _class_name(String(action), true)
 		(pair[1] as Button).text = _class_name(String(action), false)
+		# normal-стильбоксы клеток возвращаем всегда: их перекрашивает захват,
+		# а отменяется он и кликом, и Esc, и завершением — один refresh надёжнее
+		(pair[0] as Button).add_theme_stylebox_override("normal", UiTheme.card_style(false))
+		(pair[1] as Button).add_theme_stylebox_override("normal", UiTheme.card_style(false))
 	for i in _preset_cards.size():
-		_preset_cards[i].add_theme_stylebox_override("normal", UiTheme.card_style(Settings.preset == i))
+		var on := Settings.preset == i
+		_preset_cards[i].add_theme_stylebox_override("normal", UiTheme.card_style(on))
+		_preset_titles[i].add_theme_color_override("font_color", UiTheme.AMBER_HI if on else Color.WHITE)
 	_custom_note.text = "" if Settings.preset < Settings.PRESET_CUSTOM else \
 		"СВОЁ — хотя бы одно значение изменено вручную. Карточка вернёт пресет целиком."
 	_apply_tier()
@@ -541,6 +608,15 @@ func _sep() -> Control:
 	r.custom_minimum_size = Vector2(0, 1)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
+
+# Разделитель строки настроек: тонкая линия снизу и воздушный зазор — список
+# читается построчно, как в BeamNG, а не сплошной кашей подписей.
+func _rowline() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.content_margin_bottom = 7
+	s.border_width_bottom = 1
+	s.border_color = Color(1, 1, 1, 0.055)
+	return s
 
 func _spacer(h: float) -> Control:
 	var c := Control.new()

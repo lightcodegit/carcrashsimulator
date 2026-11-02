@@ -12,7 +12,6 @@ var _sun: DirectionalLight3D
 var _spawn := Transform3D.IDENTITY
 var _map_root: Node3D
 var _endless := false
-var _recycle_wait := 0.5
 var _bounds := AABB(Vector3(-160, -30, -160), Vector3(320, 70, 320))
 var _top_crash := 0.0
 var _crashes := 0
@@ -65,6 +64,9 @@ func _ready() -> void:
 	_start_ms = Time.get_ticks_msec()
 	_release_inputs()
 	_apply_render()
+	# главное меню держит 3D-масштаб окна в 1.0 (витрина обязана быть резкой) —
+	# на заезд возвращаем игровую настройку
+	Settings.apply_window()
 
 # Состояние действий переживает смену сцены: уход в меню с зажатым W возвращал в игру
 # уже с нажатым газом и ручником, и машина начинала движение сама. Отжимаем всё ПОСЛЕ
@@ -201,12 +203,10 @@ func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 func _physics_process(dt: float) -> void:
 	if _paused: return
 	if _endless:
-		# раз в полсекунды переносим плиты, оставшиеся за спиной, в хвост ленты: дорога
-		# не кончается, и машина едет по ней столько, сколько сможет
-		_recycle_wait -= dt
-		if _recycle_wait <= 0.0:
-			_recycle_wait = 0.5
-			MapDB.recycle(_map_root, car.chassis.global_position.x, 20.0)
+		# плиты переставляем каждый физический кадр: дешёвая проверка концев лент
+		# ничего не стоит, а телепорты размазываются по кадрам вместо пакета
+		# раз в полсекунды — лента не успевает отстать от машины
+		MapDB.recycle(_map_root, car.chassis.global_position.x, 20.0)
 	TimeScale.set_hold(Input.is_action_pressed("slowmo"))
 	var pos := car.chassis.global_position
 	# Верхнюю границу не проверяем: над картой ничего не держит, и прыгнуть высоко —
@@ -267,6 +267,8 @@ func run_summary() -> String:
 func _restart_map() -> void:
 	_crashes = 0
 	_top_crash = 0.0
+	_start_ms = Time.get_ticks_msec()
+	hud.reset_run()        # пик перегрузки и timestamps журнала — с чистого заезда
 	_respawn_now()
 	hud.set_crash_stats(0, 0.0)
 	hud.show_tip("заезд начат заново")

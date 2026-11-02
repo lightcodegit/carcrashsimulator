@@ -135,7 +135,7 @@ static func _closure(m: Mesh) -> Array[Dictionary]:
 	var verts := _mesh_vertices(m)
 	var have := _face_planes(m)
 	# дно уводим на 2 см НИЖЕ подола: совпадая с его плоскостью, оно начинает мерцать
-	# вместе с разметкой (тот же класс ошибки, что чинила h_t21)
+	# вместе с разметкой (тот же класс ошибки, что чинила h_markings)
 	var ybot := y0 - 0.02
 	var out: Array[Dictionary] = []
 	_add_quad(out, have, Vector3(x0, ybot, z0), Vector3(x1, ybot, z0), Vector3(x1, ybot, z1),
@@ -148,7 +148,7 @@ static func _closure(m: Mesh) -> Array[Dictionary]:
 		var top := float(side[1])
 		if top - y0 < 0.05: continue
 		# стенку начинаем от подола сегмента, а не от дна: дно уводим ниже, и видимая
-		# грань с такой кромкой уже торчала бы под асфальтом (h_t10 считает это провисанием)
+		# грань с такой кромкой уже торчала бы под асфальтом (h_map_props считает это провисанием)
 		_add_quad(out, have, Vector3(x0, y0, z), Vector3(x1, y0, z),
 			Vector3(x1, top, z), Vector3(x0, top, z), side[2] as Vector3, "grey",
 			top - y0 > 0.5)
@@ -228,7 +228,7 @@ static func _mat_by_name(m: Mesh, mat_name: String) -> Material:
 
 # Задняя стенка горки — отдельным узлом-оболочкой в локальных координатах сегмента, а не
 # новым мешем у самого сегмента: три теста и сама MapDB узнают плиту по resource_path её
-# меша (h_t10, h_t21), и подмена меша на собранный в коде потеряла бы эту идентичность.
+# меша (h_map_props, h_markings), и подмена меша на собранный в коде потеряла бы эту идентичность.
 # Дно сюда не идёт: его не видно никогда.
 static func _closure_mesh(m: Mesh, close: Array[Dictionary]) -> ArrayMesh:
 	var tri := PackedVector3Array()
@@ -294,7 +294,7 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		return null
 	# Замыкаем только те сегменты, по которым едут: рампы и бугры. Пропы и плиты — свои
 	# оболочки, им это не нужно, а лишняя грань у дерева сбила бы проверку «декорации стоят
-	# на поверхности» (h_t10) своим нижним краем
+	# на поверхности» (h_map_props) своим нижним краем
 	var close: Array[Dictionary] = []
 	if solid and _needs_closure(name): close = _closure(m)
 	var mi := MeshInstance3D.new()
@@ -326,28 +326,32 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	if road:
 		_record_surfaces(mi, m)
 	if solid:
-		# Коллайдер нужен только наклонным сегментах (рампа, лежачий полицейский):
-		# у плоской плиты полотно совпадает с физической землёй, и свой коллайдер дал
-		# бы уступ в 4 см на каждой границе — на 150 км/ч колесо цепляет его и машину
-		# бросает вперёдь (замерено: 150 → 0 км/ч за 1.3 с после прыжка).
+		# Коллайдер нужен наклонным сегментам (рампа, лежачий полицейский): у плоской
+		# плиты полотно совпадает с физической землёй, и свой коллайдер дал бы уступ
+		# в 4 см на каждой границе — на 150 км/ч колесо цепляет его, и машину бросает
+		# вперёд (замерено: 150 → 0 км/ч за 1.3 с после прыжка).
 		var body := StaticBody3D.new()
+		# имя-пара к мешу: recycle переставляет тело по имени, а не поиском по
+		# «той же точке» — совпадающие координаты соседей схлопывались в один ключ
+		body.name = "col_" + mi.name
 		body.position = mi.position
 		body.rotation.y = mi.rotation.y
 		var cs := CollisionShape3D.new()
-		var shape := ConcavePolygonShape3D.new()
+		var tri := ConcavePolygonShape3D.new()
 		var faces := _mesh_faces(m)
 		for e in close:
 			faces.append_array(e["tri"] as PackedVector3Array)
-		shape.set_faces(_scaled_faces(faces, sc))
+		tri.set_faces(_scaled_faces(faces, sc))
 		# без этого лучи проходят сквозь trimesh (обратные грани отсекаются), хотя
 		# solver тело останавливает: клармп рамы и опора переставали видеть препятствие
-		shape.backface_collision = true
-		cs.shape = shape
+		tri.backface_collision = true
+		cs.shape = tri
 		body.add_child(cs)
 		var pm := PhysicsMaterial.new(); pm.friction = 0.0
 		body.physics_material_override = pm
 		root.add_child(body)
 	return mi
+
 
 # Мировая «плита полотна»: прямоугольник горизонтальных граней поверхности road и её
 # высота. Пустой словарь — полотно не плоское (рампа, лежачий полицейский). Нужно это
@@ -557,7 +561,7 @@ static func street_lamp(root: Node3D, pos: Vector3, side: float) -> void:
 	m.emission_energy_multiplier = 1.6
 	head.material_override = m
 
-# Список карт. Тесты полигонов (h_t10, h_t21, h_t24) перебирают его, поэтому новая карта
+# Список карт. Тесты полигонов (h_map_props, h_markings, h_restart_props) перебирают его, поэтому новая карта
 # обязана появиться здесь — иначе она останется непроверенной.
 static func ids() -> Array[String]:
 	return ["arena", "town", "speedway", "circuit", "endless"]
@@ -707,32 +711,103 @@ static func _endless() -> Dictionary:
 		"bounds": AABB(Vector3(-200, -60, -120), Vector3(40000, 120, 240)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true, "endless": true}}
 
-# Переставка плит «бесконечности»: то, что осталось за спиной, уезжает в хвост ленты.
-# Плита и её коллайдер переносятся парой — у kit() тело стоит ровно в той же точке, что
-# и меш, и если двигать только меш, горка уедет вперёд, а невидимый коллайдер останется
-# позади (ровно тот класс bugs, из-за которого предметы проваливались сквозь бугры).
+# Переставка плит «бесконечности»: то, что осталось за спиной, уезжает за голову
+# своей же ленты. Шаг — фактическая длина головы, а не «число плит × 20»: растянутая
+# втрое рампа занимает 60 м, и номинальный шаг на реальной длине ленты складывал
+# плиты в одну кучу и оставлял твёрдые плиты без коллайдеров (проверено: 12 пар
+# плит внахлёст и 6 из 20 гор/бугров без тела на трёх оборотах).
+# Кэш строк recycle: перескан всех детей и сортировка трёх лент стоили ~2 мс на
+# каждый вызов, даже когда нечего переставлять, — на слабом GPU это периодический
+# hitch раз в полсекунды. Ленты живут между вызовами (за игру детей у корня никто
+# не добавляет и не удаляет) и пересобираются только при смене корня, изменении
+# числа детей или протухшей ссылке.
+static var _rc_root: Node3D = null
+static var _rc_count := -1
+static var _rc_lines: Array = []
+
 static func recycle(root: Node3D, car_x: float, spacing: float) -> int:
-	var bodies := {}
-	for c in root.get_children():
-		var sb := c as StaticBody3D
-		if sb != null:
-			bodies["%.1f|%.1f" % [sb.position.x, sb.position.z]] = sb
-	var plates: Array[Node3D] = []
+	if not _rc_lines_fresh(root):
+		_rc_rebuild_lines(root)
+	var moved := 0
+	for line in _rc_lines:
+		moved += _rc_roll(line, car_x, spacing, root)
+	return moved
+
+static func _rc_lines_fresh(root: Node3D) -> bool:
+	if root != _rc_root or root.get_child_count() != _rc_count:
+		return false
+	for line in _rc_lines:
+		if not is_instance_valid(line[0]) or not is_instance_valid(line[line.size() - 1]):
+			return false
+	return true
+
+static func _rc_rebuild_lines(root: Node3D) -> void:
+	# полотно и каждый ряд отбойников — своя линия: у барьеров два ряда по разные
+	# стороны полосы, и у ряда свой передний край; общая «голова» на два ряда
+	# оставляла в них дыры в 20 м
+	var groups := {}
 	for c in root.get_children():
 		var mi := c as MeshInstance3D
-		if mi != null and String(mi.name).begins_with("kit_road"): plates.append(mi)
-	if plates.is_empty(): return 0
-	var step := float(plates.size()) * spacing
+		if mi == null: continue
+		var nm := String(mi.name)
+		var cls := ""
+		if nm.begins_with("kit_road"): cls = "kit_road"
+		elif nm.begins_with("kit_barrier"): cls = "kit_barrier"
+		if cls == "": continue
+		var gkey := cls + "|%.0f" % mi.position.z
+		if not groups.has(gkey): groups[gkey] = []
+		groups[gkey].append(mi)
+	_rc_lines = []
+	for gkey in groups:
+		var line: Array = groups[gkey]
+		if line.size() < 2: continue
+		line.sort_custom(func(a: Node, b: Node) -> bool: return a.position.x < b.position.x)
+		_rc_lines.append(line)
+	_rc_root = root
+	_rc_count = root.get_child_count()
+
+# Прокрутка одной ленты: хвост уходит за голову, пока полностью не останется
+# за спиной машины; обратно — если машина телепортировалась в начало трассы.
+static func _rc_roll(line: Array, car_x: float, spacing: float, root: Node3D) -> int:
 	var moved := 0
-	for mi in plates:
-		if mi.position.x + spacing >= car_x - 120.0: continue
-		mi.position.x += step
-		var key := "%.1f|%.1f" % [mi.position.x - step, mi.position.z]
-		var body: StaticBody3D = bodies.get(key)
-		if body != null:
-			body.position.x += step
+	var guard := line.size()
+	while guard > 0:
+		guard -= 1
+		var tail: Node3D = line[0]
+		var head: Node3D = line[line.size() - 1]
+		# плита едет в хвост, только когда полностью осталась за машиной
+		if tail.position.x + _advance_of(tail) + spacing >= car_x - 120.0: break
+		_shift(tail, head.position.x + _advance_of(head) - tail.position.x, root)
+		line.pop_front()
+		line.append(tail)
+		moved += 1
+	# телепорт назад (вылет за карту, R на старте) оставляет ленту впереди:
+	# голова переезжает перед хвостом, пока полотно не дотянется до машины
+	guard = line.size()
+	while guard > 0:
+		guard -= 1
+		var tail2: Node3D = line[0]
+		if tail2.position.x <= car_x - spacing: break
+		var head2: Node3D = line.pop_back()
+		_shift(head2, tail2.position.x - _advance_of(head2) - head2.position.x, root)
+		line.insert(0, head2)
 		moved += 1
 	return moved
+
+# Узел и его тело-коллайдер едут на один и тот же шаг: раздельные перестановки
+# давали горку без коллайдера.
+static func _shift(mi: Node3D, dx: float, root: Node3D) -> void:
+	mi.position.x += dx
+	var body := root.get_node_or_null(NodePath("col_" + mi.name))
+	if body != null: body.position.x += dx
+
+# Длина тайла вдоль ленты: якорный сдвиг полосы, умноженный на растяжение по местной Z.
+# Отбойников в таблице якорей нет — они стоят в 10-метровом шаге раскладки.
+static func _advance_of(mi: MeshInstance3D) -> float:
+	var tile := String(mi.name).trim_prefix("kit_").split("_")[0]
+	if not TILE_ANCHOR.has(tile): return 10.0
+	var d: Dictionary = TILE_ANCHOR[tile]
+	return (float(d["out"].y) - float(d["in"].y)) * mi.scale.z
 
 static func _circuit() -> Dictionary:
 	var root := Node3D.new(); root.name = "Circuit"
@@ -786,7 +861,7 @@ static func _circuit() -> Dictionary:
 		Vector3(f.size.x + 90.0, 0.8, f.size.z + 90.0), Color(0.42, 0.46, 0.4), Basis.IDENTITY, true)
 	return {"root": root, "spawn": t.spawn,
 		"bounds": AABB(f.position - Vector3(40, 40, 40), f.size + Vector3(80, 100, 80)),
-		# closure — незамыкание в метрах, line — ось полосы: по ним h_t32 проверяет кольцо
+		# closure — незамыкание в метрах, line — ось полосы: по ним h_newmaps проверяет кольцо
 		"info": {"colliders": root.get_child_count(), "has_ramp": true,
 			"closure": t.pos.distance_to(t.line[0]), "line": t.line}}
 

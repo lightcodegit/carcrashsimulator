@@ -18,6 +18,7 @@ var _max_y := 0.0
 var _impacts := 0
 var _settling := false
 var _settle_at := 0
+var _kind_at := 0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -51,6 +52,7 @@ func _next() -> void:
 		get_tree().quit(0 if _fails == 0 else 1)
 		return
 	_kind = _queue.pop_front()
+	_kind_at = _f
 	if _prop != null and is_instance_valid(_prop): _prop.queue_free()
 	match _kind:
 		"cone": _prop = MapDB.loose(self, "res://assets/props/cone.glb", Vector3.ZERO, MapDB.PROP, 0.0, 3.0)
@@ -127,7 +129,10 @@ func _physics_process(_dt: float) -> void:
 		check(spin < 1.5, "%s перестаёт вращаться (%.2f рад/с)" % [_kind, spin])
 		car.body.reset()
 		_next()
-	if _f > 6000:
+	# Бюджет на каждый предмет, а не на весь прогон: общий лимит в 6000 кадров
+	# обрывал последний контроль молча — тест печатал ALL PASS, не дойдя до него.
+	if _f - _kind_at > 1800 or _f > 40000:
+		check(false, "%s не дошёл до своих проверок (%d кадров)" % [_kind, _f - _kind_at])
 		print("TIMEOUT on " + _kind)
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
-		get_tree().quit(0 if _fails == 0 else 1)
+		get_tree().quit(1)

@@ -17,6 +17,7 @@ func _ready() -> void:
 		_backup = f.get_as_text()
 	await _hostile_cfg()
 	await _corrupt_cfg()
+	await _oversized_cfg()
 	await _rebind_collision()
 	await _respawn_state()
 	if _backup != "":
@@ -32,8 +33,8 @@ func _write(text: String) -> void:
 
 func _hostile_cfg() -> void:
 	_write("[video]\nfog = [1, 2, 3]\nfov = {}\nscale = \"abc\"\npreset = -1\n" +
-		"shadow_preset = Vector2(1,1)\n[window]\nw = 0\nh = 0\nmax = [true]\n" +
-		"[keys]\nthrottle = {}\nbrake = 42\nnitro = [65, 66]\n")
+		"exposure = \"nan\"\nshadow_preset = Vector2(1,1)\n[window]\nw = 0\nh = 0\nmax = [true]\n" +
+		"[keys]\nthrottle = {}\nbrake = 42\nnitro = [65, 66]\npause = \"k0\"\n")
 	Settings.load_values()
 	check(Settings.preset == 0, "preset вне диапазона прижат к границе (%d)" % Settings.preset)
 	check(Settings.preset_name() != "", "имя пресета читается (%s)" % Settings.preset_name())
@@ -41,12 +42,26 @@ func _hostile_cfg() -> void:
 		"fov после мусора в пределах разумного (%.1f)" % Settings.fov)
 	check(Settings.scale >= 0.5 and Settings.scale <= 1.0,
 		"scale после мусора в пределах разумного (%.2f)" % Settings.scale)
+	# NaN в файле отравил бы каждый последующий boot: строка «nan» не считается
+	# числом, а clampf и так выкидывает не-конечное значение за границы.
+	check(is_finite(Settings.exposure), "exposure остался конечным (%.2f)" % Settings.exposure)
 	check(typeof(Settings.fog) == TYPE_BOOL, "bool-ключ остался bool (%s)" % typeof(Settings.fog))
 	# бинды из битых строк не читаются, но и не теряются: действие остаётся по умолчанию
 	var th := InputMap.action_get_events("throttle")
 	check(th.size() > 0, "throttle остался с биндом после {} в файле (%d)" % th.size())
 	var br := InputMap.action_get_events("brake")
 	check(br.size() > 0, "brake остался с биндом после числа в файле (%d)" % br.size())
+	# «pause = k0»: физический код 0 не нажимается. Если принять такой бинд, действие
+	# останется без события, а пауза в заезде открывается только клавишей.
+	var pz := InputMap.action_get_events("pause")
+	check(pz.size() > 0, "pause не остался без бинда после k0 (%d)" % pz.size())
+	var pz_ok := false
+	for e in pz:
+		if e is InputEventKey and (e as InputEventKey).physical_keycode == KEY_ESCAPE:
+			pz_ok = true
+	check(pz_ok, "pause вернулся к ESC после k0")
+	check(not Settings._win_ok(Rect2i(0, 0, 2000000000, 2000000000)),
+		"абсурдный размер окна не проходит проверку")
 	# Геометрия окна: ноль в файле — не размер, а мусор. Хуже того, в headless сам
 	# движок отдаёт окно 0×0, и опрос окна в тестовом прогоне затирал настоящие
 	# настройки игрока (в user://settings.cfg появлялось w=0 h=0).
@@ -73,6 +88,25 @@ func _corrupt_cfg() -> void:
 	Settings.load_values()
 	check(FileAccess.file_exists(bad), "битый settings.cfg сохранён копией в .bad")
 	if FileAccess.file_exists(bad): DirAccess.remove_absolute(bad)
+
+func _oversized_cfg() -> void:
+	# Парсер ConfigFile однопоточный: файл размером с лог остановил бы старт. Такой
+	# файл — мусор, и читать его нельзя: копия в .bad и жизнь на текущих значениях.
+	var junk := "[video]\n"
+	while junk.length() < Settings.CFG_MAX_BYTES + 4096:
+		junk += "filler_%d = 1\n" % junk.length()
+	_write(junk)
+	Settings.set_value("fov", 99.0, false)
+	Settings.load_values()
+	check(is_equal_approx(Settings.fov, 99.0),
+		"переразмеренный файл не перечитывается (%.1f)" % Settings.fov)
+	check(FileAccess.file_exists("user://settings.cfg.bad"), "переразмеренный файл отложен в .bad")
+	if FileAccess.file_exists("user://settings.cfg.bad"):
+		DirAccess.remove_absolute("user://settings.cfg.bad")
+	# атомарная запись: временный файл не должен пережить save
+	Settings.save()
+	check(not FileAccess.file_exists("user://settings.cfg.part"),
+		"после save не остался черновик .part")
 
 func _rebind_collision() -> void:
 	# конфликт двух НАЗНАЧЕННЫХ игроком биндов: второй забирает клавишу у первого

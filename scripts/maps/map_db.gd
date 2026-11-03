@@ -1596,7 +1596,7 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 			var a := k * TAU / 6.0 + 0.3
 			var bx: float = cx + cos(a) * 24.0
 			var bz: float = cz + sin(a) * 24.0
-			_knock_bench(root, bx, bz, rad_to_deg(-a) + 180.0)
+			_knock_bench(root, bx, bz, -rad_to_deg(a) - 90.0)
 		for k in 3:
 			_picnic(root, cx - 40.0 + k * 40.0, cz + 52.0, 0.0)
 		for k in 14:
@@ -1605,9 +1605,9 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 			_far(t, 320.0)
 		for k in 8:
 			var ps := _bc_spot(rng, cx, cz, 30.0)
-			_knock_planter(root, ps.x, ps.z, rng.randf() * 360.0)
+			_far(_knock_planter(root, ps.x, ps.z, rng.randf() * 360.0), 240.0)
 	# деловой центр: площадь под башнями и карманы между ними. Без покрытия квартал
-	# выглядел бетонным полем (кадр проверки это показаль), поэтому плита площади,
+	# выглядел бетонным полем (кадр проверки это показывал), поэтому плита площади,
 	# а в девяти карманах решётки — скамейка, кашпо и припаркованная машина.
 	for cx in [-110.0, 110.0]:
 		for cz in [-110.0, 110.0]:
@@ -1620,7 +1620,7 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 					var mz: float = cz - 30.0 + gz * 60.0
 					if _bc_on_patch(mx, mz) or _bc_on_patch(mx + 4.0, mz): continue
 					_bench(root, mx, mz, 90.0 * ((gx + gz) % 4))
-					_knock_planter(root, mx + 4.0, mz, 0.0)
+					_far(_knock_planter(root, mx + 4.0, mz, 0.0), 240.0)
 					if (gx + gz) % 2 == 0:
 						_far(prop(root, parked[rng.randi() % parked.size()],
 							Vector3(mx - 5.0, 0, mz + 6.0), 1.0,
@@ -1629,7 +1629,7 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 				var a := k * TAU / 4.0 + PI / 4.0
 				var bx: float = cx + cos(a) * 78.0
 				var bz: float = cz + sin(a) * 78.0
-				_bench(root, bx, bz, rad_to_deg(-a))
+				_bench(root, bx, bz, -rad_to_deg(a) - 90.0)
 				_planter(root, Vector3(bx + 3.0, 0, bz), 0.0)
 			kit(root, "flagCheckers", Vector3(cx - 84.0, 0, cz - 84.0), 0, false, false)
 			kit(root, "billboardLow", Vector3(cx + 84.0, 0, cz - 84.0), 90, true, false)

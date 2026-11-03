@@ -273,6 +273,17 @@ func apply_window() -> void:
 	Engine.max_fps = maxi(fps_limit, 0)
 	if fullscreen:
 		if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+			# Снимаем прямоугольник В МОМЕНТ входа. Опрос кадров отстаёт: ресайз
+			# уходит в ОС асинхронно, и без этого fullscreen возвращал размер,
+			# который был два движения назад (проверено: 900×600 вместо 1280×760).
+			var mode := DisplayServer.window_get_mode()
+			if mode == DisplayServer.WINDOW_MODE_MAXIMIZED:
+				_win_max = true
+			else:
+				var live := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+				if _win_ok(live):
+					_win_rect = live
+					_win_max = false
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	elif DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
 		# выход из полноэкранного возвращает на запомненную геометрию, а не на 1600×900

@@ -80,7 +80,11 @@ func _process(dt: float) -> void:
 				_fwd = fwd_raw
 				_fwd_seen = true
 			else:
-				_fwd = _fwd.lerp(fwd_raw, 1.0 - exp(-dt * SWAY_RATE)).normalized()
+				var mix := _fwd.lerp(fwd_raw, 1.0 - exp(-dt * SWAY_RATE))
+				# Разворот на 180° при весе около 0.5 (медленный кадр) даёт нулевой
+				# вектор: normalized() из нуля — ZERO, и на один кадр камера складывается
+				# в машину, а потом резко возвращается.
+				_fwd = mix.normalized() if mix.length_squared() > 1e-6 else fwd_raw
 			var speed := _car.chassis.linear_velocity.length()   # скорость — величина физическая, она не джиттерит
 			var back := 5.0 + minf(speed, 60.0) * 0.045     # на скорости отъезжаем дальше
 			var up := 1.9 + minf(speed, 60.0) * 0.010

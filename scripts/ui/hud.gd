@@ -101,6 +101,9 @@ var _deform := 0.0
 # Геймплейные панели гаснем на паузе: сводка уже есть в колонке паузы, а поверх
 # них наводить мышь нечему — экран паузы должен быть чистым, как в BeamNG
 var _gameplay: Array[Control] = []
+var _root: Control = null
+var _gm: GameManager = null
+var _debug: Control = null
 var _fps_panel: Control = null
 var _paused_ui := false
 var _deform_full := 0.25
@@ -131,6 +134,7 @@ func _ready() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	_root = root
 	_build_speedo(root)
 	_build_telemetry(root)
 	_build_crash_log(root)
@@ -383,6 +387,32 @@ func bind(car: CarRig) -> void:
 	_gauge.accent = car.params.accent_color
 	_deform_full = DentBody.MAX_DEPTH_RATIO * car.params.height
 
+func attach_debug(g: GameManager) -> void:
+	_gm = g
+	_sync_debug()
+	Settings.changed.connect(_sync_debug)
+
+# Оверлей живёт ровно столько, сколько настройка: при выключении он убирается из
+# дерева и из списка панелей, иначе h_hud_layout считал бы его наездом на HUD.
+func _sync_debug() -> void:
+	if Settings.debug_mode:
+		if _debug != null or _gm == null or _root == null: return
+		_debug = preload("res://scripts/ui/debug_overlay.gd").new()
+		(_debug as Node).setup(_gm, self)
+		_root.add_child(_debug)
+		_gameplay.append(_debug)
+	elif _debug != null:
+		_gameplay.erase(_debug)
+		_debug.queue_free()
+		_debug = null
+
+# F2 обрабатывает HUD, а не оверлей: выключенный оверлей не существует в дереве,
+# и включать себя было бы некому.
+func _unhandled_input(ev: InputEvent) -> void:
+	if ev.is_action_pressed("debug_toggle"):
+		Settings.set_value("debug_mode", not Settings.debug_mode)
+		get_viewport().set_input_as_handled()
+
 func log_impact(kmh: float) -> void:
 	var secs := (Time.get_ticks_msec() - _start_ms) / 1000
 	_log.push_front("%02d:%02d   %3d км/ч" % [secs / 60, secs % 60, int(kmh)])
@@ -393,6 +423,11 @@ func log_impact(kmh: float) -> void:
 # Пик держим за всю попытку (подпись «ПИК ПЕРЕГРУЗКИ»): сбрасываем его только на
 # новом заезде, а не на каждом ударе, иначе шкала показывала бы максимум между
 # двумя авариями, а не худший перегрузок заезда.
+func debug_g() -> Dictionary:
+	# Окно для отладочного оверлея: g-нагрузка живёт здесь, в HUD, и оверлей должен
+	# читать её из источника, а не пересчитывать по истории скоростей.
+	return {"live": _g, "peak": _peak_g}
+
 func reset_run() -> void:
 	_peak_g = 0.0
 	_g = 0.0

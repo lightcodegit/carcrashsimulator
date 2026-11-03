@@ -37,6 +37,7 @@ const CHECKS := [
 	["screen_aa", "ЭКРАННОЕ СГЛАЖИВАНИЕ", 0],
 	["glow", "СВЕЧЕНИЕ ЯРКОГО", 0],
 	["show_fps", "СЧЁТЧИК КАДРОВ НА ЭКРАНЕ", 0],
+	["debug_mode", "ОТЛАДОЧНЫЙ ОВЕРЛЕЙ (F2/F3)", 0],
 ]
 # [ключ, заголовок, мин, макс, шаг, формат, множитель показа, режим].
 # Камера (fov/shake/slowmo) — настройки вида, а не «расширенная графика»: живут на
@@ -60,7 +61,8 @@ const SLIDERS := [
 ]
 # Порядок секций вкладки ГРАФИКА: заголовок -> ключи строк из OPTIONS/CHECKS/SLIDERS.
 const VIDEO_SECTIONS := [
-	["ОКНО И КАДР", ["fullscreen", "vsync", "fps_limit", "scale", "msaa", "screen_aa", "show_fps"]],
+	["ОКНО И КАДР", ["fullscreen", "vsync", "fps_limit", "scale", "msaa", "screen_aa",
+		"show_fps", "debug_mode"]],
 	["СВЕТ И ТЕНИ", ["shadow_preset", "sun_soft", "ambient", "tonemap", "exposure", "tonemap_white"]],
 	["АТМОСФЕРА", ["fog", "fog_density", "fog_aerial", "fog_scatter"]],
 	["ЭФФЕКТЫ", ["glow", "glow_intensity", "glow_bloom", "ssao", "ssao_radius", "ssao_intensity", "ssil"]],

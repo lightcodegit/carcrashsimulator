@@ -22,6 +22,11 @@ const DEFAULTS := {
 	"cam_cycle":  {"keys": [[KEY_C]], "joy": [["button", 2]]},
 	"respawn":    {"keys": [[KEY_R]], "joy": [["button", 3]]},
 	"pause":      {"keys": [[KEY_ESCAPE]], "joy": [["button", 6]]},
+	# Отладка — инструмент разработчика, геймпадного бинда у неё намеренно нет:
+	# F-клавиши зарезервированы под служебные действия и не конфликтуют с игрой.
+	# Пустой "joy" обязателен: _rebuild читает оба поля у каждого действия.
+	"debug_toggle":  {"keys": [[KEY_F2]], "joy": []},
+	"debug_section": {"keys": [[KEY_F3]], "joy": []},
 }
 
 # Индексы — нормализованные Godot JoyButton/JoyAxis (перепроверены на этой сборке

@@ -40,6 +40,10 @@ func _initialize() -> void:
 				if (sin(th) * -dx + cos(th) * -dz) / maxf(d, 1e-6) < 0.9: wrong += 1
 		print("%-9s тел %d, провалившихся %d, худшее %.3f м; скамеек кольца %d, не на фонтан %d" % [
 			id, total, sunk, worst, rings, wrong])
+		# пустой обход выглядит как «всё чисто»: тела на карте обязаны быть
+		if total < 5:
+			print("FAIL: %s: динамических тел %d, проверять нечего" % [id, total])
+			fails += 1
 		if sunk > 0 or wrong > 0: fails += 1
 		# кольца скамеек есть только в Большом Городе: 4 парка по 6 скамеек
 		if id == "bigcity" and rings < 24:

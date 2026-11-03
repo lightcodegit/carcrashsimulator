@@ -15,7 +15,7 @@ var car: CarRig
 var _ramp: MeshInstance3D
 var _fails := 0
 var _hits := 0
-var _rays := 0
+var _back_hits := 0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -38,7 +38,7 @@ func _ready() -> void:
 	check(absf(box.size.x - RAMP_LEN) < 0.6, "горка растянутая: длина %.1f м" % box.size.x)
 	_back_rays(box)
 	_drawn_back_wall(box)
-	check(_rays >= 9, "тест не пустой: лучей с тыла выпущено %d" % _rays)
+	check(_back_hits == 9, "все 9 лучей с тыла упёрлись в горку (%d)" % _back_hits)
 	await _drive_back(box)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
@@ -46,7 +46,6 @@ func _ready() -> void:
 var _body: StaticBody3D
 
 func _cast(from: Vector3, to: Vector3) -> Object:
-	_rays += 1
 	var q := PhysicsRayQueryParameters3D.create(from, to)
 	q.collide_with_bodies = true
 	q.collide_with_areas = false
@@ -62,7 +61,9 @@ func _back_rays(box: AABB) -> void:
 		for lane in [-3.0, 0.0, 3.0]:
 			var z: float = box.get_center().z + float(lane)
 			var b := _cast(Vector3(box.end.x + 6.0, float(h), z), Vector3(box.end.x - 2.0, float(h), z))
-			check(b == _body, "сзади на высоте %.1f м и полосе %+.1f м горка непроходима" % [float(h), float(lane)])
+			var hit := b == _body
+			if hit: _back_hits += 1
+			check(hit, "сзади на высоте %.1f м и полосе %+.1f м горка непроходима" % [float(h), float(lane)])
 
 # А видит ли игрок заднюю стенку? Проверка по нарисованной геометрии, без картинок:
 # у меша горки должны найтись треугольники с нормалью +X у самого торца. До правки их

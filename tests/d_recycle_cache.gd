@@ -24,6 +24,10 @@ func _initialize() -> void:
 					p = p.get_parent()
 				if not reaches: foreign += 1
 		print("прогон %d: лент %d, освобождённых %d, чужих %d" % [i, MapDB._rc_lines.size(), stale, foreign])
+		# пустой кэш — это не «грязно», а нечего проверять
+		if MapDB._rc_lines.size() < 3:
+			print("FAIL: прогон %d: лент %d, переставка не собралась" % [i, MapDB._rc_lines.size()])
+			fails += 1
 		if stale + foreign > 0: fails += 1
 		root.free()
 	print("ALL PASS" if fails == 0 else "FAILS %d" % fails)

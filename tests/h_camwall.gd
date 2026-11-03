@@ -80,6 +80,7 @@ func _physics_process(_dt: float) -> void:
 				print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 				get_tree().quit(0 if _fails == 0 else 1)
 	if _f > 120:
+		check(false, "таймаут: фазы не дошли до проверок (кадр %d)" % _f)
 		print("TIMEOUT в фазе %s" % _phase)
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 		get_tree().quit(0 if _fails == 0 else 1)

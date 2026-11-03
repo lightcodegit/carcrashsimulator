@@ -16,6 +16,7 @@ func _ready() -> void:
 		var f := FileAccess.open(PATH_CFG, FileAccess.READ)
 		_backup = f.get_as_text()
 	await _hostile_cfg()
+	await _corrupt_cfg()
 	await _rebind_collision()
 	await _respawn_state()
 	if _backup != "":
@@ -62,6 +63,16 @@ func _hostile_cfg() -> void:
 	check(saved_w >= Settings.WIN_MIN.x and saved_h >= Settings.WIN_MIN.y,
 		"в файл записан осмысленный размер окна (%dx%d)" % [saved_w, saved_h])
 	Settings.reset()
+
+func _corrupt_cfg() -> void:
+	# Синтаксически битый файл (нераскрытый массив) — единственный случай, где игра
+	# обязана сохранить копию: без неё следующий save молча стирает бинды и настройки.
+	var bad := "user://settings.cfg.bad"
+	if FileAccess.file_exists(bad): DirAccess.remove_absolute(bad)
+	_write("[video]\nfog = [1, 2\n")
+	Settings.load_values()
+	check(FileAccess.file_exists(bad), "битый settings.cfg сохранён копией в .bad")
+	if FileAccess.file_exists(bad): DirAccess.remove_absolute(bad)
 
 func _rebind_collision() -> void:
 	# конфликт двух НАЗНАЧЕННЫХ игроком биндов: второй забирает клавишу у первого

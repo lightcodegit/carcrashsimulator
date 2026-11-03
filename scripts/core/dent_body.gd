@@ -215,6 +215,7 @@ func apply_impact(world_pos: Vector3, inward_dir: Vector3, speed_kmh: float) -> 
 	var ld := _to_body_dir(inward_dir)
 	var rl := radius / _scale          # всё сравнение и смещение — в единицах модели
 	var dl := depth / _scale
+	var cap_l := MAX_DEPTH_RATIO * height / _scale   # предел накопленной вмятины
 	var moved := 0
 	for i in _verts.size():
 		var d := _verts[i].distance_to(lp)
@@ -227,13 +228,22 @@ func apply_impact(world_pos: Vector3, inward_dir: Vector3, speed_kmh: float) -> 
 		else:
 			var r := (t - RIM_START) / (1.0 - RIM_START)
 			push = -dl * RIM_RATIO * sin(r * PI)
-		_verts[i] += ld * push
+		# Смещение НАКАПЛИВАЕТСЯ, поэтому потолок нужен именно накопленному отклонению:
+		# вторая и третья вмятина в том же месте иначе уводят вершину за предельные
+		# 30% высоты (кузов схлопывается внутрь), а шкала «КУЗОВ» этого не видит.
+		var np: Vector3 = _verts[i] + ld * push
+		var off := _pristine[i].distance_to(np)
+		if off > cap_l:
+			np = _pristine[i] + _pristine[i].direction_to(np) * cap_l
+		_verts[i] = np
 		var sc := clampf(absf(push) / maxf(1e-6, dl), 0.0, 1.0)
 		_colors[i] = _colors[i].lerp(SCUFF, sc * 0.75)
 		moved += 1
 	if moved == 0: return
 	dent_count += 1
-	max_depth = maxf(max_depth, depth)
+	# Показание — фактическое отклонение геометрии, а не номинал одного удара:
+	# иначе повторные вмятины в одном месте остаются невидимы для HUD.
+	max_depth = maxf(max_depth, max_vertex_shift())
 	total_depth += depth
 	_rebuild()
 	dented.emit(depth, world_pos, radius)

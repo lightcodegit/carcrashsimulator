@@ -6,8 +6,12 @@ func check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	await get_tree().process_frame
-	for map_id in ["arena", "town", "speedway", "bigcity"]:
-		for car_id in ["sedan", "pickup", "sport"]:
+	# Все карты, а не четыре из шести: circuit и endless иначе не получают ни
+	# посадки, ни света, ни материалов ни у одного теста. Машины — короткая и
+	# длиннобазная, чтобы база и свесы проверялись на каждой карте без тройного
+	# времени прогона.
+	for map_id in MapDB.ids():
+		for car_id in ["sedan", "limousine"]:
 			GameContext.select(car_id, map_id)
 			var gm: GameManager = load("res://scenes/game.tscn").instantiate()
 			add_child(gm)

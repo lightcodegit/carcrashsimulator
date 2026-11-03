@@ -68,8 +68,9 @@ func _ready() -> void:
 	# 4) кнопка «В МЕНЮ» в оверлее паузы: видима, в пределах окна, ничем не перекрыта
 	gm._set_paused(true)
 	await get_tree().process_frame
-	var vp := Vector2(ProjectSettings.get_setting("display/window/size/viewport_width"),
-		ProjectSettings.get_setting("display/window/size/viewport_height"))
+	# Живой прямоугольник окна, а не размер из project.godot: при canvas_items+expand
+	# логическая область считается из фактического аспекта и никогда не равна базе.
+	var vp := get_viewport().get_visible_rect().size
 	var b: Button = gm.hud.pause_button("В ГЛАВНОЕ МЕНЮ")
 	check(b != null, "кнопка «В ГЛАВНОЕ МЕНЮ» найдена")
 	check(b != null and b.visible, "menu button shown while paused")

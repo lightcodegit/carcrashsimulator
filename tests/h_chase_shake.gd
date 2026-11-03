@@ -8,6 +8,7 @@ var cam: CameraRig
 var _ideal := Vector3.ZERO
 var _max_dev := 0.0
 var _dist_dev := 0.0
+var _dist_n := 0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -63,6 +64,7 @@ func _process(_dt: float) -> void:
 	var sp := car.chassis.linear_velocity.length()
 	var want_dist := Vector2(5.0 + minf(sp, 60.0) * 0.045, 1.9 + minf(sp, 60.0) * 0.010).length()
 	_dist_dev = maxf(_dist_dev, absf(cam.global_position.distance_to(gt.origin) - want_dist))
+	_dist_n += 1
 
 var _jit: Array[float] = []
 var _smooth := 0.0
@@ -88,7 +90,12 @@ func _physics_process(_dt: float) -> void:
 	if _frame == 1500:
 		Input.action_release("throttle")
 		check(car.speed_kmh() > 100.0, "машина разогналась (%.1f км/ч)" % car.speed_kmh())
-		check(_dist_dev < 0.2, "на скорости камера держит дистанцию без отставания (отклонение %.2f м)" % _dist_dev)
+		if _dist_n == 0:
+			# в headless кадров не рисуется и _process выходит раньше замеров:
+			# молча сравнить нуль с порогом значило бы «зелено» без проверки
+			print("NOTE: дистанция погони не мерилась (нет живых кадров)")
+		else:
+			check(_dist_dev < 0.2, "на скорости камера держит дистанцию без отставания (отклонение %.2f м)" % _dist_dev)
 	if _frame == 3000:
 		check(car.speed_kmh() < 5.0, "машина остановилась накатом (%.1f км/ч за 25 с)" % car.speed_kmh())
 		if _jit.is_empty():

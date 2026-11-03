@@ -67,8 +67,18 @@ func _ready() -> void:
 				_panels[j][1]])
 	# живой ли HUD: цифры обязаны приходить из машины, а не стоять нулями
 	check(gm.hud._gauge.speed > 10.0, "спидометр показывает ход (%.0f)" % gm.hud._gauge.speed)
-	check(gm.hud._v_peak.text != "", "перегрузка подписана (%s)" % gm.hud._v_peak.text)
-	check(gm.hud._v_dents.text != "", "вмятины подписаны (%s)" % gm.hud._v_dents.text)
+	# Живой HUD: показание обязано приходить из машины. `text != ""` вечно истинно,
+	# потому что hud.gd пишет формат каждый кадр. Проверяем связку: вмяли кузов —
+	# и цифра в HUD обязана стать той же, что на кузове.
+	gm.car.body.apply_impact(gm.car.chassis.global_position + Vector3(0.5, 0.4, 0.0),
+		Vector3(1, 0, 0), 90.0)
+	for _i in 3:
+		await get_tree().process_frame
+	check(gm.hud._v_dents.text == str(gm.car.body.dent_count),
+		"вмятины в HUD = вмятины на кузове (%s против %d)" % [gm.hud._v_dents.text, gm.car.body.dent_count])
+	check(gm.hud._v_dents.text != "0", "удар виден в HUD (%s)" % gm.hud._v_dents.text)
+	check(gm.hud._v_peak.text == "%.2f g" % gm.hud._peak_g,
+		"перегрузка подписана живым значением (%s)" % gm.hud._v_peak.text)
 	check(gm.hud._v_deform.text.ends_with("%"), "шкала кузова в процентах (%s)" % gm.hud._v_deform.text)
 	check(gm.hud._v_grip.text.ends_with("%"), "шкала сцепления в процентах (%s)" % gm.hud._v_grip.text)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

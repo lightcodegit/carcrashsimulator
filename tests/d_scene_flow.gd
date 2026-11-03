@@ -36,5 +36,6 @@ func _process(_d: float) -> bool:
 			check(_held() == "", "новый заезд начинается без удерживаемых клавиш (%s)" % _held())
 			check(not paused, "после возврата из меню дерево не приостановлено")
 			print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
+			quit(0 if _fails == 0 else 1)
 			return true
 	return false

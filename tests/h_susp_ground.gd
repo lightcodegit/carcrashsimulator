@@ -98,6 +98,9 @@ func _physics_process(_dt: float) -> void:
 		"B":
 			if x > 125.0 and car.speed_kmh() < 20.0: _hold += 1
 			if _hold > 30 or _pf > 600:
+				# без этого «ступень остановила» было бы верно и для машины, которая
+				# до ступени не доехала
+				check(x > 120.0, "машина дошла до ступени 0.6 м (x=%.1f)" % x)
 				check(x < 139.0, "ступень 0.6 м остановила машину (x=%.1f)" % x)
 				check(car.speed_kmh() < 20.0, "машина упёрлась, а не едет (%.1f км/ч)" % car.speed_kmh())
 				_enter("C", 180.0)
@@ -108,5 +111,5 @@ func _physics_process(_dt: float) -> void:
 				check(_ramp_y > 1.2, "заехала на рампу (max y=%.2f)" % _ramp_y)
 				_finish()
 	if _f > 4000:
-		print("TIMEOUT in phase %s" % _phase)
+		check(false, "таймаут в фазе %s: проверки не состоялись (кадр %d)" % [_phase, _f])
 		_finish()

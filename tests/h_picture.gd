@@ -23,7 +23,7 @@ func _live() -> bool:
 func _ready() -> void:
 	if not _live():
 		print("NOTE: живой рендер недоступен — проверка яркости кадра пропущена")
-		print("ALL PASS")
+		print("SKIP (headless): яркость кадра не мерилась")
 		get_tree().quit(0)
 		return
 	GameContext.select("sport", "arena")

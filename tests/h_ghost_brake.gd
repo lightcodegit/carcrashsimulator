@@ -22,6 +22,7 @@ var _events := 0
 var _explained := 0
 var _ticks := 0
 var _maps := 0
+var _seen: Dictionary = {}
 var gm: GameManager
 var _map := ""
 var _ground: Array = []
@@ -34,8 +35,12 @@ func _ready() -> void:
 	await get_tree().process_frame
 	for id in MapDB.ids():
 		await _sweep(id)
-	check(_maps >= MapDB.ids().size(), "перебраны все карты: %d" % _maps)
 	check(_ticks >= 4000, "тест не пустой: проехано %d тиков" % _ticks)
+	# Покрытие по картам считается по фактическим тикам, а не по числу итераций
+	# цикла: счётчик, растущий один раз на id из того же списка, ничего не проверяет.
+	for id in MapDB.ids():
+		var t := int(_seen.get(id, 0))
+		check(t >= 300, "карта %s проехана с замерами (%d тиков)" % [id, t])
 	print("тикачей %d, скачков ≥ %.0f км/ч/с: %d, из них объяснённых: %d" % [
 		_ticks, THRESH, _events, _explained])
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
@@ -65,6 +70,7 @@ func _sweep(id: String) -> void:
 	for _i in TICKS:
 		await get_tree().physics_frame
 		_ticks += 1
+		_seen[_map] = int(_seen.get(_map, 0)) + 1
 		var p := gm.car.chassis.global_position
 		# GameManager телепортирует машину на спавн, если та вылетела за границу: заезд
 		# окончен, дальше мерить нечего

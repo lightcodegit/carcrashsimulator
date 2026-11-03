@@ -257,7 +257,9 @@ func _build_menu() -> void:   # вызывается из _ready, поэтому
 	menu._unhandled_input(esc2)
 	check(not menu.is_open(), "5: Esc вне захвата закрывает экран")
 	menu.close()
-	_apply_in_game()
+	# без await вызов уходит на первом же await внутри, и все проверки живой сцены
+	# остались бы за кадром, а тест напечатал бы ALL PASS
+	await _apply_in_game()
 	InputRouter.reset_keys()
 	Settings.reset()
 	_finish()

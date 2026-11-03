@@ -93,6 +93,26 @@ func _physics_process(_dt: float) -> void:
 	check(b.dent_count == 2, "D1 second dent counted (%d)" % b.dent_count)
 	check(b.deformation() > before, "D2 deformation accumulates (%.3f > %.3f)" % [b.deformation(), before])
 
+	# D3–D5) серия в ОДНУ точку: потолок по высоте кузова обязан держаться для
+	# накопленного смещения, а шкала «КУЗОВ» — показывать суммарную вмятину, а не
+	# номинал одного удара (до правки max_depth считался из depth последнего удара)
+	var single := b.max_depth
+	var spot := p + Vector3(-0.05, 0.0, 0.0)
+	for k in 6:
+		b.apply_impact(spot, Vector3(1, 0, 0), 60.0)
+	var cap := DentBody.MAX_DEPTH_RATIO * b.height
+	var nominal := minf(cap, (60.0 / 3.6) * 0.010)   # глубина одного удара 60 км/ч
+	check(b.max_vertex_shift() <= cap + 1e-3,
+		"D3 накопленная вмятина не выше предела (%.3f против %.3f)" % [b.max_vertex_shift(), cap])
+	check(b.max_depth >= single,
+		"D4 шкала видит накопление, а не один удар (%.3f ≥ %.3f)" % [b.max_depth, single])
+	# радиус влияния считается от точки на поверхности, поэтому серия в одну точку
+	# сходится ниже потолка; важно, что она глубже одного удара и что шкала это видит
+	check(b.max_vertex_shift() > nominal + 0.02,
+		"D5 серия ударов глубже одного (%.3f против %.3f)" % [b.max_vertex_shift(), nominal])
+	check(b.max_depth > nominal + 0.02,
+		"D6 показание «КУЗОВ» выросло вместе с геометрией (%.3f против %.3f)" % [b.max_depth, nominal])
+
 	# E) reset возвращает исходную геометрию
 	b.reset()
 	check(b.dent_count == 0, "E1 dent count cleared")

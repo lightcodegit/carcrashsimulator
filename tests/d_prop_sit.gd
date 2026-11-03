@@ -1,7 +1,9 @@
 extends SceneTree
-# Дата-тест: предмет должен стоять на ВЕРХНЕЙ поверхности под ним. surface_y берёт
-# minf по всем прямоугольникам — если тротуарная плита (y=0.028) перекрывается с
-# дорожной плитой (y≈0), предмет проваливается в плиту на разницу высот.
+# Два контракта расстановки предметов, на РЕАЛЬНЫХ координатах.
+# ВАЖНО: в _initialize глобальные трансформации ещё не вычислены, и global_position
+# у собранной, но не вставленной в дерево карты возвращает (0,0,0). Первый вариант
+# проверки именно на это и наткнулся: 703 тела «стояли» в начале координат, и тест
+# молча проверял surface_y(0, 0). Берём локальный position — корень карты единичный.
 func _initialize() -> void:
 	var fails := 0
 	for id in MapDB.ids():
@@ -11,10 +13,13 @@ func _initialize() -> void:
 		var sunk := 0
 		var worst := 0.0
 		var total := 0
+		var rings := 0
+		var wrong := 0
 		for c in root.get_children():
 			if not (c is RigidBody3D): continue
+			var body := c as RigidBody3D
 			total += 1
-			var p := (c as RigidBody3D).global_position
+			var p := body.position
 			var chosen := MapDB.surface_y(p.x, p.z)
 			var top := chosen
 			for r in MapDB._surfaces:
@@ -23,8 +28,23 @@ func _initialize() -> void:
 			if top - chosen > 0.005:
 				sunk += 1
 				worst = maxf(worst, top - chosen)
-		print("%-9s тел %d, провалившихся %d, худшее %.3f м" % [id, total, sunk, worst])
-		if sunk > 0: fails += 1
+			# скамейки кольца у фонтана стоят ровно на радиусе 24 и обязаны смотреть
+			# на фонтан, а не вдоль него: local +Z после rotation.y = (sin, cos)
+			for park in MapDB.BC_PARKS:
+				var dx := p.x - float(park[0])
+				var dz := p.z - float(park[1])
+				var d := sqrt(dx * dx + dz * dz)
+				if absf(d - 24.0) > 0.02: continue
+				rings += 1
+				var th := body.rotation.y
+				if (sin(th) * -dx + cos(th) * -dz) / maxf(d, 1e-6) < 0.9: wrong += 1
+		print("%-9s тел %d, провалившихся %d, худшее %.3f м; скамеек кольца %d, не на фонтан %d" % [
+			id, total, sunk, worst, rings, wrong])
+		if sunk > 0 or wrong > 0: fails += 1
+		# кольца скамеек есть только в Большом Городе: 4 парка по 6 скамеек
+		if id == "bigcity" and rings < 24:
+			print("FAIL: скамеек кольца %d, а должно быть не меньше 24" % rings)
+			fails += 1
 		root.free()
 	print("ALL PASS" if fails == 0 else "FAILS %d" % fails)
 	quit(0 if fails == 0 else 1)

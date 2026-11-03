@@ -27,5 +27,19 @@ func _ready() -> void:
 		# между двумя значениями и настройка выглядит сломанной
 		var steps := (hi - lo) / maxf(absf(float(row[4])), 1e-12)
 		check(steps >= 4.0, "%s: шаг %.5f режет диапазон на %.1f части" % [key, float(row[4]), steps])
+		# Шаг обязан делить КАЖДОЕ штатное значение: Range пружинит программно
+		# заданное value на step (замер: 1.6 при шаге 0.5 становится 1.5), и подпись
+		# страницы врёт, а первое же движение уводит настройку с пресета.
+		# Сравниваем в ЕДИНИЦАХ ПОКАЗА: s.step = row[4] * mul, value = v * mul.
+		var dstep := absf(float(row[4]) * mul)
+		var shipped: Array = [Settings._defaults.get(key, null)]
+		for pr in Settings.PRESETS:
+			shipped.append(pr[1].get(key, null))
+		for v in shipped:
+			if v == null: continue
+			var disp := float(v) * mul
+			var nearest := roundf(disp / dstep) * dstep
+			check(absf(nearest - disp) <= 1e-6 * maxf(1.0, absf(disp)),
+				"%s: значение %.5f не ложится на шаг ползунка %.3f (страница покажет %.3f)" % [key, float(v), dstep, nearest])
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

@@ -121,10 +121,14 @@ func _oversized_cfg() -> void:
 	check(FileAccess.file_exists("user://settings.cfg.bad"), "переразмеренный файл отложен в .bad")
 	if FileAccess.file_exists("user://settings.cfg.bad"):
 		DirAccess.remove_absolute("user://settings.cfg.bad")
-	# атомарная запись: временный файл не должен пережить save
+	# атомарная запись: ни черновик, ни тень прежнего файла не должны пережить save
 	Settings.save()
 	check(not FileAccess.file_exists("user://settings.cfg.part"),
 		"после save не остался черновик .part")
+	check(not FileAccess.file_exists("user://settings.cfg.old"),
+		"после save не осталась тень прежнего файла .old")
+	var after := ConfigFile.new()
+	check(after.load(PATH_CFG) == OK, "файл читается после атомарной замены")
 
 func _rebind_collision() -> void:
 	# конфликт двух НАЗНАЧЕННЫХ игроком биндов: второй забирает клавишу у первого

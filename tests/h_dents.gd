@@ -31,6 +31,9 @@ func _nose_of(c: CarRig) -> Vector3:
 	return c.chassis.global_position + Vector3(c.params.length * 0.5 - 0.05, 0.0, 0.0)
 
 func _physics_process(_dt: float) -> void:
+	# Машина собирается в _ready через await: на реальном рендере это позже четырёх
+	# кадров, чем в headless. Счётчик ведём от появления машины, а не от запуска сцены.
+	if car == null: return
 	_frame += 1
 	if _frame != 4: return
 	var b := car.body

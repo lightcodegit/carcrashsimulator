@@ -95,6 +95,10 @@ func _joy_event(jd: Array) -> InputEvent:
 	return m
 
 static func _same_event(a: InputEvent, b: InputEvent) -> bool:
+	# Device здесь намеренно НЕ сравнивается: он участвует только в сохранении
+	# привязки. Конфликт считается по физической кнопке, иначе заводской бинд
+	# «любой геймпад» (-1) и назначенный на конкретный (0) сошлись как разные,
+	# и одно действие начало бы реагировать на одну кнопку дважды.
 	if a == null or b == null: return false
 	if (a is InputEventKey) and (b is InputEventKey):
 		var ka := a as InputEventKey
@@ -211,10 +215,14 @@ static func _encode(e: InputEvent) -> String:
 		var k := e as InputEventKey
 		return "k%d" % (k.physical_keycode if k.physical_keycode != 0 else k.keycode)
 	if e is InputEventJoypadButton:
-		return "b%d" % (e as InputEventJoypadButton).button_index
+		var jb := e as InputEventJoypadButton
+		# device пишется всегда: без него бинд переживает перезапуск как «любой
+		# геймпад», хотя в том же заезде он принадлежал конкретному. -1 — и есть
+		# «любой», значение сохраняется как есть.
+		return "b%d@%d" % [jb.button_index, jb.device]
 	if e is InputEventJoypadMotion:
 		var m := e as InputEventJoypadMotion
-		return "a%d_%d" % [m.axis, int(round(m.axis_value * 100.0))]
+		return "a%d_%d@%d" % [m.axis, int(round(m.axis_value * 100.0)), m.device]
 	return ""
 
 static func _decode(tok: String) -> InputEvent:
@@ -230,9 +238,17 @@ static func _decode(tok: String) -> InputEvent:
 		var e := InputEventKey.new()
 		e.physical_keycode = code
 		return e
+	# «@<device>» есть только у новых записей: старый токен («b0», «a0_50») читается
+	# как -1 — «любой геймпад», ровно то поведение, что было до правки.
+	var dev := -1
+	var at := rest.find("@")
+	if at >= 0:
+		dev = int(rest.substr(at + 1))
+		rest = rest.substr(0, at)
 	if head == "b":
 		var b := InputEventJoypadButton.new()
 		b.button_index = int(rest)
+		b.device = dev
 		return b
 	if head == "a":
 		var parts := rest.split("_")
@@ -240,5 +256,6 @@ static func _decode(tok: String) -> InputEvent:
 		var m := InputEventJoypadMotion.new()
 		m.axis = int(parts[0])
 		m.axis_value = float(parts[1]) / 100.0
+		m.device = dev
 		return m
 	return null

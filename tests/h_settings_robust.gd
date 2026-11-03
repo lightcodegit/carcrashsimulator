@@ -20,6 +20,7 @@ func _ready() -> void:
 	await _oversized_cfg()
 	await _crash_recovery()
 	await _rebind_collision()
+	await _pad_device()
 	await _respawn_state()
 	if _backup != "":
 		var w := FileAccess.open(PATH_CFG, FileAccess.WRITE)
@@ -178,6 +179,35 @@ func _rebind_collision() -> void:
 	InputRouter.clear_binding("throttle")
 	InputRouter.clear_binding("brake")
 	InputRouter.clear_binding("handbrake")
+
+func _pad_device() -> void:
+	# device обязан переживать перезапуск. Без него бинд после рестарта становился
+	# «любым геймпадом», хотя в том же заезде принадлежал конкретному.
+	var jb := InputEventJoypadButton.new()
+	jb.button_index = 3
+	jb.device = 1
+	InputRouter.rebind("throttle", jb)
+	Settings.save()
+	var cf := ConfigFile.new()
+	check(cf.load(PATH_CFG) == OK, "файл читается после привязки геймпада")
+	var tok := String(cf.get_value("keys", "throttle", ""))
+	check(tok.contains("@1"), "в файл записан номер геймпада (%s)" % tok)
+	InputRouter.reset_keys()
+	Settings.load_values()
+	var found := false
+	for e in InputMap.action_get_events("throttle"):
+		if e is InputEventJoypadButton and e.button_index == 3 and e.device == 1:
+			found = true
+	check(found, "привязка вернулась с тем же геймпадом (%s)" % str(InputMap.action_get_events("throttle")))
+	# старый формат обязан читаться как «любой», иначе файл игрока теряет бинды
+	var legacy: InputEventJoypadButton = InputRouter._decode("b3")
+	check(legacy != null and legacy.device == -1,
+		"старый токен без device читается как любой геймпад")
+	var modern: InputEventJoypadMotion = InputRouter._decode("a0_50@2")
+	check(modern != null and modern.device == 2 and is_equal_approx(modern.axis_value, 0.5),
+		"ось с номером геймпада читается целиком")
+	InputRouter.clear_binding("throttle")
+	InputRouter.reset_keys()
 
 func _respawn_state() -> void:
 	GameContext.select("sedan", "arena")

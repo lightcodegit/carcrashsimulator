@@ -65,6 +65,9 @@ func _ready() -> void:
 	hud.menu_requested.connect(_to_menu)
 	hud.resume_requested.connect(func() -> void: _set_paused(false))
 	hud.restart_requested.connect(_restart_map)
+	# Оверлей подключается последним: ему нужны и машина, и камера, и уже собранный
+	# HUD, иначе первая перерисовка читала бы null.
+	hud.attach_debug(self)
 	hud.settings_requested.connect(_open_settings)
 	car.impact.connect(_on_impact)
 	_start_ms = Time.get_ticks_msec()
@@ -279,6 +282,19 @@ func run_summary() -> String:
 	return "УДАРОВ %d · ЛУЧШИЙ %d КМ/Ч · %02d:%02d · %s / %s" % [
 		_crashes, int(_top_crash), secs / 60, secs % 60,
 		GameContext.car_id.to_upper(), GameContext.map_id.to_upper()]
+
+func debug_scene() -> Dictionary:
+	# То же правило, что и для шассi: оверлей читает состояние сцены через один
+	# интерфейс, а не через приватные поля менеджера.
+	return {
+		"map_root": _map_root,
+		"bounds": _bounds,
+		"spawn": _spawn.origin,
+		"endless": _endless,
+		"map_id": GameContext.map_id,
+		"crashes": _crashes,
+		"top_crash": _top_crash,
+	}
 
 # Тот же спавн на той же карте, без пересборки сцены: дёргать change_scene ради
 # «начать заново» — значит на полсекунды потерять картинку ради того же результата.

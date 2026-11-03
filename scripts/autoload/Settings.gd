@@ -95,6 +95,9 @@ var msaa: int = Msaa.X2           # 2X: на Compatibility это единств
 var screen_aa := false
 var scale := 0.7
 var show_fps := true
+# Отладочный оверлей: по умолчанию выключен, потому что сам меняет то, что меряет
+# (текст на экране — это отрисовка), и включать его нужно осознанно.
+var debug_mode := false
 var skid_life := 30.0             # 0 — полосы не исчезают, а только перезаписываются
 # расширенные пункты картинки
 var tonemap: int = 2
@@ -211,6 +214,7 @@ func values() -> Dictionary:
 		"vsync": vsync, "fps_limit": fps_limit, "shadow_preset": shadow_preset,
 		"ssao": ssao, "ssil": ssil, "fog": fog, "glow": glow,
 		"msaa": msaa, "screen_aa": screen_aa, "scale": scale, "show_fps": show_fps,
+		"debug_mode": debug_mode,
 		"skid_life": skid_life, "tonemap": tonemap, "exposure": exposure,
 		"tonemap_white": tonemap_white, "glow_intensity": glow_intensity, "glow_bloom": glow_bloom,
 		"fog_density": fog_density, "fog_aerial": fog_aerial, "fog_scatter": fog_scatter,

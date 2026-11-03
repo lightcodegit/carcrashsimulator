@@ -1479,6 +1479,33 @@ static func _bc_spot_free(along: float, lane: float, boulevard: bool) -> bool:
 # сцены скрывает точку исчезновения, так что картинка не меняется, а отрисовок
 # становится меньше. Для тротуарной мелочи и молодых деревьев в плотном городе
 # это и есть цена между «много деталей» и честными кадрами в секунду.
+# Статистика сцены для отладочного оверлея. Обход итеративный (в дереве Большого
+# Города ~8 тыс. узлов) и считается не чаще 4 раз в секунду: сам замер не должен
+# становиться заметной частью измеряемого кадра.
+static func debug_counts(root: Node3D, cam: Vector3) -> Dictionary:
+	var out := {"bodies": 0, "statics": 0, "meshes": 0, "hidden": 0,
+		"nearest": INF, "nodes": 0}
+	if root == null: return out
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		out["nodes"] = int(out["nodes"]) + 1
+		for c in n.get_children():
+			stack.append(c)
+		if n is RigidBody3D:
+			out["bodies"] = int(out["bodies"]) + 1
+			out["nearest"] = minf(float(out["nearest"]),
+				(n as RigidBody3D).global_position.distance_to(cam))
+		elif n is StaticBody3D:
+			out["statics"] = int(out["statics"]) + 1
+		elif n is GeometryInstance3D:
+			out["meshes"] = int(out["meshes"]) + 1
+			var gi := n as GeometryInstance3D
+			var end := gi.visibility_range_end
+			if end > 0.0 and gi.global_position.distance_to(cam) > end:
+				out["hidden"] = int(out["hidden"]) + 1
+	return out
+
 static func _far(n: Node, dist: float) -> void:
 	# prop()/loose()/kit() возвращают null на отсутствующем ассете, а вызов идёт
 	# прямо сюда — без проверки сборка карты падает на пустом месте

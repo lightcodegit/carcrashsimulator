@@ -252,6 +252,28 @@ func nitro_fraction() -> float:
 func speed_kmh() -> float:
 	return chassis.linear_velocity.length() * 3.6
 
+# Единое окно в состояние шасси для отладочного оверлея. UI не должен лазить в
+# _steer/_slip/_skid напрямую: любой рефакторинг подвески или тормозов тогда молча
+# ломал бы оверлей, а не тест. Ключи здесь — контракт, его проверяет h_debug_overlay.
+func debug_snapshot() -> Dictionary:
+	var contacts: Array = []
+	var skid: Array = []
+	for i in _wheels.size():
+		contacts.append(wheel_contact(i).y)
+		skid.append(_skid[i] if i < _skid.size() else 0.0)
+	return {
+		"speed_kmh": speed_kmh(),
+		"steer_deg": rad_to_deg(_steer),
+		"steer_max_deg": STEER_MAX_DEG,
+		"slip": slip,
+		"grounded": _grounded,
+		"pedal": _pedal,
+		"hand": _hand_pedal,
+		"heading_deg": rad_to_deg(heading),
+		"contacts": contacts,
+		"skid": skid,
+	}
+
 func forward() -> Vector3:
 	return chassis.global_transform.basis.z
 

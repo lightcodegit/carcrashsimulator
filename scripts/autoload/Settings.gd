@@ -148,11 +148,30 @@ static func _win_ok(r: Rect2i) -> bool:
 	return r.size.x >= WIN_MIN.x and r.size.y >= WIN_MIN.y \
 		and r.size.x <= WIN_MAX.x and r.size.y <= WIN_MAX.y
 
+# Позиция возвращается на экран по ОБЪЕДИНЕНИЮ всех мониторов, а не по первому:
+# игрок с монитором слева (координаты отрицательные) иначе получал бы перенос окна
+# на основной экран при каждом старте. Правило: хотя бы 160 px окна должны остаться
+# на области рабочего стола, иначе окно нельзя схватить мышью.
+static func _clamp_pos(pos: Vector2i, size: Vector2i, union: Rect2i) -> Vector2i:
+	var out := pos
+	out.x = clampi(out.x, union.position.x - size.x + 160, union.end.x - 160)
+	out.y = clampi(out.y, union.position.y, union.end.y - 160)
+	return out
+
+static func _onscreen(pos: Vector2i, size: Vector2i) -> Vector2i:
+	var union := Rect2i(DisplayServer.screen_get_position(0), DisplayServer.screen_get_size(0))
+	for i in range(1, DisplayServer.get_screen_count()):
+		var s := Rect2i(DisplayServer.screen_get_position(i), DisplayServer.screen_get_size(i))
+		union = union.merge(s)
+	# В headless (и на мгновение при смене драйвера) экран — 0×0. Двигать окно по
+	# такой границе значит само отправить его за экран, поэтому позиция остаётся.
+	if union.size.x < WIN_MIN.x or union.size.y < WIN_MIN.y: return pos
+	return _clamp_pos(pos, size, union)
+
 # Восстановление — ровно один раз на старте: если дёргать размер из apply_window,
 # он воевал бы с каждым пользовательским ресайзом.
 func restore_window_geometry() -> void:
 	if fullscreen: return
-	var scr := DisplayServer.screen_get_size()
 	var r := _win_rect
 	if not _win_ok(r):
 		# Ноль мог остаться в файле от прошлой версии. Если и живое окно сжалось
@@ -167,10 +186,7 @@ func restore_window_geometry() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(r.size)
 	# сохранённая позиция могла остаться от отключённого монитора: возвращаем на экран
-	var pos := r.position
-	pos.x = clampi(pos.x, -r.size.x + 160, scr.x - 160)
-	pos.y = clampi(pos.y, 0, scr.y - 160)
-	DisplayServer.window_set_position(pos)
+	DisplayServer.window_set_position(_onscreen(r.position, r.size))
 
 # Запоминаем только оконный режим: в maximized/fullscreen размер — это весь экран,
 # и запись затёрла бы настоящую геометрию. У Window нет сигнала о перемещении,
@@ -260,7 +276,7 @@ func apply_window() -> void:
 			DisplayServer.WINDOW_MODE_MAXIMIZED if _win_max else DisplayServer.WINDOW_MODE_WINDOWED)
 		if not _win_max and _win_ok(_win_rect):
 			DisplayServer.window_set_size(_win_rect.size)
-			DisplayServer.window_set_position(_win_rect.position)
+			DisplayServer.window_set_position(_onscreen(_win_rect.position, _win_rect.size))
 	var w := get_window()
 	if w != null:
 		w.msaa_3d = msaa

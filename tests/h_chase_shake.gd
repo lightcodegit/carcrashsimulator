@@ -70,6 +70,9 @@ var _jit: Array[float] = []
 var _smooth := 0.0
 
 func _physics_process(_dt: float) -> void:
+	# машина собирается в _ready через await: на реальном рендере это позже
+	# нужного кадра, и отсчёт ведём от её появления, а не от запуска сцены
+	if car == null: return
 	_frame += 1
 	if _frame == 120:
 		_ideal = _ideal_chase()

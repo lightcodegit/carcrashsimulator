@@ -28,6 +28,9 @@ func _ready() -> void:
 	car.impact.connect(func(s: float, _p: Vector3, _n: Vector3) -> void: _impacts.append(s))
 
 func _physics_process(_dt: float) -> void:
+	# машина собирается в _ready через await: на реальном рендере это позже
+	# нужного кадра, и отсчёт ведём от её появления, а не от запуска сцены
+	if car == null: return
 	_frame += 1
 	if _frame == 5: Input.action_press("throttle")
 	if _frame == 750:

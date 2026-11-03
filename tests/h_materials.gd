@@ -10,6 +10,7 @@ var _road_pbr := 0
 var _road_detail := 0
 var _flat := 0
 var _grass := 0
+var _grass_seen := 0
 var _grass_detail := 0
 var _cars := 0
 var _cars_clear := 0
@@ -94,6 +95,7 @@ func _ready() -> void:
 		check(_flat == 0, "%s: не осталось плоского диффуза roughness=1 (%d)" % [id, _flat])
 		check(_boxes > 0 and _boxes_pbr == _boxes, "%s: процедурные коробки с зерном бетона (%d из %d)" % [id, _boxes_pbr, _boxes])
 		check(_boxes_detail == _boxes, "%s: бетон пятнистый (%d из %d)" % [id, _boxes_detail, _boxes])
+		_grass_seen += _grass
 		if _grass > 0:
 			check(_grass_detail == _grass, "%s: трава с проплешинами (%d из %d)" % [id, _grass_detail, _grass])
 		if id == "town":
@@ -102,6 +104,8 @@ func _ready() -> void:
 		root.queue_free()
 		await get_tree().process_frame
 	_check_detail_image()
+	# пропущенная ветка не оставила бы следа, если травы нет ни на одной карте
+	check(_grass_seen > 0, "трава попадала в проверку хотя бы на одной карте (%d)" % _grass_seen)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 

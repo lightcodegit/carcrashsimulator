@@ -20,6 +20,9 @@ func _ready() -> void:
 	cam.make_current()
 
 func _physics_process(_dt: float) -> void:
+	# машина собирается в _ready через await: на реальном рендере это позже
+	# нужного кадра, и отсчёт ведём от её появления, а не от запуска сцены
+	if car == null: return
 	_frame += 1
 	if _frame == 30:
 		var d := cam.global_position.distance_to(car.chassis.global_position)

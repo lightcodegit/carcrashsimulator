@@ -8,6 +8,7 @@ extends Node3D
 #    2 мм — ровно это и давало мерцание, когда плиту топили на половину высоты.
 const SEG := "road"          # дорожными считаем только сегменты road*
 var _fails := 0
+var _arch_seen := 0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -114,9 +115,11 @@ func _ready() -> void:
 		check(lifted == plates, "%s: полотно всех плит приподнято над полом (%d из %d)" % [id, lifted, plates])
 		check(proud > 10, "%s: белая разметка выше своего асфальта (%d граней)" % [id, proud])
 		var arches := 0
+		var seen := 0
 		for mi in kits:
 			var p := mi as MeshInstance3D
 			if String(p.mesh.resource_path.get_file().get_basename()) != "roadStart": continue
+			seen += 1
 			var best: MeshInstance3D = null
 			var bd := INF
 			for mi2 in kits:
@@ -136,8 +139,11 @@ func _ready() -> void:
 				arches += 1
 				print("  %s: арка на %.2f, соседняя плита на %.2f (сдвиг %.2f м)" % [
 					id, la, lb, la - lb])
+		_arch_seen += seen
 		check(arches == 0, "%s: арки старта стоят по оси улицы (%d со сдвигом)" % [id, arches])
 		root.queue_free()
 		await get_tree().process_frame
+	# «ноль со сдвигом» ничего не значит, если в поле зрения не было ни одной арки
+	check(_arch_seen > 0, "арки старта вообще попадали в проверку (%d)" % _arch_seen)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

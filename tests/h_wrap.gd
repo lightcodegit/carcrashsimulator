@@ -44,6 +44,9 @@ func _wrap() -> void:
 		var k := "%.0f|%.0f" % [mi.position.x, mi.position.z]
 		if seen.has(k): dupes += 1
 		seen[k] = true
+	# пустой список дал бы «0 внахлёст» и «0 сирот» — то есть зелёный тест без проверки
+	check(plates.size() > 0, "плит собрано для сравнения %d" % plates.size())
+	check(solids.size() > 0, "твёрдых плит собрано %d" % solids.size())
 	check(dupes == 0, "после трёх с лишним оборотов ленты нет плит внахлёст (dupes=%d)" % dupes)
 	var orphan := 0
 	for mi in solids:

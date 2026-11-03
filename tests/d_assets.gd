@@ -15,8 +15,11 @@ func _list(dir: String) -> Array:
 	return out
 
 func _initialize() -> void:
-	for id in ["sedan", "pickup", "sport", "infinity"]:
+	for id in VehicleDB.ids():
 		var p = VehicleDB.get_params(id)
+		# отсутствие параметров — это провал, а не повод промолчать: молча пропущенная
+		# машина выглядела как зелёный тест
+		check(p != null, "%s: параметры найдены" % id)
 		if p == null: continue
 		var ps: PackedScene = load(p.model)
 		check(ps != null, "%s scene loads" % id)

@@ -1423,12 +1423,14 @@ static func _knock_planter(root: Node3D, x: float, z: float, rot_deg: float) -> 
 
 static func _knock_bench(root: Node3D, x: float, z: float, rot_deg: float) -> RigidBody3D:
 	var v := Node3D.new()
-	var b := Basis(Vector3.UP, deg_to_rad(rot_deg))
+	# Части собираются без поворота: вращение даёт сам корпус (_knock передаёт rot_deg
+	# в body.rotation.y). Сместить части поворотом, не повернув их сами, — спинка и
+	# ножки разъезжаются от доски, а общий габарит раздувается в коробку-«бублик».
 	box_vis(v, Vector3(0, 0.45, 0), Vector3(1.8, 0.08, 0.55), WOOD_COL)
-	box_vis(v, b * Vector3(0, 0.75, -0.24), Vector3(1.8, 0.5, 0.07), WOOD_COL)
+	box_vis(v, Vector3(0, 0.75, -0.24), Vector3(1.8, 0.5, 0.07), WOOD_COL)
 	for sg in [-0.7, 0.7]:
-		box_vis(v, b * Vector3(sg, 0.22, 0), Vector3(0.09, 0.44, 0.5), METAL_COL)
-	return _knock(root, v, Vector3(x, surface_y(x, z), z), 0.0, 45.0)
+		box_vis(v, Vector3(sg, 0.22, 0), Vector3(0.09, 0.44, 0.5), METAL_COL)
+	return _knock(root, v, Vector3(x, surface_y(x, z), z), rot_deg, 45.0)
 
 # Дорожный знак на ножке: лёгкий, но высокий — от удара встаёт на ребро и падает.
 static func _knock_sign(root: Node3D, x: float, z: float, rot_deg: float) -> RigidBody3D:
@@ -1535,13 +1537,13 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 					node = kit(root, "lightColored" if roll == 0 else "lightRed",
 						Vector3(px, 0, pz), 0, true, false)
 				elif roll < 4:
-					_knock_bin(root, px, pz, 0.0)
+					node = _knock_bin(root, px, pz, 0.0)
 				elif roll == 4:
-					_knock_planter(root, px, pz, 0.0)
+					node = _knock_planter(root, px, pz, 0.0)
 				elif roll == 5:
-					_knock_sign(root, px, pz, 0.0)
+					node = _knock_sign(root, px, pz, 0.0)
 				elif roll == 6:
-					_knock_hydrant(root, px, pz, 0.0)
+					node = _knock_hydrant(root, px, pz, 0.0)
 				elif roll == 7:
 					# сбиваемое на тротуаре: конус и пилон летят от бампера, и город
 					# начинает реагировать на машину, а не стоять декорацией
@@ -1567,13 +1569,13 @@ static func _bc_dress(root: Node3D, rng: RandomNumberGenerator, parked: Array[St
 					node = kit(root, "lightRed" if roll == 0 else "lightColored",
 						Vector3(px, 0, pz), 90, true, false)
 				elif roll < 4:
-					_knock_bin(root, px, pz, 90.0)
+					node = _knock_bin(root, px, pz, 90.0)
 				elif roll == 4:
-					_knock_planter(root, px, pz, 90.0)
+					node = _knock_planter(root, px, pz, 90.0)
 				elif roll == 5:
-					_knock_sign(root, px, pz, 90.0)
+					node = _knock_sign(root, px, pz, 90.0)
 				elif roll == 6:
-					_knock_hydrant(root, px, pz, 90.0)
+					node = _knock_hydrant(root, px, pz, 90.0)
 				elif roll == 7:
 					node = loose(root, P + "debris-plate-a.glb", Vector3(px, 0, pz), PROP,
 						rng.randf() * 3.0, 9.0)

@@ -25,6 +25,9 @@ func _ready() -> void:
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(-14.0, 1.0, 0)))
 
 func _physics_process(_dt: float) -> void:
+	# Машина появляется в _ready через await: на реальном рендере это позже кадра 6,
+	# чем в headless. Отсчёт ведём от её появления, иначе тест снимает пустоту.
+	if car == null: return
 	_frame += 1
 	if _frame == 6:
 		var b := car.body

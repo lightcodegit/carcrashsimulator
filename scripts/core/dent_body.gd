@@ -206,10 +206,7 @@ func _subdivide() -> void:
 
 # inward_dir — направление внутрь кузова (по ходу движения машины).
 func apply_impact(world_pos: Vector3, inward_dir: Vector3, speed_kmh: float) -> void:
-	# Кузов без индексов остаётся с заполненным _verts, но без _pristine и _colors
-	# (ранний выход на :165). Обращение к _pristine[i] там ушло бы за край массива,
-	# поэтому «вмятины отключены» проверяется по факту, а не только по предупреждению.
-	if body == null or _verts.size() == 0 or _pristine.size() != _verts.size(): return
+	if body == null or not _pristine_ok(): return
 	var speed := maxf(0.0, speed_kmh) / 3.6
 	var radius := 0.30 + minf(speed, 60.0) * 0.014              # метры
 	var depth := minf(MAX_DEPTH_RATIO * height, speed * 0.010)  # метры
@@ -356,27 +353,36 @@ func vertex_world(i: int) -> Vector3:
 func vertex_pristine_world(i: int) -> Vector3:
 	return global_transform * (_body_xform * _pristine[i])
 
+# Исходная геометрия живёт рядом с рабочей только когда кузов разбит на индексы.
+# Без индексов сборка выходит раньше, чем _pristine заполнен, и любой обход по
+# _pristine[i] ушёл бы за край массива — а reset() к тому же стёр бы всю геометрию.
+func _pristine_ok() -> bool:
+	return _verts.size() > 0 and _pristine.size() == _verts.size()
+
 # Суммарное отклонение от исходной геометрии, в метрах.
 func deformation() -> float:
 	var s := 0.0
+	if not _pristine_ok(): return s
 	for i in _verts.size():
 		s += _verts[i].distance_to(_pristine[i]) / _scale
 	return s
 
 func max_vertex_shift() -> float:
 	var m := 0.0
+	if not _pristine_ok(): return m
 	for i in _verts.size():
 		m = maxf(m, _verts[i].distance_to(_pristine[i]) / _scale)
 	return m
 
 func moved_vertex_count(threshold_m: float) -> int:
 	var n := 0
+	if not _pristine_ok(): return n
 	for i in _verts.size():
 		if _verts[i].distance_to(_pristine[i]) / _scale > threshold_m: n += 1
 	return n
 
 func reset() -> void:
-	if _verts.size() == 0: return
+	if not _pristine_ok(): return
 	_verts = _pristine.duplicate()
 	_colors.fill(Color.WHITE)
 	dent_count = 0; max_depth = 0.0; total_depth = 0.0

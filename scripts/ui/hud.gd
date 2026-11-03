@@ -398,6 +398,11 @@ func reset_run() -> void:
 	_g = 0.0
 	_prev_kmh = 0.0
 	_start_ms = Time.get_ticks_msec()
+	# Журнал ударов переживает рестарт, если его не обнулить: счётчик показывает
+	# «УДАРОВ: 0», а под ним висят строки с прошлыми скоростями и временем.
+	_log.clear()
+	for l in _log_lines:
+		l.text = ""
 
 func set_crash_stats(crashes: int, top: float) -> void:
 	_stat_count.text = "УДАРОВ: %d" % crashes

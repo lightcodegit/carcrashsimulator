@@ -108,9 +108,15 @@ func _ready() -> void:
 	check("ESC" not in overlay, "меню паузы не показывает надписи с клавишами (%s)" % overlay.left(120))
 	# «заново» должна обнулить журнал ударов и снять паузу
 	gm._crashes = 3
+	gm.hud.log_impact(120.0)
+	check(gm.hud._log_lines[0].text != "", "журнал показал удар строкой")
 	gm.hud.pause_button("ЗАПУСТИТЬ ЗАНОВО").emit_signal("pressed")
 	await get_tree().process_frame
 	check(gm._crashes == 0, "пауза: «заново» сбросила журнал")
+	var rows := ""
+	for l in gm.hud._log_lines:
+		rows += l.text
+	check(rows == "", "пауза: «заново» стёрла строки журнала (%s)" % rows.left(40))
 	check(not gm._paused and not get_tree().paused, "пауза: «заново» снимает паузу")
 	check(gm.car.body.dent_count == 0, "пауза: «заново» починила кузов")
 	# «продолжить» не трогает машину: вмятина, полученная до паузы, должна остаться

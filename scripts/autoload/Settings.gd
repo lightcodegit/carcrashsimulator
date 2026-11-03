@@ -172,7 +172,7 @@ func restore_window_geometry() -> void:
 # поэтому прямоугольник опрашивается в _process — сравнение двух Rect2i копеечное.
 func _capture_window() -> void:
 	# В headless окно — фикция нулевого размера, и каждый тестовый прогон записывал
-	# в настоящие настройки игрока w=0 h=0. Развёрнутое окно отдаёт тот же ноль.
+	# в настоящие настройки игрока w=0 h=0. Свёрнутое окно отдаёт тот же ноль.
 	if DisplayServer.get_name() == "headless": return
 	var mode := DisplayServer.window_get_mode()
 	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN: return
@@ -345,7 +345,7 @@ func load_values() -> void:
 		# первым же следующим save: сохраняем копию, чтобы пользователь мог вернуть
 		# свои бинды и настройки руками
 		if err == ERR_PARSE_ERROR and FileAccess.file_exists(FILE):
-			DirAccess.copy_absolute(FILE.replace(".cfg", ""), FILE + ".bad")
+			DirAccess.copy_absolute(FILE, FILE + ".bad")
 		InputRouter.load_keys(cf)
 		return
 	var d := values()

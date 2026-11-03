@@ -45,7 +45,7 @@ const TONEMAPS := [["НЕЙТРАЛЬНЫЙ", Environment.TONE_MAPPER_LINEAR],
 # int здесь остаётся int'ом, а float — float'ом.
 const NUMS := {
 	"vsync": [0, 2], "fps_limit": [0, 300], "shadow_preset": [0, 3], "msaa": [0, 3],
-	"tonemap": [0, 2], "scale": [0.5, 1.0], "skid_life": [0.0, 600.0],
+	"tonemap": [0, 2], "scale": [0.5, 1.0], "skid_life": [0.0, 120.0],
 	"exposure": [0.4, 2.5], "tonemap_white": [1.0, 12.0],
 	"glow_intensity": [0.0, 1.5], "glow_bloom": [0.0, 1.0],
 	"fog_density": [0.0, 0.02], "fog_aerial": [0.0, 1.0], "fog_scatter": [0.0, 1.0],
@@ -345,12 +345,26 @@ func save() -> void:
 	if cf.save(tmp) != OK:
 		push_warning("настройки не записаны: не удалось создать " + tmp)
 		return
-	# rename поверх существующего файла на Windows отказывается работать
-	if FileAccess.file_exists(FILE):
-		DirAccess.remove_absolute(FILE)
-	if DirAccess.rename_absolute(tmp, FILE) != OK:
-		DirAccess.copy_absolute(tmp, FILE)
+	# Прежний файл живёт до тех пор, пока новый не встал на место: порядок
+	# «удалить, потом переименовать» терял настройки ровно в том окне, ради защиты
+	# от которого всё и затевалось.
+	var old := FILE + ".old"
+	var had := FileAccess.file_exists(FILE)
+	if FileAccess.file_exists(old):
+		DirAccess.remove_absolute(old)
+	if had and DirAccess.rename_absolute(FILE, old) != OK:
+		# освобождать цель переименованием не вышло — перетираем копией
+		if DirAccess.copy_absolute(tmp, FILE) != OK:
+			push_warning("настройки не обновлены: цель занята, копия не прошла")
 		DirAccess.remove_absolute(tmp)
+		return
+	if DirAccess.rename_absolute(tmp, FILE) != OK:
+		if had:
+			DirAccess.rename_absolute(old, FILE)
+		push_warning("настройки не обновлены: переименование черновика не удалось")
+		return
+	if had:
+		DirAccess.remove_absolute(old)
 
 # Значение из файла мог написать человек руками или испортить прошлая версия игры:
 # Array у bool-ключа, Dictionary у числового. Прямой bool(raw)/int(raw) на таких

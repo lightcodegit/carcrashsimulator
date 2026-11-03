@@ -206,7 +206,10 @@ func _subdivide() -> void:
 
 # inward_dir — направление внутрь кузова (по ходу движения машины).
 func apply_impact(world_pos: Vector3, inward_dir: Vector3, speed_kmh: float) -> void:
-	if body == null or _verts.size() == 0: return
+	# Кузов без индексов остаётся с заполненным _verts, но без _pristine и _colors
+	# (ранний выход на :165). Обращение к _pristine[i] там ушло бы за край массива,
+	# поэтому «вмятины отключены» проверяется по факту, а не только по предупреждению.
+	if body == null or _verts.size() == 0 or _pristine.size() != _verts.size(): return
 	var speed := maxf(0.0, speed_kmh) / 3.6
 	var radius := 0.30 + minf(speed, 60.0) * 0.014              # метры
 	var depth := minf(MAX_DEPTH_RATIO * height, speed * 0.010)  # метры

@@ -361,6 +361,7 @@ func save() -> void:
 	if DirAccess.rename_absolute(tmp, FILE) != OK:
 		if had:
 			DirAccess.rename_absolute(old, FILE)
+		DirAccess.remove_absolute(tmp)
 		push_warning("настройки не обновлены: переименование черновика не удалось")
 		return
 	if had:
@@ -386,6 +387,11 @@ static func _as_num(raw: Variant, fallback: float) -> float:
 
 func load_values() -> void:
 	var cf := ConfigFile.new()
+	# Если процесс умер между «цель ушла в .old» и «черновик встал на место»,
+	# настройки нет, а единственная копия — тень. Восстанавливаем её ДО всего
+	# остального: иначе первый же save этого заезда стёр бы .old как мусор.
+	if not FileAccess.file_exists(FILE) and FileAccess.file_exists(FILE + ".old"):
+		DirAccess.rename_absolute(FILE + ".old", FILE)
 	# Парсер однопоточный: файл размером с лог встал бы колом на всём старте.
 	# Такой файл — явный мусор, оставляем копию и живём на заводских значениях.
 	if FileAccess.file_exists(FILE):

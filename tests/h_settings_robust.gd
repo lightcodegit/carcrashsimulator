@@ -18,6 +18,7 @@ func _ready() -> void:
 	await _hostile_cfg()
 	await _corrupt_cfg()
 	await _oversized_cfg()
+	await _crash_recovery()
 	await _rebind_collision()
 	await _respawn_state()
 	if _backup != "":
@@ -129,6 +130,24 @@ func _oversized_cfg() -> void:
 		"после save не осталась тень прежнего файла .old")
 	var after := ConfigFile.new()
 	check(after.load(PATH_CFG) == OK, "файл читается после атомарной замены")
+
+func _crash_recovery() -> void:
+	# Состояние после смерти процесса в окне «цель ушла в .old, черновик ещё не
+	# встал»: settings.cfg нет, единственная копия — тень. Первый save этого заезда
+	# раньше удалял .old как пережиток и стирал настройки окончательно.
+	_write("[video]\nfov = 92.0\n")
+	Settings.load_values()
+	var saved := Settings.fov
+	check(is_equal_approx(saved, 92.0), "файл прочитан до симуляции краша (%.1f)" % saved)
+	check(DirAccess.rename_absolute(PATH_CFG, "user://settings.cfg.old") == OK,
+		"симуляция: цель ушла в тень")
+	check(not FileAccess.file_exists(PATH_CFG), "симуляция: settings.cfg отсутствует")
+	Settings.load_values()
+	check(FileAccess.file_exists(PATH_CFG), "тень .old вернула settings.cfg на место")
+	check(is_equal_approx(Settings.fov, saved),
+		"восстановленные значения целые (%.1f против %.1f)" % [Settings.fov, saved])
+	check(not FileAccess.file_exists("user://settings.cfg.old"),
+		"восстановление не оставило висящую тень")
 
 func _rebind_collision() -> void:
 	# конфликт двух НАЗНАЧЕННЫХ игроком биндов: второй забирает клавишу у первого

@@ -11,6 +11,7 @@ extends Node
 signal changed
 
 const FILE := "user://settings.cfg"
+const CFG_MAX_BYTES := 262144
 const SECTION := "video"
 const KEYS_SECTION := "keys"
 # Геометрия окна — не «настройка картинки», а состояние игрока: живёт в своей секции
@@ -138,10 +139,14 @@ func _ready() -> void:
 # не окно, а осколок: Windows не даёт рамке сжаться, а Godot сжимает клиентскую
 # область, и интерфейс пропадает (серое окно с полоской).
 const WIN_MIN := Vector2i(320, 240)
+const WIN_MAX := Vector2i(16384, 16384)
 const WIN_DEFAULT := Vector2i(1600, 900)
 
 static func _win_ok(r: Rect2i) -> bool:
-	return r.size.x >= WIN_MIN.x and r.size.y >= WIN_MIN.y
+	# Верхняя граница тоже нужна: 2 000 000 000 проходит нижнюю, а window_set_size
+	# с таким числом оставляет окно без клиентской области — тот же серый экран.
+	return r.size.x >= WIN_MIN.x and r.size.y >= WIN_MIN.y \
+		and r.size.x <= WIN_MAX.x and r.size.y <= WIN_MAX.y
 
 # Восстановление — ровно один раз на старте: если дёргать размер из apply_window,
 # он воевал бы с каждым пользовательским ресайзом.
@@ -317,7 +322,19 @@ func save() -> void:
 	cf.set_value(WIN_SECTION, "h", _win_rect.size.y)
 	cf.set_value(WIN_SECTION, "max", _win_max)
 	InputRouter.save_keys(cf)
-	cf.save(FILE)
+	# Через временный файл: ConfigFile усекает цель ДО записи, поэтому любая ошибка
+	# диска (кончилось место, файл держит антивирус) стирал бы и настройки, и бинды
+	# — а восстановить их было бы не из чего.
+	var tmp := FILE + ".part"
+	if cf.save(tmp) != OK:
+		push_warning("настройки не записаны: не удалось создать " + tmp)
+		return
+	# rename поверх существующего файла на Windows отказывается работать
+	if FileAccess.file_exists(FILE):
+		DirAccess.remove_absolute(FILE)
+	if DirAccess.rename_absolute(tmp, FILE) != OK:
+		DirAccess.copy_absolute(tmp, FILE)
+		DirAccess.remove_absolute(tmp)
 
 # Значение из файла мог написать человек руками или испортить прошлая версия игры:
 # Array у bool-ключа, Dictionary у числового. Прямой bool(raw)/int(raw) на таких
@@ -339,6 +356,15 @@ static func _as_num(raw: Variant, fallback: float) -> float:
 
 func load_values() -> void:
 	var cf := ConfigFile.new()
+	# Парсер однопоточный: файл размером с лог встал бы колом на всём старте.
+	# Такой файл — явный мусор, оставляем копию и живём на заводских значениях.
+	if FileAccess.file_exists(FILE):
+		var probe := FileAccess.open(FILE, FileAccess.READ)
+		var size := 0 if probe == null else probe.get_length()
+		probe = null
+		if size > CFG_MAX_BYTES:
+			DirAccess.copy_absolute(FILE, FILE + ".bad")
+			return
 	var err := cf.load(FILE)
 	if err != OK:
 		# Полусгоревший файл (дисок кончился посреди save) иначе молча стирается

@@ -222,8 +222,13 @@ static func _decode(tok: String) -> InputEvent:
 	var head := tok.substr(0, 1)
 	var rest := tok.substr(1)
 	if head == "k":
+		var code := int(rest)
+		# Физический код 0 нельзя нажать. Оставить его — значит выдать действию
+		# бинд-призрак: пауза открывается только клавишей, и в заезде игрок остаётся
+		# без выхода до перезапуска процесса.
+		if code <= 0: return null
 		var e := InputEventKey.new()
-		e.physical_keycode = int(rest)
+		e.physical_keycode = code
 		return e
 	if head == "b":
 		var b := InputEventJoypadButton.new()

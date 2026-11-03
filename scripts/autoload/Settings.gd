@@ -134,13 +134,28 @@ func _ready() -> void:
 	apply_window()
 	changed.connect(apply_window)
 
+# Минимальная геометрия, которую вообще стоит помнить и возвращать. Ниже — это уже
+# не окно, а осколок: Windows не даёт рамке сжаться, а Godot сжимает клиентскую
+# область, и интерфейс пропадает (серое окно с полоской).
+const WIN_MIN := Vector2i(320, 240)
+const WIN_DEFAULT := Vector2i(1600, 900)
+
+static func _win_ok(r: Rect2i) -> bool:
+	return r.size.x >= WIN_MIN.x and r.size.y >= WIN_MIN.y
+
 # Восстановление — ровно один раз на старте: если дёргать размер из apply_window,
 # он воевал бы с каждым пользовательским ресайзом.
 func restore_window_geometry() -> void:
 	if fullscreen: return
 	var scr := DisplayServer.screen_get_size()
 	var r := _win_rect
-	if r.size.x < 320 or r.size.y < 240: return
+	if not _win_ok(r):
+		# Ноль мог остаться в файле от прошлой версии. Если и живое окно сжалось
+		# в ноль, игроку показывается серое поле с тонкой полоской интерфейса:
+		# поднимаем заводской размер, иначе чинить нечего.
+		var live := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+		if not _win_ok(live): DisplayServer.window_set_size(WIN_DEFAULT)
+		return
 	if _win_max:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
 		return
@@ -156,11 +171,16 @@ func restore_window_geometry() -> void:
 # и запись затёрла бы настоящую геометрию. У Window нет сигнала о перемещении,
 # поэтому прямоугольник опрашивается в _process — сравнение двух Rect2i копеечное.
 func _capture_window() -> void:
+	# В headless окно — фикция нулевого размера, и каждый тестовый прогон записывал
+	# в настоящие настройки игрока w=0 h=0. Развёрнутое окно отдаёт тот же ноль.
+	if DisplayServer.get_name() == "headless": return
 	var mode := DisplayServer.window_get_mode()
 	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN: return
+	if mode == DisplayServer.WINDOW_MODE_MINIMIZED: return
 	_win_max = mode == DisplayServer.WINDOW_MODE_MAXIMIZED
 	if _win_max: return
 	var r := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+	if not _win_ok(r): return
 	if r == _win_rect: return
 	_win_rect = r
 	_win_save_at = Time.get_ticks_msec() + 500
@@ -233,7 +253,7 @@ func apply_window() -> void:
 		# выход из полноэкранного возвращает на запомненную геометрию, а не на 1600×900
 		DisplayServer.window_set_mode(
 			DisplayServer.WINDOW_MODE_MAXIMIZED if _win_max else DisplayServer.WINDOW_MODE_WINDOWED)
-		if not _win_max:
+		if not _win_max and _win_ok(_win_rect):
 			DisplayServer.window_set_size(_win_rect.size)
 			DisplayServer.window_set_position(_win_rect.position)
 	var w := get_window()
@@ -285,6 +305,12 @@ func save() -> void:
 	var d := values()
 	for key in d:
 		cf.set_value(SECTION, key, d[key])
+	# В файл попадает только осмысленная геометрия. Ноль, однажды записанный (свёрнутое
+	# окно отдаёт 0×0), потом разворачивается в «серое окно с полоской»: рамка у Windows
+	# минимальная, а клиентская область — нет.
+	if not _win_ok(_win_rect):
+		var live := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+		_win_rect = live if _win_ok(live) else Rect2i(Vector2i.ZERO, WIN_DEFAULT)
 	cf.set_value(WIN_SECTION, "x", _win_rect.position.x)
 	cf.set_value(WIN_SECTION, "y", _win_rect.position.y)
 	cf.set_value(WIN_SECTION, "w", _win_rect.size.x)
@@ -346,7 +372,7 @@ func load_values() -> void:
 		var y := int(_as_num(cf.get_value(WIN_SECTION, "y", _win_rect.position.y), 0.0))
 		var w := int(_as_num(cf.get_value(WIN_SECTION, "w", _win_rect.size.x), 0.0))
 		var h := int(_as_num(cf.get_value(WIN_SECTION, "h", _win_rect.size.y), 0.0))
-		if w >= 320 and h >= 240:
+		if _win_ok(Rect2i(x, y, w, h)):
 			_win_rect = Rect2i(x, y, w, h)
 		_win_max = _as_bool(cf.get_value(WIN_SECTION, "max", false), false)
 	InputRouter.load_keys(cf)

@@ -46,6 +46,21 @@ func _hostile_cfg() -> void:
 	check(th.size() > 0, "throttle остался с биндом после {} в файле (%d)" % th.size())
 	var br := InputMap.action_get_events("brake")
 	check(br.size() > 0, "brake остался с биндом после числа в файле (%d)" % br.size())
+	# Геометрия окна: ноль в файле — не размер, а мусор. Хуже того, в headless сам
+	# движок отдаёт окно 0×0, и опрос окна в тестовом прогоне затирал настоящие
+	# настройки игрока (в user://settings.cfg появлялось w=0 h=0).
+	check(Settings._win_ok(Settings._win_rect),
+		"нулевой размер из файла не попал в геометрию (%s)" % str(Settings._win_rect.size))
+	# Принуждаем испорченную геометрию и требуем, чтобы save() её залатал: именно
+	# такой ноль превращает окно в серое поле с тонкой полоской интерфейса.
+	Settings._win_rect = Rect2i(0, 0, 0, 0)
+	Settings.save()
+	var cf := ConfigFile.new()
+	check(cf.load(PATH_CFG) == OK, "файл настроек перечитывается после save")
+	var saved_w := int(cf.get_value("window", "w", 0))
+	var saved_h := int(cf.get_value("window", "h", 0))
+	check(saved_w >= Settings.WIN_MIN.x and saved_h >= Settings.WIN_MIN.y,
+		"в файл записан осмысленный размер окна (%dx%d)" % [saved_w, saved_h])
 	Settings.reset()
 
 func _rebind_collision() -> void:

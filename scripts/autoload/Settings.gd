@@ -138,6 +138,15 @@ func _ready() -> void:
 	apply_window()
 	changed.connect(apply_window)
 
+# Пока игра сидит во встроенной панели редактора, окном владеет редактор: он сам
+# задаёт его размер и двигает его по панели. Движок на наши вызовы отвечает
+# «Embedded window can't be resized.» / «Embedded window only supports Windowed
+# mode.» и молча их отбрасывает (проверено живым запуском с --wid). Значит, нам
+# нельзя ни навязывать геометрию, ни снимать её: снятый с панели прямоугольник
+# уехал бы в cfg и на следующем отдельном старте стал бы размером окна игрока.
+static func owns_window() -> bool:
+	return not Engine.is_embedded_in_editor()
+
 # Минимальная геометрия, которую вообще стоит помнить и возвращать. Ниже — это уже
 # не окно, а осколок: Windows не даёт рамке сжаться, а Godot сжимает клиентскую
 # область, и интерфейс пропадает (серое окно с полоской).
@@ -174,6 +183,7 @@ static func _onscreen(pos: Vector2i, size: Vector2i) -> Vector2i:
 # Восстановление — ровно один раз на старте: если дёргать размер из apply_window,
 # он воевал бы с каждым пользовательским ресайзом.
 func restore_window_geometry() -> void:
+	if not owns_window(): return
 	if fullscreen: return
 	var r := _win_rect
 	if not _win_ok(r):
@@ -198,6 +208,7 @@ func _capture_window() -> void:
 	# В headless окно — фикция нулевого размера, и каждый тестовый прогон записывал
 	# в настоящие настройки игрока w=0 h=0. Свёрнутое окно отдаёт тот же ноль.
 	if DisplayServer.get_name() == "headless": return
+	if not owns_window(): return
 	var mode := DisplayServer.window_get_mode()
 	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN: return
 	if mode == DisplayServer.WINDOW_MODE_MINIMIZED: return
@@ -271,27 +282,32 @@ func apply_window() -> void:
 		VSync.ADAPTIVE: DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ADAPTIVE)
 		_: DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
 	Engine.max_fps = maxi(fps_limit, 0)
-	if fullscreen:
-		if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
-			# Снимаем прямоугольник В МОМЕНТ входа. Опрос кадров отстаёт: ресайз
-			# уходит в ОС асинхронно, и без этого fullscreen возвращал размер,
-			# который был два движения назад (проверено: 900×600 вместо 1280×760).
-			var mode := DisplayServer.window_get_mode()
-			if mode == DisplayServer.WINDOW_MODE_MAXIMIZED:
-				_win_max = true
-			else:
-				var live := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
-				if _win_ok(live):
-					_win_rect = live
-					_win_max = false
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-	elif DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
-		# выход из полноэкранного возвращает на запомненную геометрию, а не на 1600×900
-		DisplayServer.window_set_mode(
-			DisplayServer.WINDOW_MODE_MAXIMIZED if _win_max else DisplayServer.WINDOW_MODE_WINDOWED)
-		if not _win_max and _win_ok(_win_rect):
-			DisplayServer.window_set_size(_win_rect.size)
-			DisplayServer.window_set_position(_onscreen(_win_rect.position, _win_rect.size))
+	# Режим окна меняется только когда окно наше: во встроенном запуске движок
+	# отвергает любую смену режима, кроме оконного. Галка при этом всё равно
+	# запоминается и срабатывает на отдельном окне — об этом игроку говорит
+	# подпись на вкладке «ГРАФИКА», а не молчаливый отказ.
+	if owns_window():
+		if fullscreen:
+			if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+				# Снимаем прямоугольник В МОМЕНТ входа. Опрос кадров отстаёт: ресайз
+				# уходит в ОС асинхронно, и без этого fullscreen возвращал размер,
+				# который был два движения назад (проверено: 900×600 вместо 1280×760).
+				var mode := DisplayServer.window_get_mode()
+				if mode == DisplayServer.WINDOW_MODE_MAXIMIZED:
+					_win_max = true
+				else:
+					var live := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+					if _win_ok(live):
+						_win_rect = live
+						_win_max = false
+				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		elif DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+			# выход из полноэкранного возвращает на запомненную геометрию, а не на 1600×900
+			DisplayServer.window_set_mode(
+				DisplayServer.WINDOW_MODE_MAXIMIZED if _win_max else DisplayServer.WINDOW_MODE_WINDOWED)
+			if not _win_max and _win_ok(_win_rect):
+				DisplayServer.window_set_size(_win_rect.size)
+				DisplayServer.window_set_position(_onscreen(_win_rect.position, _win_rect.size))
 	var w := get_window()
 	if w != null:
 		w.msaa_3d = msaa

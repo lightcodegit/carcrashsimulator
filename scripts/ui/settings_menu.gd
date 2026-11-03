@@ -300,6 +300,16 @@ func _video_page(box: VBoxContainer) -> void:
 		box.add_child(_spacer(14))
 		box.add_child(_section_head(String(sec[0])))
 		box.add_child(_sep())
+		# Галка «полноэкранный» и размер окна в панели редактора молча не работают:
+		# движок отвергает смену режима у встроенного окна. Честнее сказать это
+		# прямо на карточке, чем оставить игрока наедине с несжимаемым чёрным полем.
+		if String(sec[0]) == "ОКНО И КАДР" and not Settings.owns_window():
+			box.add_child(UiTheme.label(
+				"Окно держит редактор: полноэкранный режим и размер действуют на отдельное окно игры",
+				14, UiTheme.DIM))
+			box.add_child(UiTheme.label(
+				"Размер игрового поля в панели редактора задаёт её меню: Фиксированный / Пропорции / Растянуть",
+				14, UiTheme.DIM))
 		for key in sec[1]:
 			box.add_child(_row_for(String(key)))
 

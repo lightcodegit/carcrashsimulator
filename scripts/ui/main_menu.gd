@@ -249,7 +249,7 @@ func _build_ui() -> void:
 	# левая вуаль тянется на всю логическую высоту: при вертикальном аспекте окна
 	# она кончилась бы посередине экрана
 	scrim.set_anchors_preset(Control.PRESET_LEFT_WIDE)
-	scrim.offset_right = 470
+	scrim.offset_right = UiTheme.fx(470.0)
 	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(scrim)
 
@@ -271,44 +271,44 @@ func _build_logo(host: Control) -> void:
 	# логотип: процедурная эмблема (краш-звезда с машиной) + вордмарк из двух
 	# строк — белая «CAR CRASH», янтарный «SIMULATOR», как BEAMNG + .DRIVE
 	var row := HBoxContainer.new()
-	row.position = Vector2(UiTheme.MARGIN - 8, 40)
-	row.add_theme_constant_override("separation", 18)
+	row.position = Vector2(UiTheme.fx(UiTheme.MARGIN - 8), UiTheme.fx(40))
+	row.add_theme_constant_override("separation", UiTheme.px(18))
 	host.add_child(row)
 	var mark := TextureRect.new()
 	mark.texture = load("res://assets/ui/logo_emblem.svg")
-	mark.custom_minimum_size = Vector2(96, 96)
+	mark.custom_minimum_size = Vector2(UiTheme.px(96), UiTheme.px(96))
 	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(mark)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", -10)
+	col.add_theme_constant_override("separation", UiTheme.px(-10))
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(col)
 	# наклонный экстрасмелый: две строки собраны в один блок, вторая — со сдвигом,
 	# как у спортивных брендов; обводка держит буквы на любом фоне городка
 	var l1 := UiTheme.label("CAR CRASH", 46, Color.WHITE, 800)
 	l1.add_theme_font_override("font", UiTheme.sans_font(800, true))
-	l1.add_theme_constant_override("outline_size", 8)
+	l1.add_theme_constant_override("outline_size", UiTheme.px(8))
 	l1.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
 	col.add_child(l1)
 	var l2 := UiTheme.label("SIMULATOR", 40, UiTheme.AMBER, 800)
 	l2.add_theme_font_override("font", UiTheme.sans_font(800, true))
-	l2.add_theme_constant_override("outline_size", 8)
+	l2.add_theme_constant_override("outline_size", UiTheme.px(8))
 	l2.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
-	l2.add_theme_constant_override("margin_left", 60)
+	l2.add_theme_constant_override("margin_left", UiTheme.px(60))
 	col.add_child(l2)
 
 func _build_nav(host: Control) -> void:
 	var box := VBoxContainer.new()
-	box.position = Vector2(UiTheme.MARGIN, 250)
-	box.custom_minimum_size = Vector2(UiTheme.NAV_W, 0)
-	box.add_theme_constant_override("separation", 6)
+	box.position = Vector2(UiTheme.fx(UiTheme.MARGIN), UiTheme.fx(250))
+	box.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
+	box.add_theme_constant_override("separation", UiTheme.px(6))
 	host.add_child(box)
 	var items := ["НАЧАТЬ", "МАШИНЫ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"]
 	for idx in items.size():
 		var b := UiTheme.nav_item(items[idx], idx == 0)
-		b.custom_minimum_size = Vector2(UiTheme.NAV_W, 0)
+		b.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
 		var sec: int = idx
 		b.pressed.connect(func() -> void: _show_section(sec))
 		box.add_child(b)
@@ -326,14 +326,14 @@ func _build_panel(host: Control) -> void:
 	_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_panel.anchor_left = 1.0
 	_panel.anchor_right = 1.0
-	_panel.offset_left = -700; _panel.offset_right = -56
-	_panel.offset_top = 150; _panel.offset_bottom = 560
+	_panel.offset_left = UiTheme.fx(-700); _panel.offset_right = UiTheme.fx(-56)
+	_panel.offset_top = UiTheme.fx(150); _panel.offset_bottom = UiTheme.fx(560)
 	host.add_child(_panel)
 	var holder := Control.new()
 	holder.name = "PanelContent"
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
-	holder.offset_left = 26; holder.offset_right = -26
-	holder.offset_top = 22; holder.offset_bottom = -22
+	holder.offset_left = UiTheme.fx(26); holder.offset_right = UiTheme.fx(-26)
+	holder.offset_top = UiTheme.fx(22); holder.offset_bottom = UiTheme.fx(-22)
 	_panel.add_child(holder)
 
 func _build_footer(host: Control) -> void:
@@ -341,7 +341,7 @@ func _build_footer(host: Control) -> void:
 	# нижний левый угол якорем: на вытянутых по высоте окнах подвал не должен
 	# оставаться на уровне 856 px посередине экрана
 	v.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	v.offset_left = UiTheme.MARGIN; v.offset_top = -44; v.offset_bottom = -24
+	v.offset_left = UiTheme.fx(UiTheme.MARGIN); v.offset_top = UiTheme.fx(-44); v.offset_bottom = UiTheme.fx(-24)
 	host.add_child(v)
 
 # ---- переключение разделов -------------------------------------------------
@@ -378,16 +378,16 @@ func _panel_play() -> void:
 	_kv(s, "МАШИНА", String(CARS[_car_i][0]))
 	var cdesc := UiTheme.label(String(CARS[_car_i][2]).split("\n")[0], 14, UiTheme.DIM)
 	cdesc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	cdesc.custom_minimum_size = Vector2(560, 0)
+	cdesc.custom_minimum_size = Vector2(UiTheme.fx(560), 0)
 	s.add_child(cdesc)
 	_kv(s, "КАРТА", String(MAPS[_map_i][0]))
 	var mdesc := UiTheme.label(String(MAPS[_map_i][2]).replace("\n", " "), 14, UiTheme.DIM)
 	mdesc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	mdesc.custom_minimum_size = Vector2(560, 0)
+	mdesc.custom_minimum_size = Vector2(UiTheme.fx(560), 0)
 	s.add_child(mdesc)
 	s.add_child(_spacer(10))
 	_start_btn = UiTheme.action_button("ЗАПУСТИТЬ СИМУЛЯЦИЮ", 24)
-	_start_btn.custom_minimum_size = Vector2(560, 64)
+	_start_btn.custom_minimum_size = Vector2(UiTheme.fx(560), UiTheme.fx(64))
 	_start_btn.pressed.connect(start_game)
 	s.add_child(_start_btn)
 	s.add_child(_spacer(6))
@@ -409,7 +409,7 @@ func _pick_card(items: Array, i: int, sel: bool, meta_key: String, cb: Callable)
 	card.add_theme_stylebox_override("pressed", UiTheme.card_style(true))
 	card.add_theme_stylebox_override("focus", UiTheme.card_style(true))
 	var spec := row.size() > 3
-	card.custom_minimum_size = Vector2(560, 92 if spec else 72)
+	card.custom_minimum_size = Vector2(UiTheme.fx(560), UiTheme.fx(92 if spec else 72))
 	# высота задана явно: вложенный VBox не участвует в минимальном размере
 	# кнопки (Button меряет только свой text), без этого карточки схлопывались в строку
 	card.set_meta(meta_key, i)
@@ -422,15 +422,15 @@ func _pick_card(items: Array, i: int, sel: bool, meta_key: String, cb: Callable)
 		var accent: Color = row[6]
 		var slom := ColorRect.new()
 		slom.color = Color(accent.r, accent.g, accent.b, 0.92)
-		slom.position = Vector2(16, 16); slom.size = Vector2(5, 56)
+		slom.position = Vector2(UiTheme.fx(16), UiTheme.fx(16)); slom.size = Vector2(UiTheme.fx(5), UiTheme.fx(56))
 		slom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		host.add_child(slom)
 		# левый блок — VBox: свободный Label вне контейнера не сжимается до
 		# заданной ширины (минимальный размер текста распуляет его), и описание
 		# machines залезало на полосы характеристик; контейнер width задаёт насильно
 		var lbox := VBoxContainer.new()
-		lbox.position = Vector2(32, 12); lbox.size = Vector2(296, 70)
-		lbox.add_theme_constant_override("separation", 4)
+		lbox.position = Vector2(UiTheme.fx(32), UiTheme.fx(12)); lbox.size = Vector2(UiTheme.fx(296), UiTheme.fx(70))
+		lbox.add_theme_constant_override("separation", UiTheme.px(4))
 		lbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		host.add_child(lbox)
 		var nm := UiTheme.label(String(row[0]), 21, UiTheme.AMBER_HI if sel else Color.WHITE, 700)
@@ -448,9 +448,9 @@ func _pick_card(items: Array, i: int, sel: bool, meta_key: String, cb: Callable)
 	else:
 		var col := VBoxContainer.new()
 		col.set_anchors_preset(Control.PRESET_FULL_RECT)
-		col.offset_left = 16; col.offset_right = -16
-		col.offset_top = 10; col.offset_bottom = -10
-		col.add_theme_constant_override("separation", 2)
+		col.offset_left = UiTheme.fx(16); col.offset_right = UiTheme.fx(-16)
+		col.offset_top = UiTheme.fx(10); col.offset_bottom = UiTheme.fx(-10)
+		col.add_theme_constant_override("separation", UiTheme.px(2))
 		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		host.add_child(col)
 		var nm2 := UiTheme.label(String(row[0]), 21, UiTheme.AMBER_HI if sel else Color.WHITE, 700)
@@ -463,22 +463,25 @@ func _pick_card(items: Array, i: int, sel: bool, meta_key: String, cb: Callable)
 # Одна строка паспорта машины: подпись, значение и полоса относительно шкалы
 # (за максимум принят лучший показатель ростера, поэтому полосы сравнимы).
 func _stat(host: Control, x: float, y: float, title: String, val: String, t: float) -> void:
+	# все координаты строки паспорта — дизайн-px; ступень применяем один раз здесь
+	var sx := UiTheme.fx(x)
+	var sy := UiTheme.fx(y)
 	var lab := UiTheme.label(title, 11, UiTheme.FAINT, 600)
-	lab.position = Vector2(x, y)
+	lab.position = Vector2(sx, sy)
 	host.add_child(lab)
 	var v := UiTheme.label(val, 11, Color.WHITE, 700)
-	v.position = Vector2(x + 106, y)
-	v.size = Vector2(66, 16)
+	v.position = Vector2(sx + UiTheme.fx(106), sy)
+	v.size = Vector2(UiTheme.fx(66), UiTheme.fx(16))
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	host.add_child(v)
 	var bg := ColorRect.new()
 	bg.color = UiTheme.LINE
-	bg.position = Vector2(x, y + 17); bg.size = Vector2(172, 4)
+	bg.position = Vector2(sx, sy + UiTheme.fx(17)); bg.size = Vector2(UiTheme.fx(172), UiTheme.fx(4))
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(bg)
 	var fill := ColorRect.new()
 	fill.color = UiTheme.AMBER
-	fill.position = Vector2(x, y + 17); fill.size = Vector2(172.0 * t, 4)
+	fill.position = Vector2(sx, sy + UiTheme.fx(17)); fill.size = Vector2(UiTheme.fx(172.0 * t), UiTheme.fx(4))
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(fill)
 
@@ -504,14 +507,14 @@ func _panel_exit() -> void:
 	s.add_child(UiTheme.label("Выйти из Car Crash Simulator?", 18, UiTheme.DIM))
 	s.add_child(_spacer(14))
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
+	row.add_theme_constant_override("separation", UiTheme.px(14))
 	s.add_child(row)
 	var yes := UiTheme.action_button("ВЫЙТИ", 20)
-	yes.custom_minimum_size = Vector2(200, 56)
+	yes.custom_minimum_size = Vector2(UiTheme.fx(200), UiTheme.fx(56))
 	yes.pressed.connect(func() -> void: get_tree().quit())
 	row.add_child(yes)
 	var no := UiTheme.ghost_button("ОСТАТЬСЯ", 18)
-	no.custom_minimum_size = Vector2(160, 56)
+	no.custom_minimum_size = Vector2(UiTheme.fx(160), UiTheme.fx(56))
 	no.pressed.connect(func() -> void: _show_section(Section.PLAY))
 	row.add_child(no)
 
@@ -541,7 +544,7 @@ func _scroller() -> VBoxContainer:
 	_panel.get_node("PanelContent").add_child(sc)
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation", 8)
+	box.add_theme_constant_override("separation", UiTheme.px(8))
 	sc.add_child(box)
 	_cur_sc = sc
 	return box
@@ -551,26 +554,26 @@ func _fit_panel() -> void:
 	if _cur_sc == null: return
 	var box := _cur_sc.get_child(0) as VBoxContainer
 	if box == null: return
-	var need := box.get_combined_minimum_size().y + 44.0
-	_panel.offset_bottom = _panel.offset_top + clampf(need, 220.0, 640.0)
+	var need := box.get_combined_minimum_size().y + UiTheme.fx(44.0)
+	_panel.offset_bottom = _panel.offset_top + clampf(need, UiTheme.fx(220.0), UiTheme.fx(640.0))
 
 func _kv(parent: Node, k: String, v: String) -> void:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", UiTheme.px(12))
 	parent.add_child(row)
 	var kl := UiTheme.label(k, 13, UiTheme.FAINT, 700, true)
-	kl.custom_minimum_size = Vector2(120, 0)
+	kl.custom_minimum_size = Vector2(UiTheme.fx(120), 0)
 	row.add_child(kl)
 	row.add_child(UiTheme.label(v, 20, Color.WHITE, 700))
 
 func _sep() -> Control:
 	var r := ColorRect.new()
 	r.color = UiTheme.LINE
-	r.custom_minimum_size = Vector2(0, 1)
+	r.custom_minimum_size = Vector2(0, UiTheme.fx(1))
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
 
 func _spacer(h: float) -> Control:
 	var c := Control.new()
-	c.custom_minimum_size = Vector2(0, h)
+	c.custom_minimum_size = Vector2(0, UiTheme.fx(h))
 	return c

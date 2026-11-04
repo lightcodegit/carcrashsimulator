@@ -106,10 +106,10 @@ func _ready() -> void:
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 	var head := UiTheme.label("НАСТРОЙКИ", 30, Color.WHITE, 800)
-	head.position = Vector2(UiTheme.MARGIN, 24)
+	head.position = Vector2(UiTheme.fx(UiTheme.MARGIN), UiTheme.fx(24))
 	add_child(head)
 	var hsub := UiTheme.label("всё применяется сразу · файл настроек пишется после тишины", 13, UiTheme.FAINT)
-	hsub.position = Vector2(UiTheme.MARGIN, 62)
+	hsub.position = Vector2(UiTheme.fx(UiTheme.MARGIN), UiTheme.fx(62))
 	add_child(hsub)
 	_build_nav()
 	# содержимое — в панели тем же языком, что карточка разделов главного меню:
@@ -118,13 +118,13 @@ func _ready() -> void:
 	host.name = "Content"
 	host.add_theme_stylebox_override("panel", UiTheme.panel_style(10))
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
-	host.offset_left = UiTheme.CONTENT_X; host.offset_right = -56
-	host.offset_top = 96; host.offset_bottom = -56
+	host.offset_left = UiTheme.fx(UiTheme.CONTENT_X); host.offset_right = UiTheme.fx(-56)
+	host.offset_top = UiTheme.fx(96); host.offset_bottom = UiTheme.fx(-56)
 	add_child(host)
 	var holder := Control.new()
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
-	holder.offset_left = 26; holder.offset_right = -26
-	holder.offset_top = 20; holder.offset_bottom = -20
+	holder.offset_left = UiTheme.fx(26); holder.offset_right = UiTheme.fx(-26)
+	holder.offset_top = UiTheme.fx(20); holder.offset_bottom = UiTheme.fx(-20)
 	host.add_child(holder)
 	var builders := ["_quality_page", "_video_page", "_camera_page", "_controls_page"]
 	for i in builders.size():
@@ -136,14 +136,14 @@ func _ready() -> void:
 		_style_scrollbar(sc)
 		var box := VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		box.add_theme_constant_override("separation", 8)
+		box.add_theme_constant_override("separation", UiTheme.px(8))
 		sc.add_child(box)
 		_pages.append(sc)
 		call(builders[i], box)
 	_capture_label = UiTheme.label("", 15, UiTheme.AMBER, 500, true)
 	_capture_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_capture_label.offset_left = UiTheme.CONTENT_X
-	_capture_label.offset_top = -40; _capture_label.offset_bottom = -10
+	_capture_label.offset_left = UiTheme.fx(UiTheme.CONTENT_X)
+	_capture_label.offset_top = UiTheme.fx(-40); _capture_label.offset_bottom = UiTheme.fx(-10)
 	add_child(_capture_label)
 
 # Родная полоса прокрутки — серое чужеродное пятно из дефолтной темы: фон гасим,
@@ -164,14 +164,14 @@ func _style_scrollbar(sc: ScrollContainer) -> void:
 
 func _build_nav() -> void:
 	var box := VBoxContainer.new()
-	box.position = Vector2(UiTheme.MARGIN, 120)
-	box.custom_minimum_size = Vector2(UiTheme.NAV_W, 0)
-	box.add_theme_constant_override("separation", 6)
+	box.position = Vector2(UiTheme.fx(UiTheme.MARGIN), UiTheme.fx(120))
+	box.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
+	box.add_theme_constant_override("separation", UiTheme.px(6))
 	add_child(box)
 	var names := ["КАЧЕСТВО", "ГРАФИКА", "КАМЕРА", "УПРАВЛЕНИЕ"]
 	for i in names.size():
 		var b := UiTheme.nav_item(names[i])
-		b.custom_minimum_size = Vector2(UiTheme.NAV_W, 0)
+		b.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
 		var idx := i
 		b.pressed.connect(_show_tab.bind(idx))
 		box.add_child(b)
@@ -180,16 +180,16 @@ func _build_nav() -> void:
 	# нижний левый угол: на вытянутых по высоте окнах кнопки не должны висеть
 	# на уровне 700 px посередине экрана
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	bottom.offset_left = UiTheme.MARGIN
-	bottom.offset_top = -206; bottom.offset_bottom = -104
-	bottom.add_theme_constant_override("separation", 10)
+	bottom.offset_left = UiTheme.fx(UiTheme.MARGIN)
+	bottom.offset_top = UiTheme.fx(-206); bottom.offset_bottom = UiTheme.fx(-104)
+	bottom.add_theme_constant_override("separation", UiTheme.px(10))
 	add_child(bottom)
 	# выход — главное действие экрана, ему идёт янтарная кнопка из action_style;
 	# сброс остаётся призраком, но с рамкой: без неё он выглядел просто подписью
 	# (flat у ghost-кнопки молча глотает normal-стильбокс — тот же кворк, что в навигации)
 	var reset := UiTheme.ghost_button("СБРОСИТЬ ВСЁ")
 	reset.flat = false
-	reset.custom_minimum_size = Vector2(280, 46)
+	reset.custom_minimum_size = Vector2(UiTheme.fx(280), UiTheme.fx(46))
 	var rsb := UiTheme.card_style(false)
 	rsb.content_margin_top = 12; rsb.content_margin_bottom = 12
 	reset.add_theme_stylebox_override("normal", rsb)
@@ -198,7 +198,7 @@ func _build_nav() -> void:
 		refresh())
 	bottom.add_child(reset)
 	var closeb := UiTheme.action_button("ЗАКРЫТЬ", 16)
-	closeb.custom_minimum_size = Vector2(280, 46)
+	closeb.custom_minimum_size = Vector2(UiTheme.fx(280), UiTheme.fx(46))
 	closeb.pressed.connect(func() -> void: closed.emit())
 	bottom.add_child(closeb)
 
@@ -238,14 +238,14 @@ func _quality_page(box: VBoxContainer) -> void:
 	box.add_child(_sep())
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 14)
+	grid.add_theme_constant_override("h_separation", UiTheme.px(14))
+	grid.add_theme_constant_override("v_separation", UiTheme.px(14))
 	box.add_child(grid)
 	for i in PRESET_CARDS.size():
 		var c := Button.new()
 		c.text = ""
 		c.focus_mode = Control.FOCUS_ALL
-		c.custom_minimum_size = Vector2(500, 108)
+		c.custom_minimum_size = Vector2(UiTheme.fx(500), UiTheme.fx(108))
 		c.add_theme_stylebox_override("normal", UiTheme.card_style(false))
 		c.add_theme_stylebox_override("hover", UiTheme.card_style(true))
 		c.add_theme_stylebox_override("pressed", UiTheme.card_style(true))
@@ -254,10 +254,10 @@ func _quality_page(box: VBoxContainer) -> void:
 		# имя пресета, цена кадра и что в него входит
 		var col := VBoxContainer.new()
 		col.set_anchors_preset(Control.PRESET_FULL_RECT)
-		col.offset_left = 18; col.offset_right = -18
-		col.offset_top = 12; col.offset_bottom = -12
+		col.offset_left = UiTheme.fx(18); col.offset_right = UiTheme.fx(-18)
+		col.offset_top = UiTheme.fx(12); col.offset_bottom = UiTheme.fx(-12)
 		col.alignment = BoxContainer.ALIGNMENT_CENTER
-		col.add_theme_constant_override("separation", 3)
+		col.add_theme_constant_override("separation", UiTheme.px(3))
 		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.add_child(col)
 		var t := UiTheme.label(String(PRESET_CARDS[i][0]), 19, Color.WHITE, 800)
@@ -337,15 +337,15 @@ func _row_for(key: String) -> Control:
 
 func _option_row(o: Array) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", UiTheme.px(12))
 	row.add_theme_stylebox_override("panel", _rowline())
 	row.set_meta("tier", int(o[4]))
 	var lab := UiTheme.label(String(o[1]), 16, UiTheme.TEXT, 500)
-	lab.custom_minimum_size = Vector2(400, 0)
+	lab.custom_minimum_size = Vector2(UiTheme.fx(400), UiTheme.fx(0))
 	lab.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lab)
 	var opt := OptionButton.new()
-	opt.custom_minimum_size = Vector2(320, 36)
+	opt.custom_minimum_size = Vector2(UiTheme.fx(320), UiTheme.fx(36))
 	opt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for l in o[2]: opt.add_item(l)
 	opt.set_meta("key", String(o[0]))
@@ -376,24 +376,24 @@ func _slider_row(sl: Array) -> Control:
 	var key: String = sl[0]
 	var mul: float = float(sl[6])
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", UiTheme.px(12))
 	row.add_theme_stylebox_override("panel", _rowline())
 	row.set_meta("tier", int(sl[7]))
 	var lab := UiTheme.label(String(sl[1]), 16, UiTheme.TEXT, 500)
-	lab.custom_minimum_size = Vector2(400, 0)
+	lab.custom_minimum_size = Vector2(UiTheme.fx(400), UiTheme.fx(0))
 	lab.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lab)
 	var s := HSlider.new()
 	s.min_value = float(sl[2]) * mul
 	s.max_value = float(sl[3]) * mul
 	s.step = float(sl[4]) * mul
-	s.custom_minimum_size = Vector2(420, 24)
+	s.custom_minimum_size = Vector2(UiTheme.fx(420), UiTheme.fx(24))
 	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	s.focus_mode = Control.FOCUS_ALL
 	UiTheme.style_slider(s)
 	row.add_child(s)
 	var val := UiTheme.label("", 15, UiTheme.DIM, 500, true)
-	val.custom_minimum_size = Vector2(90, 0)
+	val.custom_minimum_size = Vector2(UiTheme.fx(90), UiTheme.fx(0))
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	val.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(val)
@@ -425,15 +425,15 @@ func _controls_page(box: VBoxContainer) -> void:
 		"и наоборот. Нажмите клетку и клавишу/кнопку — назначение впишется в свой столбец.",
 		14, UiTheme.DIM))
 	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 10)
+	head.add_theme_constant_override("separation", UiTheme.px(10))
 	for t in [["ДЕЙСТВИЕ", 300.0], ["КЛАВИАТУРА", 280.0], ["ГЕЙМПАД", 280.0]]:
 		var hl := UiTheme.label(String(t[0]), 13, UiTheme.FAINT, 700, true)
-		hl.custom_minimum_size = Vector2(float(t[1]), 0)
+		hl.custom_minimum_size = Vector2(UiTheme.fx(float(t[1])), 0)
 		if String(t[0]) == "ДЕЙСТВИЕ": hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(hl)
 	# хедер шире на ширину «СБРОС» в строках — столбцы совпадают
 	var head_pad := Control.new()
-	head_pad.custom_minimum_size = Vector2(90, 0)
+	head_pad.custom_minimum_size = Vector2(UiTheme.fx(90), UiTheme.fx(0))
 	head.add_child(head_pad)
 	box.add_child(head)
 	# Список берём из раскладки, а не из подписей: новое действие обязано появиться
@@ -443,9 +443,9 @@ func _controls_page(box: VBoxContainer) -> void:
 
 func _key_row(action: String) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", UiTheme.px(10))
 	var lab := UiTheme.label(String(ACTION_NAMES.get(action, action.to_upper())), 16, UiTheme.TEXT, 600)
-	lab.custom_minimum_size = Vector2(300, 0)
+	lab.custom_minimum_size = Vector2(UiTheme.fx(300), UiTheme.fx(0))
 	# колонка действия съедает всё лишнее: тогда клетки и «СБРОС» стоят
 	# на одном месте во всех строках таблицы
 	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -456,9 +456,9 @@ func _key_row(action: String) -> Control:
 		var b := Button.new()
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.focus_mode = Control.FOCUS_ALL
-		b.custom_minimum_size = Vector2(280, 40)
+		b.custom_minimum_size = Vector2(UiTheme.fx(280), UiTheme.fx(40))
 		b.add_theme_font_override("font", UiTheme.mono_font())
-		b.add_theme_font_size_override("font_size", 15)
+		b.add_theme_font_size_override("font_size", UiTheme.px(15))
 		b.add_theme_color_override("font_color", UiTheme.TEXT)
 		b.add_theme_color_override("font_hover_color", Color.WHITE)
 		b.add_theme_color_override("font_focus_color", Color.WHITE)
@@ -472,7 +472,7 @@ func _key_row(action: String) -> Control:
 		pair.append(b)
 	_bind_btns[action] = pair
 	var clr := UiTheme.ghost_button("СБРОС", 13)
-	clr.custom_minimum_size = Vector2(90, 40)
+	clr.custom_minimum_size = Vector2(UiTheme.fx(90), UiTheme.fx(40))
 	clr.pressed.connect(func() -> void:
 		InputRouter.clear_binding(action)
 		refresh())
@@ -619,10 +619,10 @@ func _all_of(cls: String) -> Array[Control]:
 
 func _section_head(text: String) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", UiTheme.px(8))
 	var tick := ColorRect.new()
 	tick.color = UiTheme.AMBER
-	tick.custom_minimum_size = Vector2(3, 16)
+	tick.custom_minimum_size = Vector2(UiTheme.fx(3), UiTheme.fx(16))
 	tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(tick)
 	row.add_child(UiTheme.label(text, 15, UiTheme.AMBER, 700))
@@ -631,7 +631,7 @@ func _section_head(text: String) -> Control:
 func _sep() -> Control:
 	var r := ColorRect.new()
 	r.color = UiTheme.LINE
-	r.custom_minimum_size = Vector2(0, 1)
+	r.custom_minimum_size = Vector2(UiTheme.fx(0), UiTheme.fx(1))
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
 
@@ -646,5 +646,5 @@ func _rowline() -> StyleBoxFlat:
 
 func _spacer(h: float) -> Control:
 	var c := Control.new()
-	c.custom_minimum_size = Vector2(0, h)
+	c.custom_minimum_size = Vector2(0, UiTheme.fx(h))
 	return c

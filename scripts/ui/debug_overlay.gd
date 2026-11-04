@@ -29,7 +29,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
 	position = Vector2(24, 196)
-	custom_minimum_size = Vector2(372, 236)
+	custom_minimum_size = Vector2(UiTheme.fx(372), UiTheme.fx(236))
 	size = Vector2(372, 236)
 	var panel := Panel.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -37,8 +37,8 @@ func _ready() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(panel)
 	_label = UiTheme.label("", 14, Color(0.86, 0.9, 0.95), 500, true)
-	_label.position = Vector2(12, 10)
-	_label.size = Vector2(348, 216)
+	_label.position = Vector2(UiTheme.fx(12), UiTheme.fx(10))
+	_label.size = Vector2(UiTheme.fx(348), UiTheme.fx(216))
 	_label.clip_text = true
 	add_child(_label)
 	_redraw()

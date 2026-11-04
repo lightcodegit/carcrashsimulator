@@ -30,6 +30,7 @@ func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
 func _ready() -> void:
+	get_window().size = Vector2i(1600, 900)
 	await get_tree().process_frame
 	var vis := get_viewport().get_visible_rect().size
 	VW = vis.x; VH = vis.y

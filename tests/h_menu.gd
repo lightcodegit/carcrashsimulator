@@ -35,6 +35,9 @@ func _ui_root() -> Control:
 	return null
 
 func _ready() -> void:
+	# headless-окно — 64×64 (с 2D-масштабированием движок подставлял вместо него
+	# квадрат 1600×1600, и тесты мерили не то, что видит игрок). Сетку задаём явно.
+	get_window().size = Vector2i(1600, 900)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mm = load("res://scenes/main_menu.tscn").instantiate()
 	add_child(mm)

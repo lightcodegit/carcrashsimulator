@@ -15,6 +15,7 @@ func _key(code: int) -> void:
 	get_viewport().push_input(ev)
 
 func _ready() -> void:
+	get_window().size = Vector2i(1600, 900)
 	await get_tree().process_frame
 	GameContext.select("sedan", "arena")
 	gm = load("res://scenes/game.tscn").instantiate()

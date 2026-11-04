@@ -12,6 +12,7 @@ func check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	get_window().size = Vector2i(1600, 900)
 	Settings.debug_mode = true
 	GameContext.select("sedan", "arena")
 	gm = load("res://scenes/game.tscn").instantiate()

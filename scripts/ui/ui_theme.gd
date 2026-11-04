@@ -24,10 +24,33 @@ const OK := Color(0.42, 0.88, 0.55)
 const WARN := Color(0.96, 0.74, 0.24)
 const BAD := Color(0.95, 0.32, 0.24)
 
-const MARGIN := 64.0         # левый край навигации на всех экранах
-const NAV_W := 300.0         # ширина колонки навигации
+const MARGIN := 64.0         # левый край навигации на всех экранах (дизайн-px)
+const NAV_W := 300.0         # ширина колонки навигации (дизайн-px)
 const CONTENT_X := 420.0     # левый край контента (за навигацией)
 const RHYTHM := 8.0          # базовый шаг вертикальных отступов
+
+# Ступень интерфейса. Дробный коэффициент движок отдаёт передёргиванием уже
+# отрисованных глифов (замерено: и 1.2×, и точные 2× мыльнее нативных), поэтому
+# интерфейс растёт целыми ступенями и own числами раскладки, а не трансформом.
+# Ступень замеряется один раз на первом же построении UI: переезд через границу
+# посреди сессии не должен оставить часть панелей в одном масштабе.
+static var _step := 0
+
+static func step() -> int:
+	if _step == 0:
+		# высота ЭКРАНА, а не окна: игрок с 4K-монитором стартует в окне 1600×900
+		# и по размеру окна получил бы первую ступень навсегда
+		_step = 2 if DisplayServer.screen_get_size().y >= 1700 else 1
+	return _step
+
+static func force_step(v: int) -> void:
+	_step = v
+
+static func px(v: int) -> int:
+	return v * step()
+
+static func fx(v: float) -> float:
+	return v * float(step())
 
 # ---------------------------------------------------------------- шрифты
 static var _sans_cache := {}
@@ -59,7 +82,7 @@ static func label(text: String, size_px: int, color: Color, weight := 400, mono 
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_override("font", mono_font(weight) if mono else sans_font(weight))
-	l.add_theme_font_size_override("font_size", size_px)
+	l.add_theme_font_size_override("font_size", px(size_px))
 	l.add_theme_color_override("font_color", color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
@@ -71,11 +94,11 @@ static func label(text: String, size_px: int, color: Color, weight := 400, mono 
 static func nav_style(selected: bool) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(0, 0, 0, 0)
-	s.border_width_left = 3
+	s.border_width_left = px(3)
 	s.border_color = AMBER if selected else Color(0, 0, 0, 0)
-	s.corner_radius_top_right = 4; s.corner_radius_bottom_right = 4
-	s.content_margin_left = 23
-	s.content_margin_top = 11; s.content_margin_bottom = 11
+	s.corner_radius_top_right = px(4); s.corner_radius_bottom_right = px(4)
+	s.content_margin_left = px(23)
+	s.content_margin_top = px(11); s.content_margin_bottom = px(11)
 	return s
 
 static func nav_item(text: String, big := false) -> Button:
@@ -88,8 +111,8 @@ static func nav_item(text: String, big := false) -> Button:
 	b.focus_mode = Control.FOCUS_ALL
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	var empty := StyleBoxEmpty.new()
-	empty.content_margin_left = 26
-	empty.content_margin_top = 11; empty.content_margin_bottom = 11
+	empty.content_margin_left = px(26)
+	empty.content_margin_top = px(11); empty.content_margin_bottom = px(11)
 	var lit := nav_style(true)
 	var hov := nav_style(false)
 	hov.border_color = AMBER_SOFT
@@ -99,7 +122,7 @@ static func nav_item(text: String, big := false) -> Button:
 	b.add_theme_stylebox_override("focus", hov)
 	b.add_theme_stylebox_override("disabled", empty)
 	b.add_theme_font_override("font", sans_font(600))
-	b.add_theme_font_size_override("font_size", 26 if big else 20)
+	b.add_theme_font_size_override("font_size", px(26 if big else 20))
 	b.add_theme_color_override("font_color", TEXT)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_pressed_color", Color.WHITE)
@@ -130,35 +153,35 @@ static func nav_mark_active(b: Button, active: bool) -> void:
 static func card_style(selected: bool) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(0.20, 0.15, 0.06, 0.97) if selected else PANEL_CARD
-	s.set_border_width_all(2 if selected else 1)
+	s.set_border_width_all(px(2 if selected else 1))
 	s.border_color = AMBER if selected else LINE
-	s.set_corner_radius_all(8)
-	s.content_margin_left = 18; s.content_margin_right = 18
-	s.content_margin_top = 12; s.content_margin_bottom = 12
+	s.set_corner_radius_all(px(8))
+	s.content_margin_left = px(18); s.content_margin_right = px(18)
+	s.content_margin_top = px(12); s.content_margin_bottom = px(12)
 	if selected:
 		s.shadow_color = Color(0.96, 0.62, 0.13, 0.18)
-		s.shadow_size = 6
+		s.shadow_size = px(6)
 	return s
 
 # ---------------------------------------------------------------- кнопки
 static func action_style() -> Dictionary:
 	var norm := StyleBoxFlat.new()
 	norm.bg_color = Color(0.86, 0.55, 0.10, 0.97)
-	norm.set_corner_radius_all(8)
-	norm.set_border_width_all(1)
+	norm.set_corner_radius_all(px(8))
+	norm.set_border_width_all(px(1))
 	norm.border_color = AMBER_DEEP
-	norm.border_width_bottom = 3
-	norm.content_margin_left = 24; norm.content_margin_right = 24
-	norm.content_margin_top = 14; norm.content_margin_bottom = 14
+	norm.border_width_bottom = px(3)
+	norm.content_margin_left = px(24); norm.content_margin_right = px(24)
+	norm.content_margin_top = px(14); norm.content_margin_bottom = px(14)
 	var hover := norm.duplicate() as StyleBoxFlat
 	hover.bg_color = AMBER
 	hover.border_color = AMBER_DEEP
 	hover.shadow_color = Color(0.96, 0.62, 0.13, 0.25)
-	hover.shadow_size = 8
+	hover.shadow_size = px(8)
 	var pressed := norm.duplicate() as StyleBoxFlat
 	pressed.bg_color = AMBER_DEEP
-	pressed.border_width_bottom = 1
-	pressed.content_margin_top = 16; pressed.content_margin_bottom = 12
+	pressed.border_width_bottom = px(1)
+	pressed.content_margin_top = px(16); pressed.content_margin_bottom = px(12)
 	return {"normal": norm, "hover": hover, "pressed": pressed, "focus": hover, "disabled": norm}
 
 static func action_button(text: String, size_px := 22) -> Button:
@@ -166,7 +189,7 @@ static func action_button(text: String, size_px := 22) -> Button:
 	b.text = text
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_override("font", sans_font(700))
-	b.add_theme_font_size_override("font_size", size_px)
+	b.add_theme_font_size_override("font_size", px(size_px))
 	b.add_theme_color_override("font_color", Color(0.07, 0.05, 0.02))
 	b.add_theme_color_override("font_hover_color", Color.BLACK)
 	b.add_theme_color_override("font_pressed_color", Color.WHITE)
@@ -181,17 +204,17 @@ static func ghost_button(text: String, size_px := 16) -> Button:
 	b.flat = true
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_override("font", sans_font(600))
-	b.add_theme_font_size_override("font_size", size_px)
+	b.add_theme_font_size_override("font_size", px(size_px))
 	b.add_theme_color_override("font_color", DIM)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_pressed_color", AMBER)
 	b.add_theme_color_override("font_focus_color", Color.WHITE)
 	var norm := StyleBoxFlat.new()
-	norm.set_corner_radius_all(6)
-	norm.set_border_width_all(1)
+	norm.set_corner_radius_all(px(6))
+	norm.set_border_width_all(px(1))
 	norm.border_color = Color(0, 0, 0, 0)
-	norm.content_margin_left = 14; norm.content_margin_right = 14
-	norm.content_margin_top = 8; norm.content_margin_bottom = 8
+	norm.content_margin_left = px(14); norm.content_margin_right = px(14)
+	norm.content_margin_top = px(8); norm.content_margin_bottom = px(8)
 	var sel := norm.duplicate() as StyleBoxFlat
 	sel.bg_color = PANEL_HOVER
 	sel.border_color = AMBER_SOFT
@@ -222,28 +245,31 @@ static func _dist_seg(p: Vector2, a: Vector2, b: Vector2) -> float:
 	return (p - (a + ab * t)).length()
 
 static func check_tex(checked: bool) -> ImageTexture:
-	var key := "check%d" % int(checked)
+	var sz := px(22)
+	var key := "check%d_%d" % [int(checked), sz]
 	if _tex_cache.has(key): return _tex_cache[key]
-	var sz := 22
+	# вся геометрия рисуется в единицах базовых 22 px: на ступени 2× квадратик
+	# остаётся той же формы, просто в два раза больше пикселей
+	var u := float(sz) / 22.0
 	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	for y in sz:
 		for x in sz:
 			var p := Vector2(x, y) + Vector2(0.5, 0.5)
-			var a := _rounded_rect_alpha(p, float(sz), 5.0)
+			var a := _rounded_rect_alpha(p, float(sz), 5.0 * u)
 			if a <= 0.0: continue
 			if checked:
 				# янтарный квадрат + белая галочка
 				var col := AMBER
-				var d1 := _dist_seg(p, Vector2(5.5, 11.5), Vector2(9.5, 15.5))
-				var d2 := _dist_seg(p, Vector2(9.5, 15.5), Vector2(17.0, 6.5))
-				if minf(d1, d2) < 2.4: col = Color(0.98, 0.98, 1.0)
+				var d1 := _dist_seg(p, Vector2(5.5, 11.5) * u, Vector2(9.5, 15.5) * u)
+				var d2 := _dist_seg(p, Vector2(9.5, 15.5) * u, Vector2(17.0, 6.5) * u)
+				if minf(d1, d2) < 2.4 * u: col = Color(0.98, 0.98, 1.0)
 				img.set_pixel(x, y, Color(col.r, col.g, col.b, a))
 			else:
 				# рамка — кольцо фиксированной толщины: внутренний прямоугольник
 				# с тем же скруглением, что внешний минус отступ, иначе на углах
 				# «рамка» расходилась пятном и квадратик выглядел обрезанным
-				var inner := _rounded_rect_alpha(p - Vector2(1.5, 1.5), float(sz) - 3.0, 3.5)
+				var inner := _rounded_rect_alpha(p - Vector2(1.5, 1.5) * u, float(sz) - 3.0 * u, 3.5 * u)
 				var col := Color(0.07, 0.075, 0.09, 0.95 * a) if inner >= 0.5 \
 					else Color(0.72, 0.76, 0.82, 0.9 * a)
 				img.set_pixel(x, y, col)
@@ -252,8 +278,10 @@ static func check_tex(checked: bool) -> ImageTexture:
 	return tex
 
 static func knob_tex() -> ImageTexture:
-	if _tex_cache.has("knob"): return _tex_cache["knob"]
-	var sz := 24
+	var sz := px(24)
+	var key := "knob_%d" % sz
+	if _tex_cache.has(key): return _tex_cache[key]
+	var u := float(sz) / 24.0
 	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var c := Vector2(sz * 0.5, sz * 0.5)
@@ -261,19 +289,19 @@ static func knob_tex() -> ImageTexture:
 		for x in sz:
 			var p := Vector2(x, y) + Vector2(0.5, 0.5)
 			var d := p.distance_to(c)
-			if d > 10.0: continue
-			var a := clampf(10.0 - d, 0.0, 1.0)
+			if d > 10.0 * u: continue
+			var a := clampf(10.0 * u - d, 0.0, 1.0)
 			var col := Color(0.93, 0.94, 0.96)
-			if d > 8.6: col = Color(0.10, 0.105, 0.13)          # тёмный ободок
-			elif d < 3.2: col = AMBER                            # янтарная сердцевина
+			if d > 8.6 * u: col = Color(0.10, 0.105, 0.13)      # тёмный ободок
+			elif d < 3.2 * u: col = AMBER                        # янтарная сердцевина
 			img.set_pixel(x, y, Color(col.r, col.g, col.b, a))
 	var tex := ImageTexture.create_from_image(img)
-	_tex_cache["knob"] = tex
+	_tex_cache[key] = tex
 	return tex
 
 static func style_check(c: CheckBox) -> void:
 	c.add_theme_font_override("font", sans_font(500))
-	c.add_theme_font_size_override("font_size", 16)
+	c.add_theme_font_size_override("font_size", px(16))
 	c.add_theme_color_override("font_color", TEXT)
 	c.add_theme_color_override("font_hover_color", Color.WHITE)
 	c.add_theme_color_override("font_pressed_color", AMBER)
@@ -288,18 +316,18 @@ static func style_check(c: CheckBox) -> void:
 static func style_slider(s: HSlider) -> void:
 	var groove := StyleBoxFlat.new()
 	groove.bg_color = Color(1, 1, 1, 0.10)
-	groove.set_corner_radius_all(3)
-	groove.set_border_width_all(1)
+	groove.set_corner_radius_all(px(3))
+	groove.set_border_width_all(px(1))
 	groove.border_color = Color(1, 1, 1, 0.06)
-	groove.content_margin_top = 4; groove.content_margin_bottom = 4
+	groove.content_margin_top = px(4); groove.content_margin_bottom = px(4)
 	s.add_theme_stylebox_override("slider", groove)
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = AMBER
-	fill.set_corner_radius_all(3)
+	fill.set_corner_radius_all(px(3))
 	s.add_theme_stylebox_override("grabber_area", fill)
 	var fill_hi := StyleBoxFlat.new()
 	fill_hi.bg_color = AMBER_HI
-	fill_hi.set_corner_radius_all(3)
+	fill_hi.set_corner_radius_all(px(3))
 	s.add_theme_stylebox_override("grabber_area_highlight", fill_hi)
 	s.add_theme_icon_override("grabber", knob_tex())
 	s.add_theme_icon_override("grabber_highlight", knob_tex())
@@ -307,11 +335,11 @@ static func style_slider(s: HSlider) -> void:
 static func style_option(o: OptionButton) -> void:
 	var norm := StyleBoxFlat.new()
 	norm.bg_color = PANEL_CARD
-	norm.set_border_width_all(1)
+	norm.set_border_width_all(px(1))
 	norm.border_color = LINE
-	norm.set_corner_radius_all(6)
-	norm.content_margin_left = 14; norm.content_margin_right = 14
-	norm.content_margin_top = 7; norm.content_margin_bottom = 7
+	norm.set_corner_radius_all(px(6))
+	norm.content_margin_left = px(14); norm.content_margin_right = px(14)
+	norm.content_margin_top = px(7); norm.content_margin_bottom = px(7)
 	var sel := norm.duplicate() as StyleBoxFlat
 	sel.border_color = AMBER
 	sel.bg_color = Color(0.16, 0.13, 0.08, 0.97)
@@ -320,17 +348,17 @@ static func style_option(o: OptionButton) -> void:
 	o.add_theme_stylebox_override("pressed", sel)
 	o.add_theme_stylebox_override("focus", sel)
 	o.add_theme_font_override("font", sans_font(600))
-	o.add_theme_font_size_override("font_size", 16)
+	o.add_theme_font_size_override("font_size", px(16))
 	o.add_theme_color_override("font_color", TEXT)
 
 static func panel_style(corner := 10) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = PANEL
-	s.set_border_width_all(1)
+	s.set_border_width_all(px(1))
 	s.border_color = LINE
-	s.set_corner_radius_all(corner)
+	s.set_corner_radius_all(px(corner))
 	s.shadow_color = Color(0, 0, 0, 0.35)
-	s.shadow_size = 12
-	s.content_margin_left = 18; s.content_margin_right = 18
-	s.content_margin_top = 14; s.content_margin_bottom = 14
+	s.shadow_size = px(12)
+	s.content_margin_left = px(18); s.content_margin_right = px(18)
+	s.content_margin_top = px(14); s.content_margin_bottom = px(14)
 	return s

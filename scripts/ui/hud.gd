@@ -161,10 +161,10 @@ func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE, weight := 50
 	var l := Label.new()
 	l.position = pos
 	l.add_theme_font_override("font", UiTheme.sans_font(weight))
-	l.add_theme_font_size_override("font_size", size_px)
+	l.add_theme_font_size_override("font_size", UiTheme.px(size_px))
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
-	l.add_theme_constant_override("outline_size", 4)
+	l.add_theme_constant_override("outline_size", UiTheme.px(4))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -173,7 +173,7 @@ func _row(panel: Control, y: float, title: String) -> Label:
 	t.text = title
 	panel.add_child(t)
 	var v := _label(Vector2(0, y - 2), 16, Color.WHITE, 700)
-	v.size = Vector2(panel.size.x - 28, 22)
+	v.size = Vector2(panel.size.x - UiTheme.fx(28), UiTheme.fx(22))
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(v)
 	_rows.append(t)
@@ -182,7 +182,7 @@ func _row(panel: Control, y: float, title: String) -> Label:
 # Подпись шкалы слева и её процент справа, над самой полосой.
 func _caption(panel: Control, y: float, title: String) -> Label:
 	var v := _label(Vector2(0, y - 2), 12, DIM, 600)
-	v.size = Vector2(panel.size.x - 28, 18)
+	v.size = Vector2(panel.size.x - UiTheme.fx(28), UiTheme.fx(18))
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(v)
 	var t := _label(Vector2(14, y), 12, DIM, 600)
@@ -195,8 +195,8 @@ func _caption(panel: Control, y: float, title: String) -> Label:
 func _rule(panel: Control, _accent: Color) -> void:
 	var r := ColorRect.new()
 	r.color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.55)
-	r.position = Vector2(14, 30)
-	r.size = Vector2(panel.size.x - 28, 2)
+	r.position = Vector2(UiTheme.fx(14), UiTheme.fx(30))
+	r.size = Vector2(panel.size.x - UiTheme.fx(28), UiTheme.fx(2))
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(r)
 
@@ -206,15 +206,15 @@ func _build_speedo(root: Control) -> void:
 	# якорь на нижний левый угол: при другом аспекте окна (canvas_items+expand)
 	# логическая высота растёт, и без якоря круг повис бы в середине кадра
 	_gauge.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_gauge.offset_left = 28; _gauge.offset_right = 260
-	_gauge.offset_top = -280; _gauge.offset_bottom = -48
+	_gauge.offset_left = UiTheme.fx(28); _gauge.offset_right = UiTheme.fx(260)
+	_gauge.offset_top = UiTheme.fx(-280); _gauge.offset_bottom = UiTheme.fx(-48)
 	root.add_child(_gauge)
 	_gameplay.append(_gauge)
 
 func _build_telemetry(root: Control) -> void:
 	var panel := Panel.new()
-	panel.position = Vector2(24, 24)
-	panel.size = Vector2(300, 164)
+	panel.position = Vector2(UiTheme.fx(24), UiTheme.fx(24))
+	panel.size = Vector2(UiTheme.fx(300), UiTheme.fx(164))
 	panel.add_theme_stylebox_override("panel", _style())
 	root.add_child(panel)
 	_gameplay.append(panel)
@@ -269,8 +269,8 @@ func _build_crash_log(root: Control) -> void:
 	# правый верхний угол якорем: на широких окнах логическая ширина растёт,
 	# и без якоря панель осталась бы висеть в середине неба
 	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	panel.offset_left = -324; panel.offset_right = -24
-	panel.offset_top = 24; panel.offset_bottom = 184
+	panel.offset_left = UiTheme.fx(-324); panel.offset_right = UiTheme.fx(-24)
+	panel.offset_top = UiTheme.fx(24); panel.offset_bottom = UiTheme.fx(184)
 	panel.add_theme_stylebox_override("panel", _style())
 	root.add_child(panel)
 	_gameplay.append(panel)
@@ -283,7 +283,7 @@ func _build_crash_log(root: Control) -> void:
 	panel.add_child(cap)
 	_stat_top = _label(Vector2(0, 38), 20, Color.WHITE, 700)
 	_stat_top.text = "—"
-	_stat_top.size = Vector2(272, 26)
+	_stat_top.size = Vector2(UiTheme.fx(272), UiTheme.fx(26))
 	_stat_top.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(_stat_top)
 	_stat_count = _label(Vector2(14, 68), 12, DIM, 600)
@@ -292,7 +292,7 @@ func _build_crash_log(root: Control) -> void:
 	for i in 4:
 		var l := _label(Vector2(14, 88 + i * 17), 13, Color(0.82, 0.86, 0.92))
 		l.text = ""
-		l.size = Vector2(272, 18)
+		l.size = Vector2(UiTheme.fx(272), UiTheme.fx(18))
 		panel.add_child(l)
 		_log_lines.append(l)
 
@@ -300,8 +300,8 @@ func _build_banners(root: Control) -> void:
 	# никакого баннера «УДАР» поверх экрана: только подсказка и журнал в панели
 	_tip_label = _label(Vector2(0, 596), 22, ACCENT, 600)
 	_tip_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_tip_label.offset_left = 0; _tip_label.offset_right = 0
-	_tip_label.offset_top = 596; _tip_label.offset_bottom = 628
+	_tip_label.offset_left = UiTheme.fx(0); _tip_label.offset_right = UiTheme.fx(0)
+	_tip_label.offset_top = UiTheme.fx(596); _tip_label.offset_bottom = UiTheme.fx(628)
 	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tip_label.visible = false
 	root.add_child(_tip_label)
@@ -312,14 +312,14 @@ func _build_banners(root: Control) -> void:
 func _build_fps(root: Control) -> void:
 	var panel := Panel.new()
 	panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	panel.offset_left = -240; panel.offset_right = -24
-	panel.offset_top = -48; panel.offset_bottom = -16
+	panel.offset_left = UiTheme.fx(-240); panel.offset_right = UiTheme.fx(-24)
+	panel.offset_top = UiTheme.fx(-48); panel.offset_bottom = UiTheme.fx(-16)
 	panel.add_theme_stylebox_override("panel", _style(8))
 	root.add_child(panel)
 	_fps_panel = panel
 	_gameplay.append(panel)
 	_fps_label = _label(Vector2(8, 6), 14, Color.WHITE, 600)
-	_fps_label.size = Vector2(200, 20)
+	_fps_label.size = Vector2(UiTheme.fx(200), UiTheme.fx(20))
 	_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_fps_label.text = "— FPS"
 	panel.add_child(_fps_label)
@@ -339,23 +339,23 @@ func _build_pause(root: Control) -> void:
 	# BeamNG-образная пауза: не карточка по центру поверх мира, а левая колонка —
 	# мир за спиной остаётся видимым, список действий читается как главное меню
 	var card := Panel.new()
-	card.position = Vector2(48, 120)
-	card.size = Vector2(380, 480)   # ровно под четыре строку меню: пустого хвоста быть не должно
+	card.position = Vector2(UiTheme.fx(48), UiTheme.fx(120))
+	card.size = Vector2(UiTheme.fx(380), UiTheme.fx(480))   # ровно под четыре строку меню: пустого хвоста быть не должно
 	card.add_theme_stylebox_override("panel", _style(8))
 	_pause_panel.add_child(card)
 	_pause_label = _label(Vector2(24, 24), 40, Color.WHITE, 800)
 	_pause_label.text = "ПАУЗА"
-	_pause_label.size = Vector2(332, 52)
+	_pause_label.size = Vector2(UiTheme.fx(332), UiTheme.fx(52))
 	card.add_child(_pause_label)
 	var rule := ColorRect.new()
 	rule.color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.45)
-	rule.position = Vector2(24, 88)
-	rule.size = Vector2(200, 2)
+	rule.position = Vector2(UiTheme.fx(24), UiTheme.fx(88))
+	rule.size = Vector2(UiTheme.fx(200), UiTheme.fx(2))
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(rule)
 	_run_stats = _label(Vector2(24, 102), 14, DIM)
 	_run_stats.text = "В РЕЖИМЕ ОЖИДАНИЯ"
-	_run_stats.size = Vector2(332, 60)
+	_run_stats.size = Vector2(UiTheme.fx(332), UiTheme.fx(60))
 	_run_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(_run_stats)
 	var rows := [
@@ -366,8 +366,8 @@ func _build_pause(root: Control) -> void:
 	]
 	for i in rows.size():
 		var b := _button(rows[i][0] as String)
-		b.position = Vector2(24, 196 + i * 64)
-		b.size = Vector2(332, 56)
+		b.position = Vector2(UiTheme.fx(24), UiTheme.fx(196 + i * 64))
+		b.size = Vector2(UiTheme.fx(332), UiTheme.fx(56))
 		(b.pressed as Signal).connect(rows[i][1] as Callable)
 		card.add_child(b)
 		_buttons.append(b)
@@ -375,7 +375,7 @@ func _build_pause(root: Control) -> void:
 func _button(text: String) -> Button:
 	# плоская строка как в навигации меню: янтарная полоса слева на фокусе/наведении
 	var b := UiTheme.nav_item(text)
-	b.add_theme_font_size_override("font_size", 20)
+	b.add_theme_font_size_override("font_size", UiTheme.px(20))
 	b.add_theme_color_override("font_color", Color(0.92, 0.93, 0.95))
 	return b
 

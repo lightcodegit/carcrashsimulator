@@ -52,6 +52,7 @@ const NUMS := {
 	"ssao_radius": [0.2, 4.0], "ssao_intensity": [0.0, 4.0],
 	"sun_soft": [0.0, 2.0], "ambient": [0.2, 3.0],
 	"fov": [50.0, 100.0], "shake": [0.0, 2.0], "slowmo": [0.05, 1.0],
+	"audio_volume": [0.0, 1.0], "vibration_strength": [0.0, 1.0],
 }
 
 # Пресеты картинки. Их цена измерена на Intel HD 630 при 1600×900, холодным стартом
@@ -116,6 +117,13 @@ var ambient := 1.0                # множитель рассеянного с
 var fov := 75.0
 var shake := 1.0
 var slowmo := 0.3
+# звук, вибрация и частицы: звук по умолчанию включён на 80% — тишина в 100%
+# пугает игрока сильнее, чем громкость чуть ниже максимума
+var audio_enabled := true
+var audio_volume := 0.8
+var vibration_enabled := true
+var vibration_strength := 1.0
+var particles_enabled := true
 # как выглядит сам экран настроек
 var tier_extended := false
 var preset := 1
@@ -231,6 +239,9 @@ func values() -> Dictionary:
 		"fog_density": fog_density, "fog_aerial": fog_aerial, "fog_scatter": fog_scatter,
 		"ssao_radius": ssao_radius, "ssao_intensity": ssao_intensity, "sun_soft": sun_soft,
 		"ambient": ambient, "fov": fov, "shake": shake, "slowmo": slowmo,
+		"audio_enabled": audio_enabled, "audio_volume": audio_volume,
+		"vibration_enabled": vibration_enabled, "vibration_strength": vibration_strength,
+		"particles_enabled": particles_enabled,
 		"tier_extended": tier_extended, "preset": preset, "fullscreen": fullscreen,
 	}
 

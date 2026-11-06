@@ -1,7 +1,8 @@
 class_name SettingsMenu
 extends Control
 # Экран настроек в духе BeamNG.drive: затемнённый живой мир, слева вертикальные
-# вкладки (КАЧЕСТВО / ГРАФИКА / КАМЕРА / УПРАВЛЕНИЕ), справа — содержимое секциями.
+# вкладки (КАЧЕСТВО / ГРАФИКА / КАМЕРА / УПРАВЛЕНИЕ / ЗВУК), справа — содержимое
+# секциями.
 # Пресеты картинки — крупные карточки с ценой в мс; бинды — таблица
 # «действие | клавиатура | геймпад», где каждый класс устройств назначается своей
 # клеткой и не затирает соседний. Тот же контрол открывается из главного меню и из
@@ -38,6 +39,9 @@ const CHECKS := [
 	["glow", "СВЕЧЕНИЕ ЯРКОГО", 0],
 	["show_fps", "СЧЁТЧИК КАДРОВ НА ЭКРАНЕ", 0],
 	["debug_mode", "ОТЛАДОЧНЫЙ ОВЕРЛЕЙ (F2/F3)", 0],
+	["audio_enabled", "ЗВУК ВКЛЮЧЁН", 0],
+	["vibration_enabled", "ВИБРАЦИЯ ГЕЙМПАДА", 0],
+	["particles_enabled", "ЧАСТИЦЫ (ДЫМ, ИСКРЫ, ПЫЛЬ)", 0],
 ]
 # [ключ, заголовок, мин, макс, шаг, формат, множитель показа, режим].
 # Камера (fov/shake/slowmo) — настройки вида, а не «расширенная графика»: живут на
@@ -58,6 +62,8 @@ const SLIDERS := [
 	["fov", "ПОЛЕ ЗРЕНИЯ КАМЕРЫ, °", 50.0, 100.0, 1.0, "%.0f", 1.0, 0],
 	["shake", "ТРЯСКА КАМЕРЫ ×", 0.0, 2.0, 0.1, "%.1f", 1.0, 0],
 	["slowmo", "СЛОУ-МО: ФАКТОР ВРЕМЕНИ", 0.05, 1.0, 0.05, "%.2f", 1.0, 0],
+	["audio_volume", "ОБЩАЯ ГРОМКОСТЬ", 0.0, 1.0, 0.05, "%.2f", 1.0, 0],
+	["vibration_strength", "СИЛА ВИБРАЦИИ", 0.0, 1.0, 0.05, "%.2f", 1.0, 0],
 ]
 # Порядок секций вкладки ГРАФИКА: заголовок -> ключи строк из OPTIONS/CHECKS/SLIDERS.
 const VIDEO_SECTIONS := [
@@ -126,7 +132,7 @@ func _ready() -> void:
 	holder.offset_left = UiTheme.fx(26); holder.offset_right = UiTheme.fx(-26)
 	holder.offset_top = UiTheme.fx(20); holder.offset_bottom = UiTheme.fx(-20)
 	host.add_child(holder)
-	var builders := ["_quality_page", "_video_page", "_camera_page", "_controls_page"]
+	var builders := ["_quality_page", "_video_page", "_camera_page", "_controls_page", "_sound_page"]
 	for i in builders.size():
 		var sc := ScrollContainer.new()
 		sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -168,7 +174,7 @@ func _build_nav() -> void:
 	box.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
 	box.add_theme_constant_override("separation", UiTheme.px(6))
 	add_child(box)
-	var names := ["КАЧЕСТВО", "ГРАФИКА", "КАМЕРА", "УПРАВЛЕНИЕ"]
+	var names := ["КАЧЕСТВО", "ГРАФИКА", "КАМЕРА", "УПРАВЛЕНИЕ", "ЗВУК"]
 	for i in names.size():
 		var b := UiTheme.nav_item(names[i])
 		b.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
@@ -318,6 +324,34 @@ func _camera_page(box: VBoxContainer) -> void:
 	box.add_child(_sep())
 	for key in CAMERA_KEYS:
 		box.add_child(_row_for(String(key)))
+
+# ---- вкладка ЗВУК: звук, вибрация, частицы -----------------------------------
+# Тот же язык строк, что у ГРАФИКИ: строки берутся из CHECKS/SLIDERS, поэтому
+# refresh() синхронизирует их без отдельного кода.
+func _sound_page(box: VBoxContainer) -> void:
+	box.add_child(UiTheme.label("ЗВУК И ВИБРАЦИЯ", 30, Color.WHITE, 800))
+	box.add_child(_sep())
+	box.add_child(_spacer(8))
+	box.add_child(_section_head("ЗВУК"))
+	box.add_child(_row_for("audio_enabled"))
+	box.add_child(_row_for("audio_volume"))
+	box.add_child(_spacer(14))
+	box.add_child(_section_head("ГЕЙМПАД"))
+	box.add_child(_row_for("vibration_enabled"))
+	box.add_child(_row_for("vibration_strength"))
+	# честность вместо молчаливой галки: без подключённого геймпада вибрации
+	# некуда уходить, и игрок должен это видеть
+	if Input.get_connected_joypads().is_empty():
+		box.add_child(UiTheme.label(
+			"Геймпад не подключён: вибрация заработает сама, когда контроллер появится в системе",
+			14, UiTheme.DIM))
+	box.add_child(_spacer(14))
+	box.add_child(_section_head("ЭФФЕКТЫ"))
+	box.add_child(_row_for("particles_enabled"))
+	box.add_child(_spacer(10))
+	box.add_child(UiTheme.label(
+		"Звук в колонках не проверяется в headless-режиме: там аудиодрайвер — заглушка",
+		13, UiTheme.FAINT))
 
 func _row_for(key: String) -> Control:
 	for o in OPTIONS:

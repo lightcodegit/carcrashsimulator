@@ -44,6 +44,74 @@ static var _rough_tex: NoiseTexture2D
 static var _normal_tex: NoiseTexture2D
 static var _detail_texs := {}
 static var _cache := {}
+static var _stock_colors := {}
+
+# Car Kit 3.1: только цветная ячейка кузова; стекло/свет/резина используют другие UV.
+static func paint_cell(model: String) -> Vector2i:
+	match model:
+		"res://assets/cars/truck.glb": return Vector2i(3, 1)
+		"res://assets/cars/sedan.glb", "res://assets/cars/race.glb": return Vector2i(6, 1)
+	return Vector2i(-1, -1)
+
+static func stock_paint_color(model: String) -> Color:
+	if _stock_colors.has(model): return _stock_colors[model]
+	var cell := paint_cell(model)
+	if cell.x < 0: return Color.WHITE
+	var node: Node = (load(model) as PackedScene).instantiate()
+	var mat := (node.get_node("body") as MeshInstance3D).mesh.surface_get_material(0) as StandardMaterial3D
+	var image := mat.albedo_texture.get_image()
+	if image.is_compressed(): image.decompress()
+	var color := image.get_pixel((cell.x * 2 + 1) * image.get_width() / 16, (cell.y * 2 + 1) * image.get_height() / 8)
+	node.free()
+	_stock_colors[model] = color
+	return color
+
+static func body_paint(src: Material, p: VehicleParams) -> StandardMaterial3D:
+	var m := car_paint(src)
+	var cell := paint_cell(p.model)
+	if cell.x < 0 or m.albedo_texture == null: return m
+	var stock := stock_paint_color(p.model)
+	var recolor := not p.paint_color.is_equal_approx(stock)
+	var finish := not is_equal_approx(p.paint_metallic, PAINT_METAL) or not is_equal_approx(p.paint_roughness, PAINT_ROUGH)
+	if not recolor and not finish: return m
+	var image := m.albedo_texture.get_image().duplicate() as Image
+	if image.is_compressed(): image.decompress()
+	image.clear_mipmaps()
+	var rect := Rect2i(cell * Vector2i(image.get_width() / 8, image.get_height() / 4), Vector2i(image.get_width() / 8, image.get_height() / 4))
+	if recolor:
+		for y in range(rect.position.y, rect.end.y):
+			for x in range(rect.position.x, rect.end.x):
+				var original := image.get_pixel(x, y)
+				var shade := original.v / maxf(stock.v, 0.001)
+				var color := p.paint_color * shade
+				color.a = original.a
+				image.set_pixel(x, y, color)
+		image.generate_mipmaps()
+		m.albedo_texture = ImageTexture.create_from_image(image)
+	if finish:
+		# база = выбранное значение, а маска возвращает заводское на непокрашенных
+		# ячейках: иначе ползунок ниже заводского молчал бы, не меняя материал
+		m.metallic = p.paint_metallic
+		m.roughness = p.paint_roughness
+		m.metallic_texture = _finish_mask(image.get_size(), rect, PAINT_METAL / m.metallic, 1.0)
+		m.roughness_texture = _finish_mask(image.get_size(), rect, PAINT_ROUGH / m.roughness, 1.0)
+		m.metallic_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+		m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+	return m
+
+static func _finish_mask(size: Vector2i, rect: Rect2i, protected_value: float, painted_value: float) -> ImageTexture:
+	var image := Image.create(size.x, size.y, false, Image.FORMAT_RF)
+	image.fill(Color(protected_value, 0, 0))
+	image.fill_rect(rect, Color(painted_value, 0, 0))
+	image.generate_mipmaps()
+	return ImageTexture.create_from_image(image)
+
+static func apply_vehicle(root: Node, p: VehicleParams) -> void:
+	if root is MeshInstance3D and String(root.name).to_lower() == "body":
+		var mi := root as MeshInstance3D
+		for i in mi.mesh.get_surface_count():
+			mi.set_surface_override_material(i, body_paint(mi.mesh.surface_get_material(i), p))
+	for child in root.get_children(): apply_vehicle(child, p)
 
 # Кузовная краска: дублируем материал автора и добавляем лак, металличность и
 # шероховатость, чтобы машина ловила отражение неба вместо того чтобы чернеть.

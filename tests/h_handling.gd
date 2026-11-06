@@ -38,7 +38,7 @@ func _ready() -> void:
 	var cs := CollisionShape3D.new(); var box := BoxShape3D.new()
 	box.size = Vector3(240, 2, 120); cs.shape = box
 	floor_body.add_child(cs); add_child(floor_body); floor_body.global_position = Vector3(40, -1, 0)
-	MapDB.wedge(self, Vector3(20, 0.0, 0), 14, 3.2, 10, Color(0.9, 0.8, 0.2))   # рампа x = 20..34
+	MapKit.wedge(self, Vector3(20, 0.0, 0), 14, 3.2, 10, Color(0.9, 0.8, 0.2))   # рампа x = 20..34
 	var wall := StaticBody3D.new()                                             # стена впереди, x = 90
 	var wcs := CollisionShape3D.new(); var wbox := BoxShape3D.new()
 	wbox.size = Vector3(1.0, 8, 40); wcs.shape = wbox

@@ -8,6 +8,12 @@ extends Resource
 @export var brake_decel := 11.0     # м/с² предельного замедления: 1.0 g — то, что держат шины
 @export var steer_rate_deg := 190.0   # скорость набора угла передних колёс, °/с
 @export var grip := 8.0             # множитель сцепления шин (wheel_friction_slip)
+@export var suspension_stiffness := 120.0
+@export var damping_compression := 7.0
+@export var damping_relaxation := 9.0
+@export var paint_color := Color.WHITE
+@export var paint_metallic := 0.15
+@export var paint_roughness := 0.28
 @export var width := 1.8                # целевая ширина: по ней DentBody считает равномерный масштаб
 @export var accent_color := Color(0.8, 0.25, 0.2)
 # Насколько растянуть кузов по длине (лимузин). 1.0 — как есть: узлы модели остаются

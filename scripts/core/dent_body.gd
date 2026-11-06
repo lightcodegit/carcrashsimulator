@@ -175,7 +175,7 @@ func _build_deformable() -> void:
 	# для ободранных вмятин: собственный metallic затемнял кузов до чёрного
 	# лак и металличность поверх материала автора: без них кузов матовый и в тени
 	# выглядит чёрным. vertex color нужен самому DentBody — им красится ободранная краска.
-	_mat = Materials.car_paint(src.surface_get_material(0))
+	_mat = Materials.body_paint(src.surface_get_material(0), params)
 	_mat.vertex_color_use_as_albedo = true
 	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mesh = ArrayMesh.new()
@@ -206,13 +206,19 @@ func _subdivide() -> void:
 
 # inward_dir — направление внутрь кузова (по ходу движения машины).
 func apply_impact(world_pos: Vector3, inward_dir: Vector3, speed_kmh: float) -> void:
+	apply_impact_local(_to_body_point(world_pos), _to_body_dir(inward_dir), speed_kmh, world_pos)
+
+# То же, но в пространстве меша: реплей обязан мять кузов ровно как живой заезд,
+# а мировых координат удара для этого мало — на проигрывании машина стоит в
+# другой позе, и мировой вектор попал бы в другую панель.
+func apply_impact_local(local_pos: Vector3, local_dir: Vector3, speed_kmh: float, world_pos := Vector3.INF) -> void:
 	if body == null or not _pristine_ok(): return
 	var speed := maxf(0.0, speed_kmh) / 3.6
 	var radius := 0.30 + minf(speed, 60.0) * 0.014              # метры
 	var depth := minf(MAX_DEPTH_RATIO * height, speed * 0.010)  # метры
 	if depth <= 0.0 or radius <= 0.0: return
-	var lp := _to_body_point(world_pos)
-	var ld := _to_body_dir(inward_dir)
+	var lp := local_pos
+	var ld := local_dir
 	var rl := radius / _scale          # всё сравнение и смещение — в единицах модели
 	var dl := depth / _scale
 	var cap_l := MAX_DEPTH_RATIO * height / _scale   # предел накопленной вмятины
@@ -246,7 +252,25 @@ func apply_impact(world_pos: Vector3, inward_dir: Vector3, speed_kmh: float) -> 
 	max_depth = maxf(max_depth, max_vertex_shift())
 	total_depth += depth
 	_rebuild()
-	dented.emit(depth, world_pos, radius)
+	dented.emit(depth, to_global(_body_xform * lp) if world_pos == Vector3.INF else world_pos, radius)
+
+# Снимок геометрии для плеера: реплей начинается с того кузова, который есть
+# сейчас, и на выходе обязан вернуться ровно в него, даже если игрок вышел на середине.
+func stash() -> Dictionary:
+	return {"v": _verts.duplicate(), "c": _colors.duplicate(),
+		"n": dent_count, "md": max_depth, "td": total_depth}
+
+func unstash(s: Dictionary) -> void:
+	if s.is_empty() or not _pristine_ok(): return
+	_verts = (s.v as PackedVector3Array).duplicate()
+	_colors = (s.c as PackedColorArray).duplicate()
+	dent_count = int(s.n); max_depth = float(s.md); total_depth = float(s.td)
+	_rebuild()
+
+# Мятая точка и направление в пространстве меша — ровно то, что записывает
+# реплей: пересчёт мировой точки в локальную живёт здесь, а не в recorder.
+func dent_frame(world_pos: Vector3, inward_dir: Vector3) -> Array:
+	return [_to_body_point(world_pos), _to_body_dir(inward_dir)]
 
 func _to_body_point(world_pos: Vector3) -> Vector3:
 	return _body_xform.affine_inverse() * to_local(world_pos)

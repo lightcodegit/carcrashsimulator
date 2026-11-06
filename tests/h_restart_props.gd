@@ -16,7 +16,7 @@ func _seating(id: String) -> Array[float]:
 	for p in get_tree().get_nodes_in_group(LooseProp.GROUP):
 		var n := p as Node3D
 		bottoms[n] = _aabb(n).position.y
-		surfs[n] = MapDB.surface_y(n.global_position.x, n.global_position.z)
+		surfs[n] = MapKit.surface_y(n.global_position.x, n.global_position.z)
 	var hop := 0.0
 	for t in 60:
 		await get_tree().physics_frame
@@ -105,8 +105,8 @@ func _ready() -> void:
 	for i in props.size():
 		var n := props[i] as Node3D
 		var bottom := _aabb(n).position.y
-		var surf := MapDB.surface_y(n.global_position.x, n.global_position.z)
-		var home_surf := MapDB.surface_y(home[i].origin.x, home[i].origin.z)
+		var surf := MapKit.surface_y(n.global_position.x, n.global_position.z)
+		var home_surf := MapKit.surface_y(home[i].origin.x, home[i].origin.z)
 		if bottom < home_surf - 0.004: sunk += 1
 		hop = maxf(hop, absf((props[i] as RigidBody3D).linear_velocity.y))
 	check(sunk == 0, "ни один предмет не погрузился в поверхность (%d)" % sunk)

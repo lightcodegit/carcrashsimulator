@@ -55,14 +55,14 @@ func _next() -> void:
 	_kind_at = _f
 	if _prop != null and is_instance_valid(_prop): _prop.queue_free()
 	match _kind:
-		"cone": _prop = MapDB.loose(self, "res://assets/props/cone.glb", Vector3.ZERO, MapDB.PROP, 0.0, 3.0)
-		"pylon": _prop = MapDB.loose_kit(self, "pylon", Vector3.ZERO, 0, 6.0)
-		"bin": _prop = MapDB._knock_bin(self, 0.0, 0.0, 0.0)
-		"planter": _prop = MapDB._knock_planter(self, 0.0, 0.0, 0.0)
-		"bench": _prop = MapDB._knock_bench(self, 0.0, 0.0, 0.0)
-		"sign": _prop = MapDB._knock_sign(self, 0.0, 0.0, 0.0)
-		"hydrant": _prop = MapDB._knock_hydrant(self, 0.0, 0.0, 0.0)
-		_: _prop = MapDB.loose_kit(self, "barrierWhite", Vector3.ZERO, 0, 25.0)
+		"cone": _prop = MapProps.loose(self, "res://assets/props/cone.glb", Vector3.ZERO, MapDefs.PROP, 0.0, 3.0)
+		"pylon": _prop = MapProps.loose_kit(self, "pylon", Vector3.ZERO, 0, 6.0)
+		"bin": _prop = MapProps.knock_bin(self, 0.0, 0.0, 0.0)
+		"planter": _prop = MapProps.knock_planter(self, 0.0, 0.0, 0.0)
+		"bench": _prop = MapProps.knock_bench(self, 0.0, 0.0, 0.0)
+		"sign": _prop = MapProps.knock_sign(self, 0.0, 0.0, 0.0)
+		"hydrant": _prop = MapProps.knock_hydrant(self, 0.0, 0.0, 0.0)
+		_: _prop = MapProps.loose_kit(self, "barrierWhite", Vector3.ZERO, 0, 25.0)
 	_start = _prop.global_position
 	_pf = 0
 	_v_before = 0.0

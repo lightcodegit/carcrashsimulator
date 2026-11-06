@@ -12,7 +12,14 @@ const MIN_HIT_MS := 3.0      # медленное касание (машина �
 const GROUP := "loose_prop"
 
 var height_m := 1.0
+# GameManager подставляет сюда приёмник пыли (EffectsDirector.on_prop_hit).
+# Пузырь валидности проверяется: без приёмника предмет живёт ровно как раньше,
+# поэтому харнесы, собирающие пропы сами (h_prop_knock), ничего не замечают.
+var on_hit_fx := Callable()
+var disturbed := false     # сбивался ли предмет с домашней позы в этом заезде
 var _home := Transform3D.IDENTITY
+
+func home() -> Transform3D: return _home
 
 func _ready() -> void:
 	add_to_group(GROUP)
@@ -27,6 +34,7 @@ func restore() -> void:
 	global_transform = _home
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	disturbed = false
 	reset_physics_interpolation()
 
 func setup_tumble() -> void:
@@ -41,3 +49,5 @@ func _on_hit(other: Node) -> void:
 	if v.length() < MIN_HIT_MS: return
 	# I ≈ m·h²/3 для стержня относительно основания; ω = t/I
 	apply_torque_impulse(Vector3.UP.cross(v.normalized()) * mass * height_m * height_m * TUMBLE)
+	disturbed = true
+	if on_hit_fx.is_valid(): on_hit_fx.call(global_position, v.length())

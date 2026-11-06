@@ -21,13 +21,13 @@ func _seated(root: Node3D) -> Array:
 		if box.size.length() < 0.05: continue
 		checked += 1
 		var p := n as Node3D
-		var surf := MapDB.surface_y(p.global_position.x, p.global_position.z)
+		var surf := MapKit.surface_y(p.global_position.x, p.global_position.z)
 		if box.position.y < surf - 0.006 or box.position.y > surf + 0.04:
 			bad.append("%s: низ %.3f при поверхности %.3f" % [String(n.name), box.position.y, surf])
 	return [bad, checked]
 
 func c_is_prop(n: Node) -> bool:
-	if n is Node3D and (n as Node3D).is_in_group(MapDB.GROUP_PARKED): return true
+	if n is Node3D and (n as Node3D).is_in_group(MapDefs.GROUP_PARKED): return true
 	var nm := String(n.name)
 	if not (nm.begins_with("city_") or nm.begins_with("kit_") or nm.begins_with("props_")): return false
 	# дорожные плиты — не предметы, а «ванны» с юбкой вниз на 10 см: их низ под
@@ -113,7 +113,7 @@ func _ready() -> void:
 			check(false, "%s spawn over ground" % id)
 		else:
 			# пол карты на 1 см ниже нуля (FLOOR_Y), а плиты лежат поверх него
-			check(hit.position.y > MapDB.FLOOR_Y - 0.001 and hit.position.y < 0.20,
+			check(hit.position.y > MapDefs.FLOOR_Y - 0.001 and hit.position.y < 0.20,
 				"%s: под спавном пол (%.3f)" % [id, hit.position.y])
 		for dx in [-2.0, 2.0]:
 			for dz in [-1.0, 1.0]:
@@ -132,7 +132,7 @@ func _ready() -> void:
 			# Окно 0.12..0.24 м: горка обязана быть выше плоского полотна (0.002), но
 			# ниже низа коллайдера рамы (CarRig.CLEARANCE + 2 см), иначе для машины это
 			# стена, а не горка — на 280 км/ч кузов упирался в гребень (h_ramp_run).
-			var top := MapDB.FLOOR_Y + 0.12
+			var top := MapDefs.FLOOR_Y + 0.12
 			var best := -1e9
 			for fx in [0.25, 0.5, 0.75]:
 				for fz in [0.25, 0.5, 0.75]:

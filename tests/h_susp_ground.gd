@@ -30,9 +30,9 @@ func _ready() -> void:
 	var cs := CollisionShape3D.new(); var b := BoxShape3D.new()
 	b.size = Vector3(600, 2, 60); cs.shape = b
 	fl.add_child(cs); add_child(fl); fl.global_position = Vector3(200, -1, 0)
-	MapDB.box(self, Vector3(60, 0.10, 0), Vector3(30, 0.20, 20), Color(0.5, 0.5, 0.5))   # бордюр 0.20 м, как в городке
-	MapDB.box(self, Vector3(150, 0.3, 0), Vector3(20, 0.6, 20), Color(0.5, 0.3, 0.3))    # ступень 0.6 м
-	MapDB.wedge(self, Vector3(220, 0.0, 0), 16, 2.4, 12, Color(0.9, 0.8, 0.2))           # рампа
+	MapKit.box(self, Vector3(60, 0.10, 0), Vector3(30, 0.20, 20), Color(0.5, 0.5, 0.5))   # бордюр 0.20 м, как в городке
+	MapKit.box(self, Vector3(150, 0.3, 0), Vector3(20, 0.6, 20), Color(0.5, 0.3, 0.3))    # ступень 0.6 м
+	MapKit.wedge(self, Vector3(220, 0.0, 0), 16, 2.4, 12, Color(0.9, 0.8, 0.2))           # рампа
 	await get_tree().process_frame
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sport"), get_world_3d())

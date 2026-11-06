@@ -7,7 +7,7 @@ extends SceneTree
 func _initialize() -> void:
 	var fails := 0
 	for id in MapDB.ids():
-		MapDB._surfaces.clear()
+		MapKit.clear_surfaces()
 		var m: Dictionary = MapDB.build(id)
 		var root: Node3D = m.root
 		var sunk := 0
@@ -20,9 +20,9 @@ func _initialize() -> void:
 			var body := c as RigidBody3D
 			total += 1
 			var p := body.position
-			var chosen := MapDB.surface_y(p.x, p.z)
+			var chosen := MapKit.surface_y(p.x, p.z)
 			var top := chosen
-			for r in MapDB._surfaces:
+			for r in MapKit.surfaces():
 				if (r["rect"] as AABB).has_point(Vector3(p.x, 0.0, p.z)):
 					top = maxf(top, float(r["y"]))
 			if top - chosen > 0.005:
@@ -30,7 +30,7 @@ func _initialize() -> void:
 				worst = maxf(worst, top - chosen)
 			# скамейки кольца у фонтана стоят ровно на радиусе 24 и обязаны смотреть
 			# на фонтан, а не вдоль него: local +Z после rotation.y = (sin, cos)
-			for park in MapDB.BC_PARKS:
+			for park in MapDefs.BC_PARKS:
 				var dx := p.x - float(park[0])
 				var dz := p.z - float(park[1])
 				var d := sqrt(dx * dx + dz * dz)

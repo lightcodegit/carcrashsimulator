@@ -54,8 +54,8 @@ func _ready() -> void:
 	car.impact.connect(func(_s: float, _p: Vector3, _n: Vector3) -> void: _impacts += 1)
 	for name in RAMPS:
 		# плита горки с тем же stretching, что на картах: ramp(..., 3.0) и roadRampLong ×3
-		var m := MapDB.kit(self, name, Vector3(60, 0, 0), 90, true, true, Vector3(1.0, 1.0, 3.0))
-		MapDB.kit(self, "roadStraight", Vector3(180, 0, 0), 90, false, true)
+		var m := MapKit.kit(self, name, Vector3(60, 0, 0), 90, true, true, Vector3(1.0, 1.0, 3.0))
+		MapKit.kit(self, "roadStraight", Vector3(180, 0, 0), 90, false, true)
 		# тело горки появляется в физическом мире только после синхронизации пространства
 		for _i in 3:
 			await get_tree().physics_frame
@@ -142,10 +142,10 @@ func _land(name: String, where: String, x: float, h: float, kmh: float,
 			impacts0 = _impacts
 			hist = [v]
 	if not flew:
-		print("NOTE: %s: полёта не было — машина не оторвалась" % tag)
+		print("PARTIAL: %s: полёта не было — машина не оторвалась" % tag)
 		return
 	if not touch:
-		print("NOTE: %s: посадки не было (воздух %d тиков, скорость %.0f км/ч)" % [
+		print("PARTIAL: %s: посадки не было (воздух %d тиков, скорость %.0f км/ч)" % [
 			tag, fticks, car.speed_kmh()])
 		return
 	# фаза 3: окно посадки

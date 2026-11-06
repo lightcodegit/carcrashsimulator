@@ -12,7 +12,7 @@ func _initialize() -> void:
 		MapDB.recycle(root, 400.0, 20.0)
 		var stale := 0
 		var foreign := 0
-		for line in MapDB._rc_lines:
+		for line in MapCircuit.rc_lines:
 			for n in line:
 				if not (n is Node): continue
 				var n3 := n as Node3D
@@ -23,10 +23,10 @@ func _initialize() -> void:
 					if p == root: reaches = true; break
 					p = p.get_parent()
 				if not reaches: foreign += 1
-		print("прогон %d: лент %d, освобождённых %d, чужих %d" % [i, MapDB._rc_lines.size(), stale, foreign])
+		print("прогон %d: лент %d, освобождённых %d, чужих %d" % [i, MapCircuit.rc_lines.size(), stale, foreign])
 		# пустой кэш — это не «грязно», а нечего проверять
-		if MapDB._rc_lines.size() < 3:
-			print("FAIL: прогон %d: лент %d, переставка не собралась" % [i, MapDB._rc_lines.size()])
+		if MapCircuit.rc_lines.size() < 3:
+			print("FAIL: прогон %d: лент %d, переставка не собралась" % [i, MapCircuit.rc_lines.size()])
 			fails += 1
 		if stale + foreign > 0: fails += 1
 		root.free()

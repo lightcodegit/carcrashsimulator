@@ -64,7 +64,7 @@ func _wrap() -> void:
 	for _i in 5: MapDB.recycle(root, -20.0, 20.0)
 	var covered := false
 	for mi in plates:
-		if mi.position.x <= -20.0 and mi.position.x + MapDB._advance_of(mi) >= -20.0:
+		if mi.position.x <= -20.0 and mi.position.x + MapCircuit._advance_of(mi) >= -20.0:
 			covered = true
 	check(covered, "после возврата машины на старт полотно легло под спавн (x=-20)")
 	root.queue_free()

@@ -87,7 +87,7 @@ func _ready() -> void:
 		var root: Node3D = m.root
 		add_child(root)
 		_scan(root)
-		for c in get_tree().get_nodes_in_group(MapDB.GROUP_PARKED):
+		for c in get_tree().get_nodes_in_group(MapDefs.GROUP_PARKED):
 			_scan_car(c)
 		check(_road > 10, "%s: дорожные поверхности найдены (%d)" % [id, _road])
 		check(_road_pbr == _road, "%s: у всего асфальта есть карты шероховатости и нормалей (%d из %d)" % [id, _road_pbr, _road])

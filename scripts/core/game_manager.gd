@@ -284,7 +284,7 @@ func run_summary() -> String:
 		GameContext.car_id.to_upper(), GameContext.map_id.to_upper()]
 
 func debug_scene() -> Dictionary:
-	# То же правило, что и для шассi: оверлей читает состояние сцены через один
+	# То же правило, что и для шасси: оверлей читает состояние сцены через один
 	# интерфейс, а не через приватные поля менеджера.
 	return {
 		"map_root": _map_root,

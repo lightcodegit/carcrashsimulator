@@ -518,7 +518,7 @@ static func prop(root: Node3D, path: String, pos: Vector3, sc: float, rot_y: flo
 	n.rotation.y = rot_y
 	n.scale = Vector3.ONE * sc
 	# сажаем низ модели на pos.y: у зданий/конусов начало координат в основании,
-	# а у колёс и покрышек — в центре оси, поэтому без правки они levитируют или тонут
+	# а у колёс и покрышек — в центре оси, поэтому без правки они левитируют или тонут
 	n.position = Vector3(pos.x, pos.y - local.position.y * sc, pos.z)
 	if path.begins_with(CARS):
 		Materials.apply_tree(n, "car")

@@ -85,7 +85,7 @@ func _process(dt: float) -> void:
 				# вектор: normalized() из нуля — ZERO, и на один кадр камера складывается
 				# в машину, а потом резко возвращается.
 				_fwd = mix.normalized() if mix.length_squared() > 1e-6 else fwd_raw
-			var speed := _car.chassis.linear_velocity.length()   # скорость — величина физическая, она не джиттерит
+			var speed := _car.speed_kmh() / 3.6   # скорость — величина физическая, она не джиттерит; на реплее её отдаёт плеер
 			var back := 5.0 + minf(speed, 60.0) * 0.045     # на скорости отъезжаем дальше
 			var up := 1.9 + minf(speed, 60.0) * 0.010
 			# к цели сквозь стены идти нельзя: луч из машины в точку погони и там, и там

@@ -29,8 +29,10 @@ const MAPS := [
 	["БОЛЬШОЙ ГОРОД", "bigcity", "Километр на километр: периметр, сетка улиц и районы —\nцентр, жилые кварталы, промзона, парк и стадион. Трамплин на бульваре."],
 ]
 
-enum Section { PLAY, VEHICLES, MAPS, SETTINGS, EXIT }
+enum Section { PLAY, VEHICLES, GARAGE, MAPS, SETTINGS, EXIT }
 
+var _profiles := GarageProfiles.new()
+var _garage: GaragePanel
 var _car_i := 0
 var _map_i := 0
 var _section := Section.PLAY
@@ -206,7 +208,8 @@ func _load_car(i: int) -> void:
 		_car_model.queue_free()
 		_car_model = null
 	var id: String = CARS[_car_i][1]
-	var p: VehicleParams = VehicleDB.get_params(id)
+	_profiles.select_vehicle(id)
+	var p := _profiles.effective_params(id)
 	if p == null: return
 	var ps: PackedScene = load(p.model)
 	if ps == null: return
@@ -216,10 +219,16 @@ func _load_car(i: int) -> void:
 	var a: AABB = DentBody.measure(p.model, p.body_stretch).aabb
 	var s := 4.6 / maxf(0.001, a.size.z)     # нормируем длину машины в мировые метры
 	Materials.apply_tree(node, "car")
+	Materials.apply_vehicle(node, p)
 	node.scale = Vector3.ONE * s
 	node.position = Vector3(-a.get_center().x * s, -a.position.y * s, -a.get_center().z * s)
 	_car_mount.add_child(node)
 	_car_model = node
+
+func _preview_garage(params: VehicleParams) -> void:
+	# Меняем только материал экземпляра: модель и общий кэш остаются нетронутыми.
+	if is_instance_valid(_car_model):
+		Materials.apply_vehicle(_car_model, params)
 
 # ---------------------------------------------------------------- UI
 func _build_ui() -> void:
@@ -305,7 +314,7 @@ func _build_nav(host: Control) -> void:
 	box.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
 	box.add_theme_constant_override("separation", UiTheme.px(6))
 	host.add_child(box)
-	var items := ["НАЧАТЬ", "МАШИНЫ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"]
+	var items := ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"]
 	for idx in items.size():
 		var b := UiTheme.nav_item(items[idx], idx == 0)
 		b.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
@@ -346,6 +355,9 @@ func _build_footer(host: Control) -> void:
 
 # ---- переключение разделов -------------------------------------------------
 func _show_section(sec: int) -> void:
+	if _section == Section.GARAGE and sec != Section.GARAGE:
+		_profiles.cancel()
+		_preview_garage(_profiles.draft_params())
 	_section = sec
 	for n in _nav.size():
 		UiTheme.nav_mark_active(_nav[n], n == sec)
@@ -363,9 +375,12 @@ func _show_section(sec: int) -> void:
 	for c in holder.get_children():
 		holder.remove_child(c)
 		c.queue_free()
+	_cur_sc = null
+	_garage = null
 	match sec:
 		Section.PLAY: _panel_play()
 		Section.VEHICLES: _panel_vehicles()
+		Section.GARAGE: _panel_garage()
 		Section.MAPS: _panel_maps()
 		Section.EXIT: _panel_exit()
 	_fit_panel()
@@ -493,6 +508,12 @@ func _panel_vehicles() -> void:
 	for i in CARS.size():
 		s.add_child(_pick_card(CARS, i, i == _car_i, "car_i", select_car.bind(i)))
 
+func _panel_garage() -> void:
+	_garage = GaragePanel.new()
+	_panel.get_node("PanelContent").add_child(_garage)
+	_garage.preview_changed.connect(_preview_garage)
+	_garage.setup(_profiles, String(CARS[_car_i][0]))
+
 func _panel_maps() -> void:
 	var s := _scroller()
 	s.add_child(UiTheme.label("КАРТЫ", 30, Color.WHITE, 800))
@@ -521,7 +542,7 @@ func _panel_exit() -> void:
 # ---- хуки для логики и тестов ---------------------------------------------
 func select_car(i: int) -> void:
 	_load_car(i)
-	if _section == Section.PLAY or _section == Section.VEHICLES:
+	if _section in [Section.PLAY, Section.VEHICLES, Section.GARAGE]:
 		_show_section(_section)
 
 func select_map(i: int) -> void:
@@ -551,6 +572,10 @@ func _scroller() -> VBoxContainer:
 
 # Панель высотой ровно по контенту (пол: 220, потолок 640 — дальше скролл).
 func _fit_panel() -> void:
+	if _section == Section.GARAGE:
+		# Прокручиваются настройки, но действия с черновиком всегда видны.
+		_panel.offset_bottom = _panel.offset_top + UiTheme.fx(640)
+		return
 	if _cur_sc == null: return
 	var box := _cur_sc.get_child(0) as VBoxContainer
 	if box == null: return

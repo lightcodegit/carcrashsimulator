@@ -112,6 +112,14 @@ var _skid: PackedFloat32Array = PackedFloat32Array()
 # скорости к продольной). Наружу отдаётся уже с учётом ручника: на ручнике увод
 # считается сорванным всегда, иначе индикатор сцепления показывал бы «держит».
 var slip := 0.0
+# Реплей: физика на проигрывании заморожена, поэтому и рисуемый трансформ, и
+# скорость берутся из плеера, а не из состояния RigidBody. Включает это только
+# ReplayPlayer на время проигрывания; вне него обе ветки дают обычное поведение.
+var replaying := false
+var replay_xf := Transform3D()
+var replay_speed := 0.0
+var replay_nitro := 0.0
+var replay_hot := false
 var _hist: Array[Vector3] = []
 var _recent_speed := 0.0
 var _impact_cooldown := 0.0
@@ -173,9 +181,9 @@ func build(p: VehicleParams, _world: World3D) -> void:
 	# колея. Прежний расчёт брал x_max - x_min, то есть ширину колеи (~1.6 м вместо ~2.9),
 	# и потолок угла выходил почти вдвое меньше допустимого — руль на скорости дубел.
 	_wheelbase = maxf(0.5, z_max - z_min)
-	var rest := _suspension_rest(wr, locals.size())
+	var rest := _suspension_rest(wr, locals.size(), p.suspension_stiffness)
 	# на сколько подвеска сжата на стоянке: из него считаем, как далеко колесо вышло из арки
-	var static_c := 9.81 / (maxf(1.0, float(locals.size())) * SUSP_STIFFNESS)
+	var static_c := 9.81 / (maxf(1.0, float(locals.size())) * p.suspension_stiffness)
 	_susp_static = rest - static_c
 	for i in locals.size():
 		var w := VehicleWheel3D.new()
@@ -184,11 +192,11 @@ func build(p: VehicleParams, _world: World3D) -> void:
 		w.wheel_radius = wr
 		w.wheel_rest_length = rest
 		w.suspension_travel = SUSP_TRAVEL
-		w.suspension_stiffness = SUSP_STIFFNESS
+		w.suspension_stiffness = p.suspension_stiffness
 		w.suspension_max_force = p.mass * 9.8 * SUSP_MAX_G
 		w.wheel_friction_slip = _slip_normal
-		w.damping_compression = SUSP_DAMP_COMPRESS
-		w.damping_relaxation = SUSP_DAMP_RELAX
+		w.damping_compression = p.damping_compression
+		w.damping_relaxation = p.damping_relaxation
 		w.use_as_steering = body.wheel_is_front(i)
 		w.use_as_traction = true
 		w.wheel_roll_influence = 0.0   # визуальные колёса крутим сами из ассета
@@ -211,8 +219,8 @@ func build(p: VehicleParams, _world: World3D) -> void:
 # попадания нормируется на (2*radius+rest), поэтому равновесие наступает при
 # (R+L)·L/(2R+L) = g/(N·k). Решаем относительно L — тогда на стоянке колёса стоят
 # на земле, а не висят над ней и не тонут в ней.
-static func _suspension_rest(radius: float, wheel_count: int) -> float:
-	var c := 9.81 / (maxf(1.0, float(wheel_count)) * SUSP_STIFFNESS)
+static func _suspension_rest(radius: float, wheel_count: int, stiffness := SUSP_STIFFNESS) -> float:
+	var c := 9.81 / (maxf(1.0, float(wheel_count)) * stiffness)
 	var b := radius - c
 	return 0.5 * (-b + sqrt(b * b + 8.0 * c * radius))
 
@@ -247,10 +255,11 @@ func respawn(tf: Transform3D) -> void:
 
 # Доля бака для индикатора: 1.0 — полный, 0.0 — форсажа нет.
 func nitro_fraction() -> float:
+	if replaying: return replay_nitro
 	return nitro / maxf(params.nitro_capacity, 1.0)
 
 func speed_kmh() -> float:
-	return chassis.linear_velocity.length() * 3.6
+	return replay_speed if replaying else chassis.linear_velocity.length() * 3.6
 
 # Единое окно в состояние шасси для отладочного оверлея. UI не должен лазить в
 # _steer/_slip/_skid напрямую: любой рефакторинг подвески или тормозов тогда молча
@@ -290,6 +299,7 @@ func _flat_forward() -> Vector3:
 # за тиковым камера гонится за точкой, которая на экране уже ушла на метр вперёд, и
 # зазор менял знак каждый кадр («камера отстаёт, догоняет и мелькает»).
 func render_transform() -> Transform3D:
+	if replaying: return replay_xf
 	return chassis.get_global_transform_interpolated()
 
 func forward_speed_ms() -> float:
@@ -543,12 +553,20 @@ func _speed(v: Vector3) -> float:
 # Визуальные колёса ассета следят за физическими: ход подвески, угол поворота, качение.
 func _pose_wheels(dt: float) -> void:
 	for i in _wheels.size():
-		var w := _wheels[i]
-		# Godot сам двигает узел колеса вдоль подвески (get_suspension_travel() — это просто
-		# геттер свойства), поэтому ход берём из смещения узла относительно опоры
-		var drop: float = (_mount_y[i] - w.position.y) - _susp_static
-		_roll[i] = fposmod(_roll[i] + w.get_rpm() / 60.0 * TAU * dt, TAU)
-		body.set_wheel_pose(i, clampf(drop, -SUSP_TRAVEL, w.wheel_rest_length), w.get_steering(), _roll[i])
+		_roll[i] = fposmod(_roll[i] + _wheels[i].get_rpm() / 60.0 * TAU * dt, TAU)
+		var p := wheel_pose(i)
+		body.set_wheel_pose(i, p.x, p.y, p.z)
+
+# Поза колеса для рисовки: (ход подвески, угол поворота, накопленное качение).
+# Один источник и для живого тика, и для реплея: иначе проигрывание рисовало бы
+# колёса по другой формуле, чем заезд их считал.
+func wheel_pose(i: int) -> Vector3:
+	if i >= _wheels.size(): return Vector3.ZERO
+	var w := _wheels[i]
+	# Godot сам двигает узел колеса вдоль подвески (get_suspension_travel() — это просто
+	# геттер свойства), поэтому ход берём из смещения узла относительно опоры
+	var drop: float = (_mount_y[i] - w.position.y) - _susp_static
+	return Vector3(clampf(drop, -SUSP_TRAVEL, w.wheel_rest_length), w.get_steering(), _roll[i])
 
 # get_euler() отдаёт рыскание в [-π, π], поэтому heading разворачиваем по кратчайшей
 # дуге: иначе на полном круге он скачет на ±360° и ломает всё, что его сравнивает.

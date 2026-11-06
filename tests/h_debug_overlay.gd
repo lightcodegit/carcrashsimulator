@@ -62,7 +62,7 @@ func _ready() -> void:
 		var calls := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 		check(calls > 0, "под живым рендером вызовы отрисовки nonzero (%d)" % calls)
 	else:
-		print("NOTE: вызовы отрисовки под headless не меряются")
+		print("PARTIAL: вызовы отрисовки под headless не меряются")
 	var seen := {}
 	for i in 4:
 		var text := String(overlay._label.text)

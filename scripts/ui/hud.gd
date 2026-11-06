@@ -9,6 +9,16 @@ signal menu_requested
 signal resume_requested
 signal restart_requested
 signal settings_requested
+signal replay_requested
+signal replay_step_requested(dir: int)
+signal replay_play_requested
+signal replay_rate_requested(dir: int)
+signal replay_exit_requested
+signal photo_requested
+signal photo_shot_requested
+signal photo_hide_requested
+signal photo_reset_requested
+signal photo_exit_requested
 
 const PANEL_BG := Color(0.045, 0.055, 0.075, 0.72)
 const PANEL_LINE := UiTheme.LINE
@@ -115,6 +125,18 @@ var _pause_panel: Control
 var _pause_label: Label
 var _run_stats: Label
 var _buttons: Array[Button] = []
+# Полоса реплея: отдельный слой поверх игровых панелей, но НЕ под карточкой паузы —
+# реплей смотрит на живой мир, поэтому телеметрия должна оставаться видимой.
+var _replay_panel: Control
+var _replay_title: Label
+var _replay_info: Label
+var _replay_fill: ColorRect
+var _replay_buttons: Array[Button] = []
+var _photo_panel: Control
+var _photo_info: Label
+var _photo_buttons: Array[Button] = []
+var _panels_hidden := false
+var _photo_on := false
 var _start_ms := 0
 var _prev_kmh := 0.0
 var _g := 0.0
@@ -141,6 +163,8 @@ func _ready() -> void:
 	_build_fps(root)
 	_build_banners(root)
 	_build_pause(root)
+	_build_replay(root)
+	_build_photo(root)
 
 func _style(sb_corner := 10) -> StyleBoxFlat:
 	# тот же язык, что у панелей меню: скругление 10, мягкая тень, тонкая обводка —
@@ -340,7 +364,7 @@ func _build_pause(root: Control) -> void:
 	# мир за спиной остаётся видимым, список действий читается как главное меню
 	var card := Panel.new()
 	card.position = Vector2(UiTheme.fx(48), UiTheme.fx(120))
-	card.size = Vector2(UiTheme.fx(380), UiTheme.fx(480))   # ровно под четыре строку меню: пустого хвоста быть не должно
+	card.size = Vector2(UiTheme.fx(380), UiTheme.fx(608))   # ровно под шесть строк меню: пустого хвоста быть не должно
 	card.add_theme_stylebox_override("panel", _style(8))
 	_pause_panel.add_child(card)
 	_pause_label = _label(Vector2(24, 24), 40, Color.WHITE, 800)
@@ -361,6 +385,8 @@ func _build_pause(root: Control) -> void:
 	var rows := [
 		["ПРОДОЛЖИТЬ", _resume_cb],
 		["НАСТРОЙКИ", _settings_cb],
+		["РЕПЛЕЙ УДАРА", _replay_cb],
+		["ФОТОМОД", _photo_cb],
 		["ЗАПУСТИТЬ ЗАНОВО", _restart_cb],
 		["В ГЛАВНОЕ МЕНЮ", _menu_cb],
 	]
@@ -371,6 +397,157 @@ func _build_pause(root: Control) -> void:
 		(b.pressed as Signal).connect(rows[i][1] as Callable)
 		card.add_child(b)
 		_buttons.append(b)
+
+# Полоса управления реплеем: время, прогресс и шесть кнопок. Панель лежит поперёк
+# нижнего края, но не задевает ни спидометр (слева снизу), ни счётчик кадров
+# (справа снизу) — h_hud_layout меряет наложения числами, а не глазками.
+func _build_replay(root: Control) -> void:
+	var panel := Panel.new()
+	panel.name = "ReplayBar"
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 1.0
+	panel.anchor_bottom = 1.0
+	panel.offset_left = -UiTheme.fx(340)
+	panel.offset_right = UiTheme.fx(340)
+	panel.offset_top = -UiTheme.fx(118)
+	panel.offset_bottom = -UiTheme.fx(34)
+	panel.visible = false
+	panel.add_theme_stylebox_override("panel", _style(8))
+	root.add_child(panel)
+	_replay_panel = panel
+	_replay_title = _label(Vector2(14, 8), 14, ACCENT, 800)
+	_replay_title.text = "РЕПЛЕЙ"
+	panel.add_child(_replay_title)
+	_replay_info = _label(Vector2(120, 8), 13, Color.WHITE, 600)
+	_replay_info.text = "0.00 / 0.00 с"
+	panel.add_child(_replay_info)
+	var bg := ColorRect.new()
+	bg.color = Color(1, 1, 1, 0.10)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.position = Vector2(UiTheme.fx(14), UiTheme.fx(30))
+	bg.size = Vector2(UiTheme.fx(652), UiTheme.fx(4))
+	panel.add_child(bg)
+	_replay_fill = ColorRect.new()
+	_replay_fill.color = ACCENT
+	_replay_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_replay_fill.position = bg.position
+	_replay_fill.size = Vector2(0, bg.size.y)
+	panel.add_child(_replay_fill)
+	var rows := [
+		["◀ ШАГ", func() -> void: replay_step_requested.emit(-1)],
+		["ПАУЗА/ПУСК", _replay_play_cb],
+		["ШАГ ▶", func() -> void: replay_step_requested.emit(1)],
+		["МЕДЛЕННЕЕ", func() -> void: replay_rate_requested.emit(-1)],
+		["БЫСТРЕЕ", func() -> void: replay_rate_requested.emit(1)],
+		["ВЫХОД", _replay_exit_cb],
+	]
+	for i in rows.size():
+		var b := Button.new()
+		b.text = rows[i][0] as String
+		b.position = Vector2(UiTheme.fx(14 + i * 110), UiTheme.fx(42))
+		b.size = Vector2(UiTheme.fx(102), UiTheme.fx(44))
+		b.focus_mode = Control.FOCUS_ALL
+		b.add_theme_font_size_override("font_size", UiTheme.px(13))
+		(b.pressed as Signal).connect(rows[i][1] as Callable)
+		panel.add_child(b)
+		_replay_buttons.append(b)
+
+func set_replay_ui(v: bool) -> void:
+	if _replay_panel == null: return
+	_replay_panel.visible = v
+	if v and not _replay_buttons.is_empty():
+		_replay_buttons[1].grab_focus()     # фокус на «ПАУЗА/ПУСК»: стрелками дальше шаг и скорость
+
+func set_replay_info(t: float, total: float, rate: float, playing: bool, dents: int) -> void:
+	if _replay_info == null: return
+	_replay_info.text = "%.2f / %.2f с · ×%.2f · %s · вмятин %d" % [
+		t, total, rate, "ИДЁТ" if playing else "СТОП", dents]
+	var span := maxf(total, 1e-3)
+	_replay_fill.size = Vector2(UiTheme.fx(652) * clampf(t / span, 0.0, 1.0), UiTheme.fx(4))
+
+func replay_button(label: String) -> Button:
+	for b in _replay_buttons:
+		if b.text == label: return b
+	return null
+
+func replay_ui_visible() -> bool:
+	return _replay_panel != null and _replay_panel.visible
+
+func _replay_cb() -> void: replay_requested.emit()
+func _replay_play_cb() -> void: replay_play_requested.emit()
+func _replay_exit_cb() -> void: replay_exit_requested.emit()
+
+# Полоса фотомода: снимок, спрятать интерфейс, сброс вида, выход. Кадр обязан
+# получаться чистым, поэтому «БЕЗ HUD» гаснит и эту полосу тоже — и подпись
+# говорит, каким клавишем возвращать интерфейс.
+func _build_photo(root: Control) -> void:
+	var panel := Panel.new()
+	panel.name = "PhotoBar"
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 1.0
+	panel.anchor_bottom = 1.0
+	panel.offset_left = -UiTheme.fx(300)
+	panel.offset_right = UiTheme.fx(300)
+	panel.offset_top = -UiTheme.fx(104)
+	panel.offset_bottom = -UiTheme.fx(34)
+	panel.visible = false
+	panel.add_theme_stylebox_override("panel", _style(8))
+	root.add_child(panel)
+	_photo_panel = panel
+	_photo_info = _label(Vector2(14, 8), 13, Color.WHITE, 600)
+	_photo_info.text = "ФОТОМОД"
+	panel.add_child(_photo_info)
+	var rows := [
+		["СНИМОК", func() -> void: photo_shot_requested.emit()],
+		["БЕЗ HUD", func() -> void: photo_hide_requested.emit()],
+		["СБРОС ВИДА", func() -> void: photo_reset_requested.emit()],
+		["ВЫХОД", func() -> void: photo_exit_requested.emit()],
+	]
+	for i in rows.size():
+		var b := Button.new()
+		b.text = rows[i][0] as String
+		b.position = Vector2(UiTheme.fx(14 + i * 144), UiTheme.fx(44))
+		b.size = Vector2(UiTheme.fx(136), UiTheme.fx(44))
+		b.focus_mode = Control.FOCUS_ALL
+		b.add_theme_font_size_override("font_size", UiTheme.px(13))
+		(b.pressed as Signal).connect(rows[i][1] as Callable)
+		panel.add_child(b)
+		_photo_buttons.append(b)
+
+func set_photo_ui(v: bool) -> void:
+	if _photo_panel == null: return
+	_photo_on = v
+	_apply_visibility()
+	if v and not _photo_buttons.is_empty():
+		_photo_buttons[0].grab_focus()
+
+func set_photo_info(text: String) -> void:
+	if _photo_info == null: return
+	_photo_info.text = text
+
+func photo_button(label: String) -> Button:
+	for b in _photo_buttons:
+		if b.text == label: return b
+	return null
+
+func photo_ui_visible() -> bool:
+	return _photo_panel != null and _photo_panel.visible
+
+# Интерфейс прячется целиком и на снимок: панели телеметрии, журнала, счётчика
+# кадров и полоса фотомода. Сам HUD-слой остаётся на месте — пересобирать сцену
+# ради кадра не за чем.
+func set_panels_hidden(v: bool) -> void:
+	_panels_hidden = v
+	_apply_visibility()
+
+func _apply_visibility() -> void:
+	for c in _gameplay:
+		if is_instance_valid(c): c.visible = not _paused_ui and not _panels_hidden
+	if _photo_panel != null: _photo_panel.visible = _photo_on and not _panels_hidden
+
+func _photo_cb() -> void: photo_requested.emit()
 
 func _button(text: String) -> Button:
 	# плоская строка как в навигации меню: янтарная полоса слева на фокусе/наведении
@@ -452,8 +629,7 @@ func show_tip(text: String) -> void:
 func set_paused(v: bool) -> void:
 	_pause_panel.visible = v
 	_paused_ui = v
-	for c in _gameplay:
-		c.visible = not v
+	_apply_visibility()
 	if v and not _buttons.is_empty():
 		_buttons[0].grab_focus()
 
@@ -500,9 +676,12 @@ func _process(dt: float) -> void:
 	var kmh := _car.speed_kmh()
 	_gauge.speed = kmh
 	_gauge.nitro = _car.nitro_fraction()
-	_gauge.nitro_hot = _car.nitro_active
+	_gauge.nitro_hot = _car.nitro_active if not _car.replaying else (_car.replay_nitro > 0.001)
 	_gauge.queue_redraw()
-	if dt > 0.0:
+	# На реплее перегрузку не считаем: это производная по реальному времени кадра,
+	# а проигрывание идёт в ×0.25 — из него получилось бы другое g, чем было в заезде,
+	# и оно бы отравило пик заезда.
+	if dt > 0.0 and not _car.replaying:
 		var inst := (kmh - _prev_kmh) / 3.6 / dt / 9.81
 		_g = lerpf(_g, clampf(inst, -3.0, 6.0), 0.25)
 	_prev_kmh = kmh

@@ -44,6 +44,18 @@ const AXIS_NAMES := {
 }
 
 var _custom := {}      # action -> Array[InputEvent]: то, что назначил игрок
+# Последний виденный номер геймпада: вибрация и тесты должны понимать, какому
+# устройству слать импульс, когда бинды назначены на «любой» (-1). Пишется из
+# живых joy-событий и из rebind; -1 — геймпад ещё ни разу не появлялся.
+var _pad_device := -1
+
+func _input(event: InputEvent) -> void:
+	# только запоминаем, ничего не едим: обработчики действий и GUI не затронуты
+	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		if event.device >= 0: _pad_device = event.device
+
+func pad_index() -> int:
+	return _pad_device
 
 func _ready() -> void:
 	for name_v in DEFAULTS:
@@ -133,6 +145,9 @@ func rebind(action: String, ev: InputEvent) -> void:
 	if not DEFAULTS.has(action): return
 	var arr: Array = _custom.get(action, []).duplicate()
 	var cls := _class_of(ev)
+	# назначение на конкретное устройство заодно помнит его номер: вибрация
+	# спрашивает pad_index(), а не лезет в глубины раскладки
+	if cls == "joy" and ev.device >= 0: _pad_device = ev.device
 	var kept: Array = []
 	for e in arr:
 		if _class_of(e) != cls: kept.append(e)

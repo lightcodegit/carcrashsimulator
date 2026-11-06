@@ -165,6 +165,6 @@ func _finish() -> void:
 			for i in WINDOW: worst = maxf(worst, absf(k[i] - j[i]))
 			check(worst < 8.0, "живой геймпад и клавиатура тормозятся похоже (расхождение %.1f км/ч)" % worst)
 		else:
-			print("NOTE: геймпад не подключён — проверялась только клавиатура")
+			print("PARTIAL: геймпад не подключён — проверялась только клавиатура")
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 		get_tree().quit(0 if _fails == 0 else 1)

@@ -59,4 +59,5 @@ static func get_params(id: String) -> VehicleParams:
 	p.length = aabb.size.z * s
 	p.height = aabb.size.y * s
 	p.wheel_r = float(m.wheel_r) * s
+	p.paint_color = Materials.stock_paint_color(p.model)
 	return p

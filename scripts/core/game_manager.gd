@@ -7,6 +7,11 @@ var camera: CameraRig
 var effects: EffectsDirector
 var skid: SkidMarks
 var settings: SettingsMenu
+var audio: AudioDriver
+var vibration: VibrationFeed
+var replay: ReplayRecorder
+var replay_player: ReplayPlayer
+var photo: PhotoMode
 var _env: Environment
 var _sun: DirectionalLight3D
 var _spawn := Transform3D.IDENTITY
@@ -31,7 +36,8 @@ func _ready() -> void:
 	add_child(m.root)
 	car = CarRig.new()
 	add_child(car)
-	var params: VehicleParams = VehicleDB.get_params(GameContext.car_id)
+	var profiles := GarageProfiles.new()
+	var params: VehicleParams = profiles.effective_params(GameContext.car_id)
 	if params == null:
 		# id мог прийти из сохранённого контекста старой версии игры: без машины
 		# сцена была бы чёрным экраном, поэтому берём первую из списка и ругаемся
@@ -50,6 +56,20 @@ func _ready() -> void:
 	effects = EffectsDirector.new()
 	add_child(effects)
 	effects.attach(car)
+	# звук и вибрация — следующие после effects: им нужна уже подключённая машина,
+	# а сбитым предметам — уже готовый приёмник пыли от effects
+	audio = AudioDriver.new()
+	audio.name = "AudioDriver"
+	add_child(audio)
+	audio.attach(car)
+	vibration = VibrationFeed.new()
+	vibration.name = "VibrationFeed"
+	add_child(vibration)
+	vibration.attach(car)
+	# пыль от сбитого предмета: callback в LooseProp, а не опрос — предмет знает
+	# о ударе сам ровно в тот тик, когда его кувыркают
+	for n in get_tree().get_nodes_in_group(LooseProp.GROUP):
+		if n is LooseProp: (n as LooseProp).on_hit_fx = effects.on_prop_hit
 	camera = CameraRig.new()
 	add_child(camera)
 	camera.setup(car)
@@ -69,6 +89,33 @@ func _ready() -> void:
 	# HUD, иначе первая перерисовка читала бы null.
 	hud.attach_debug(self)
 	hud.settings_requested.connect(_open_settings)
+	# реплей — после HUD: плееру нужны и панель полос, и уже подключённая машина.
+	#Recorder пишет кольцо кадров, player его проигрывает на замороженном мире.
+	replay = ReplayRecorder.new()
+	add_child(replay)
+	replay.attach(car, self)
+	replay_player = ReplayPlayer.new()
+	add_child(replay_player)
+	replay_player.setup(replay, car, self)
+	# recorder обязан замолчать на собственном проигрывании: иначе повтор писал бы
+	# сам себя и окно съезжало бы вперёд
+	replay.player = replay_player
+	hud.replay_requested.connect(_open_replay)
+	hud.replay_exit_requested.connect(_exit_replay)
+	hud.replay_step_requested.connect(func(d: int) -> void: replay_player.scrub(d))
+	hud.replay_play_requested.connect(func() -> void: replay_player.toggle_play())
+	hud.replay_rate_requested.connect(func(d: int) -> void: replay_player.bump_rate(d))
+	replay_player.cursor_changed.connect(_on_replay_cursor)
+	replay_player.stopped.connect(_on_replay_stopped)
+	photo = PhotoMode.new()
+	add_child(photo)
+	photo.setup(car, self)
+	photo.hud_hidden.connect(func(v: bool) -> void: hud.set_panels_hidden(v))
+	hud.photo_requested.connect(_open_photo)
+	hud.photo_exit_requested.connect(_exit_photo)
+	hud.photo_shot_requested.connect(_photo_shot)
+	hud.photo_hide_requested.connect(_photo_hide)
+	hud.photo_reset_requested.connect(_photo_reset)
 	car.impact.connect(_on_impact)
 	_start_ms = Time.get_ticks_msec()
 	_release_inputs()
@@ -117,6 +164,14 @@ func _apply_render() -> void:
 		camera.fov = Settings.fov
 		camera.apply_settings()
 	hud.set_fps_visible(Settings.show_fps)
+	_apply_audio()
+
+# Всё немое доводится до звука и до частиц отсюда: та же точка Settings.changed.
+func _apply_audio() -> void:
+	if audio != null:
+		audio.apply_settings()
+	if effects != null:
+		effects.set_enabled(bool(Settings.particles_enabled) and not _paused)
 
 func _open_settings() -> void:
 	# Карточку паузы прячем: её кнопки живые (focus_mode=ALL), и под затемнением
@@ -245,6 +300,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	# пока открыт экран настроек, его события нам не нужны: там своя обработка,
 	# включая Esc для закрытия
 	if settings != null and settings.is_open(): return
+	# В фотомоде свои клавиши: Esc — выход, F5 прячет интерфейс (ловит PhotoMode),
+	# а действия заезда на него не должны влиять вовсе.
+	if photo != null and photo.active:
+		if event.is_action_pressed("pause") or event.is_action_pressed("respawn"): _exit_photo()
+		return
+	# На реплее мир стоит, и клавиши заезда на нём не работают вовсе: Esc и R
+	# значит «выйти», а не «пауза» и «рестарт по середине повтора».
+	if replay_player != null and replay_player.active:
+		if event.is_action_pressed("pause"): _exit_replay()
+		elif event.is_action_pressed("respawn"):
+			_exit_replay()
+			_respawn_now()
+			hud.show_tip("рестарт")
+		return
 	if event.is_action_pressed("pause"):
 		_set_paused(not _paused)
 	# R обязан работать и на паузе: игрок жмёт его, чтобы начать заезд заново, а не
@@ -261,11 +330,94 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _respawn_now() -> void:
 	_flip = 0.0
+	# окно реплея — это ОДИН заход: рестарт телепортирует машину, и повтор через
+	# телепорт показывал бы не аварию, а прыжок
+	if replay != null: replay.clear()
 	for n in get_tree().get_nodes_in_group(LooseProp.GROUP):
 		if is_instance_valid(n): n.restore()
 	car.respawn(_spawn)
 	skid.respawn()
+	if audio != null: audio.reset_state()
+	if vibration != null: vibration.stop()
+	if effects != null: effects.reset_transient()
 	TimeScale.set_hold(false)
+
+# ── реплей удара ────────────────────────────────────────────────────────────
+# Мир ставится на ту же паузу, что и меню: физика не считает ни шага, а плеер
+# только перекладывает записанные кадры. Поэтому «повтор» — не пересимуляция.
+func _open_replay() -> void:
+	_set_paused(true)
+	if replay_player.begin_default():
+		hud.set_paused(false)          # карточку паузы прячем, но _paused остаётся: мир стоит
+		hud.set_replay_ui(true)
+		_release_inputs()
+		_on_replay_cursor(replay_player.cursor, replay.window_end())
+	else:
+		hud.show_tip("окно реплея пусто — разгонитесь и ударьтесь")
+		_set_paused(false)
+
+func _exit_replay() -> void:
+	if replay_player == null or not replay_player.active: return
+	replay_player.end()
+	hud.set_replay_ui(false)
+	_set_paused(false)
+
+func _on_replay_cursor(t: float, total: float) -> void:
+	if hud == null: return
+	var dents := 0
+	for d in replay.dents:
+		if float(d.t) <= t + 1e-6: dents += 1
+	hud.set_replay_info(t - replay.window_start(), total - replay.window_start(),
+		replay_player.rate(), replay_player.playing, dents)
+
+# Выход из реплея возвращает живое состояние, поэтому HUD обязан перечесть
+# вмятины и пик по настоящему кузову, а не по проигранному.
+func _on_replay_stopped() -> void:
+	if hud != null: hud.set_replay_info(0.0, 0.0, 1.0, false, 0)
+
+# Единственный признак для всех, кто должен молчать на паузе и на повторе:
+# recorder пишет только когда мир жив. И пауза, и повтор, и фотомод держат
+# get_tree().paused, поэтому достаточно одного _paused.
+func is_frozen() -> bool:
+	return _paused
+
+# ── фотомод ─────────────────────────────────────────────────────────────────
+func _open_photo() -> void:
+	_set_paused(true)
+	if photo.begin():
+		hud.set_paused(false)
+		hud.set_photo_ui(true)
+		_release_inputs()
+		_photo_label()
+	else:
+		_set_paused(false)
+
+func _exit_photo() -> void:
+	if photo == null or not photo.active: return
+	photo.end()
+	hud.set_photo_ui(false)
+	hud.set_panels_hidden(false)
+	_set_paused(false)
+
+func _photo_shot() -> void:
+	photo.shoot()
+	# путь и номер возвращаются в подписи полосы: игрок должен видеть, куда лёг
+	# кадр, не открывая проводник
+	await get_tree().process_frame
+	_photo_label()
+
+func _photo_hide() -> void:
+	photo.hide_hud(not photo.hud_off)
+
+func _photo_reset() -> void:
+	photo.reset_view()
+	_photo_label()
+
+func _photo_label() -> void:
+	if hud == null or photo == null: return
+	var p := photo.last_path()
+	hud.set_photo_info("ФОТОМОД · FOV %.0f° · снимков %d%s" % [
+		photo.fov, photo.shots, "" if p == "" else " · " + p.replace("user://", "")])
 
 func _set_paused(v: bool) -> void:
 	_paused = v
@@ -274,6 +426,17 @@ func _set_paused(v: bool) -> void:
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS if v else Node.PROCESS_MODE_INHERIT
 	if v: hud.set_run_stats(run_summary())
 	hud.set_paused(v)
+	# GameManager живёт в PROCESS_MODE_ALWAYS и дети наследуют этот режим:
+	# пауза сама по себе их не глушит, поэтому звук, вибрация и частицы
+	# выключаются явным вызовом, а снятие с паузы возвращает настройки
+	if v:
+		if audio != null: audio.suspend()
+		if vibration != null: vibration.set_active(false)
+		if effects != null: effects.set_enabled(false)
+	else:
+		if audio != null: audio.resume()
+		if vibration != null: vibration.set_active(true)
+		if effects != null: effects.set_enabled(bool(Settings.particles_enabled))
 
 # Сводка заезда в меню паузы: игрок уходит из игры на секунду и хочет увидеть, чем
 # именно кончился заход, а не вспоминать это по памяти.
@@ -311,4 +474,8 @@ func _restart_map() -> void:
 func _to_menu() -> void:
 	get_tree().paused = false
 	_paused = false
+	# на выходе из заезда молчат все внешние устройства; _exit_tree дублирует
+	# это на случай смены сцены минуя «в меню»
+	if audio != null: audio.stop_all()
+	if vibration != null: vibration.set_active(false)
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")

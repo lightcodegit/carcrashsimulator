@@ -110,7 +110,7 @@ func _ready() -> void:
 	_pad_hb = _first_of("handbrake", "pad") as InputEventJoypadButton
 	check(_key_gas != null and _key_hb != null, "у газа и ручника есть клавиатурное событие")
 	if Input.get_connected_joypads().is_empty():
-		print("NOTE: геймпад не подключён — сравнение устройств пропускается, проверяется только клавиатура")
+		print("PARTIAL: геймпад не подключён — сравнение устройств пропускается, проверяется только клавиатура")
 		_pads = false
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())

@@ -68,7 +68,7 @@ func _drop(h: float, kmh: float) -> void:
 			lt = 0
 			break
 	if not air or v0 == 0.0:
-		print("NOTE: падение %.1f м @%.0f: полёт или касание не пойманы" % [h, kmh])
+		print("PARTIAL: падение %.1f м @%.0f: полёт или касание не пойманы" % [h, kmh])
 		return
 	for _i in 120:
 		await get_tree().physics_frame

@@ -36,4 +36,6 @@ func _initialize() -> void:
 	check(st["loose"] >= 700, "сбиваемой мелочи хватает (%d)" % st["loose"])
 	check(st["loose"] <= 1100,
 		"тел не больше бюджета физики (%d) — шаг физики растёт вместе с ними" % st["loose"])
+	built["root"].free()
+	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	quit(0 if _fails == 0 else 1)

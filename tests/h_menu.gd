@@ -10,9 +10,8 @@ func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
 func _design_size() -> Vector2:
-	# интерфейс адаптивный (stretch canvas_items + aspect expand): при headless
-	# окне логический вьюпорт может быть больше дизайн-1600×900, мерить надо по
-	# фактическому видимому прямоугольнику
+	# при headless окне логический вьюпорт не совпадает с дизайн-1600×900, мерить
+	# надо по фактическому видимому прямоугольнику
 	return get_viewport().get_visible_rect().size
 
 func _labels(root: Node, out: Array) -> void:

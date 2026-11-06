@@ -87,17 +87,19 @@ func _mk_smoke(car: CarRig) -> void:
 	for i in car.wheel_count():
 		var vw := car.chassis.get_node_or_null("Wheel%d" % i) as VehicleWheel3D
 		if vw == null: continue
-		var p := _mk_particles(Color(0.72, 0.72, 0.73, 0.32), 24, 0.8)
+		var p := _mk_particles(Color(0.74, 0.74, 0.75, 0.38), 32, 1.15)
 		p.one_shot = false
 		p.explosiveness = 0.0
 		p.preprocess = 0.0
 		p.direction = Vector3(0.0, 0.55, -0.55)
 		p.spread = 30.0
-		p.initial_velocity_min = 0.8
-		p.initial_velocity_max = 2.2
-		p.gravity = Vector3(0.0, 0.4, 0.0)
-		p.scale_amount_min = 0.12
-		p.scale_amount_max = 0.34
+		p.initial_velocity_min = 1.2
+		p.initial_velocity_max = 3.2
+		p.gravity = Vector3(0.0, 0.55, 0.0)
+		# облако резины — не пылинка: 0.12–0.34 м живым кадром читалось как
+		# ничего, хотя эммитер был включён; настоящие клубы — доли метра
+		p.scale_amount_min = 0.35
+		p.scale_amount_max = 0.95
 		p.emitting = false
 		add_child(p)
 		_smoke.append(p)

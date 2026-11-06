@@ -348,10 +348,6 @@ func _sound_page(box: VBoxContainer) -> void:
 	box.add_child(_spacer(14))
 	box.add_child(_section_head("ЭФФЕКТЫ"))
 	box.add_child(_row_for("particles_enabled"))
-	box.add_child(_spacer(10))
-	box.add_child(UiTheme.label(
-		"Звук в колонках не проверяется в headless-режиме: там аудиодрайвер — заглушка",
-		13, UiTheme.FAINT))
 
 func _row_for(key: String) -> Control:
 	for o in OPTIONS:

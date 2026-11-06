@@ -60,14 +60,24 @@ func _rows_and_settings() -> void:
 		check(_row_by_key(key) != null, "строка-галка %s существует" % key)
 	check(menu._sliders.has("audio_volume"), "ползунок ОБЩАЯ ГРОМКОСТЬ существует")
 	check(menu._sliders.has("vibration_strength"), "ползунок СИЛА ВИБРАЦИИ существует")
-	var note_found := false
+	# Подпись про железо обязана зависеть от железа, а не от того, как мы тестируем
+	# игру: «headless» в настройках — это заметка для разработчика, игроку она
+	# ничего не говорит. Проверка двусторонняя: без геймпада подсказка есть, с
+	# подключённым — её нет.
+	var pad_hint := false
+	var dev_noise := false
 	var stack: Array[Node] = [menu]
 	while not stack.is_empty():
 		var n: Node = stack.pop_back()
-		if n is Label and ("Геймпад" in (n as Label).text or "headless" in (n as Label).text):
-			note_found = true
+		if n is Label:
+			var t := (n as Label).text
+			if "Геймпад" in t: pad_hint = true
+			if "headless" in t or "заглушк" in t: dev_noise = true
 		for c in n.get_children(): stack.append(c)
-	check(note_found, "на вкладке есть честная подпись про отсутствие железа")
+	check(not dev_noise, "на вкладке нет заметок про метод тестирования (headless/заглушка)")
+	check(pad_hint == Input.get_connected_joypads().is_empty(),
+		"подсказка про геймпад показывается ровно когда его нет (подключено %d, подсказка %s)" % [
+			Input.get_connected_joypads().size(), pad_hint])
 	var cb := _find_check("audio_enabled")
 	cb.button_pressed = false
 	check(not Settings.audio_enabled, "галка ЗВУК пишет audio_enabled=false")

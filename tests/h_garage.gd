@@ -77,7 +77,20 @@ func _ready() -> void:
 	check(gm.car.params.accel_max == 9, "restart retains tuning")
 	check(gm.car.body._mat.albedo_texture.get_image().get_data() == draft_bytes, "restart retains appearance")
 	UiTheme.force_step(0)
-	print("PARTIAL: native headless layout verified; live GPU visual verification pending")
+	# PARTIAL обязан быть условным: в живом окне GPU есть, и говорить «картинку
+	# не проверяли» там — значит врать в отчёте
+	if DisplayServer.get_name() == "headless":
+		print("PARTIAL: native headless layout verified; live GPU visual verification pending")
+	else:
+		await frames(4)
+		var img := get_viewport().get_texture().get_image()
+		var lit := 0
+		for yy in range(0, img.get_height(), 13):
+			for xx in range(0, img.get_width(), 13):
+				if img.get_pixel(xx, yy).get_luminance() > 0.05: lit += 1
+		check(lit > 40, "живой кадр гаража не чёрный: %d светлых выборок" % lit)
+		print("LIVE: GPU-кадр гаража проверен (%d светлых выборок из ~%d)" % [
+			lit, int(img.get_width() / 13.0) * int(img.get_height() / 13.0)])
 	print("ALL PASS" if fails == 0 else "FAILS %d" % fails)
 	get_tree().quit(0 if fails == 0 else 1)
 

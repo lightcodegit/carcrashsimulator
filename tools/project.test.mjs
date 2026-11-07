@@ -239,11 +239,18 @@ test('staging uses only runtime sources and portable presets; local config stays
   await writeFile(path.join(source, 'tests', 'h_test.tscn'), 'excluded');
   await copyFile(path.join(ROOT, 'tools', 'export_presets.cfg'), path.join(source, 'tools', 'export_presets.cfg'));
   await stageProject(source, dest);
+  // No LICENSE yet: an absent optional root file must not break the build.
   assert.deepEqual((await readdir(dest)).sort(), ['assets', 'export_presets.cfg', 'project.godot', 'scenes', 'scripts']);
   assert.equal(await readFile(path.join(dest, 'project.godot'), 'utf8'), config);
   assert.equal(await readFile(path.join(dest, 'assets', 'dynamic.glb'), 'utf8'), 'model');
   assert.equal(await readFile(path.join(source, 'export_presets.cfg'), 'utf8'), 'LOCAL SIGNING SECRET');
   assert.doesNotMatch(await readFile(path.join(dest, 'export_presets.cfg'), 'utf8'), /LOCAL SIGNING SECRET/);
+  // A license in the project root is not a Godot resource, so it reaches the
+  // build only if staging copies it explicitly — otherwise the shipped .pck
+  // carries no grant for the code at all.
+  await writeFile(path.join(source, 'LICENSE'), 'MIT License\n');
+  await stageProject(source, dest);
+  assert.equal(await readFile(path.join(dest, 'LICENSE'), 'utf8'), 'MIT License\n');
 });
 
 // Исполняемый файл обязан искаться в PATH, а не в текущем каталоге: spawn с

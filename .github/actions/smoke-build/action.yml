@@ -1,0 +1,39 @@
+name: Smoke run the exported build
+
+# Экспорт считается удачным не тогда, когда Godot отписался об успехе, а когда
+# собранный билд запускается. Headless-старт на несколько кадров ловит пустой
+# .pck, отсутствующую главную сцену и падение при инициализации — то, что
+# headless-тесты исходников не проверяют, потому что живут в другом окружении.
+
+description: 'Launch the exported binary headless and fail if it does not boot'
+inputs:
+  platform:
+    description: 'windows или linux'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Boot the exported build
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $platform = '${{ inputs.platform }}'
+        $dir = Join-Path 'artifacts/build' $platform
+        if (-not (Test-Path -LiteralPath $dir)) { throw "No build directory $dir." }
+        $pck = Get-ChildItem -LiteralPath $dir -Filter '*.pck' | Select-Object -First 1
+        if (-not $pck) { throw "No .pck in $dir — экспорт не собрал данные." }
+        if ($pck.Length -lt 100kb) { throw "Подозрительно маленький .pck: $($pck.Length) байт." }
+        $exe = if ($platform -eq 'windows') {
+          Get-ChildItem -LiteralPath $dir -Filter '*.exe' | Select-Object -First 1
+        } else {
+          Get-ChildItem -LiteralPath $dir | Where-Object { $_.PSIsContainer -eq $false -and $_.Extension -eq '' } | Select-Object -First 1
+        }
+        if (-not $exe) { throw "No exported binary under $dir." }
+        if (-not $IsWindows) {
+          chmod +x $exe.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Could not mark the exported binary executable.' }
+        }
+        New-Item -ItemType Directory -Force artifacts/logs | Out-Null
+        & $exe.FullName --headless --quit-after 120 2>&1 | Tee-Object -FilePath "artifacts/logs/smoke-$platform.log"
+        if ($LASTEXITCODE -ne 0) { throw "Exported build exited with $LASTEXITCODE." }

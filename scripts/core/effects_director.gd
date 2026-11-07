@@ -26,7 +26,7 @@ var _flames: CPUParticles3D
 var _debris: CPUParticles3D
 var _smoke: Array[CPUParticles3D] = []
 var _smoke_wheels: Array[VehicleWheel3D] = []
-var _spark_until := 0
+var _spark_gap := 0.0
 var _car: CarRig
 var _enabled := true
 var _nitro_on := false
@@ -37,7 +37,14 @@ var scrape_bursts := 0
 var prop_puffs := 0
 
 func attach(car: CarRig) -> void:
+	# Идемпотентность обязательна: прежний attach оставлял старых детей сиротами
+	# в дереве (детей 8 → 16), они выпадали из all_emitters(), и ни set_enabled(false),
+	# ни _exit_tree их не гасили — ровно тот путь, на котором исторически был
+	# native crash на освобождении эммитеров.
+	if _car == car and not _smoke.is_empty(): return
 	_car = car
+	for c in get_children():
+		c.queue_free()
 	_sparks = _mk_particles(Color(1.0, 0.82, 0.35), 42, 0.9)
 	_dust = _mk_particles(Color(0.62, 0.6, 0.58, 0.5), 26, 2.0)
 	_debris = _mk_particles(Color(0.55, 0.48, 0.4, 0.55), 18, 1.1)
@@ -50,8 +57,8 @@ func attach(car: CarRig) -> void:
 	if get_parent(): get_parent().remove_child(self)
 	car.chassis.add_child(self)
 	position = Vector3.ZERO
-	car.impact.connect(_on_impact)
-	car.nitro_changed.connect(_on_nitro)
+	if not car.impact.is_connected(_on_impact): car.impact.connect(_on_impact)
+	if not car.nitro_changed.is_connected(_on_nitro): car.nitro_changed.connect(_on_nitro)
 
 func _mk_flames(car: CarRig) -> CPUParticles3D:
 	var p := _mk_particles(Color(0.45, 0.75, 1.0, 0.85), 60, 0.22)
@@ -164,6 +171,7 @@ func reset_transient() -> void:
 	for p in [_sparks, _dust, _debris]: p.emitting = false
 	_scrape_hold = 0.0
 	_scrape_gap = 0.0
+	_spark_gap = 0.0
 
 # Дым живёт детьми колёс, поэтому при удалении машины его нужно погасить ДО того,
 # как узел колеса начнёт освобождаться: CPUParticles3D с активным потоком частиц на
@@ -195,6 +203,7 @@ func _physics_process(dt: float) -> void:
 # часовой стены, и ticks_msec-порог давал бы один залп на весь заезд.
 func _update_scrape(dt: float) -> void:
 	_scrape_gap = maxf(_scrape_gap - dt, 0.0)
+	_spark_gap = maxf(_spark_gap - dt, 0.0)
 	if _car.speed_kmh() < SCRAPE_MIN_KMH:
 		_scrape_hold = 0.0
 		return
@@ -246,9 +255,9 @@ func on_prop_hit(point: Vector3, speed_ms: float) -> void:
 func _on_impact(speed_kmh: float, point: Vector3, _normal: Vector3) -> void:
 	if not _enabled: return
 	if speed_kmh < 15.0: return
-	var now := Time.get_ticks_msec()
-	if now < _spark_until: return
-	_spark_until = now + 80
+	var now := _spark_gap
+	if now > 0.0: return
+	_spark_gap = 0.08
 	_sparks.global_position = point
 	_dust.global_position = point
 	_sparks.amount = int(clampf(speed_kmh * 0.4, 12.0, 64.0))

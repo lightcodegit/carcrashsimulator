@@ -330,6 +330,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _respawn_now() -> void:
 	_flip = 0.0
+	# рестарт во время повтора или фотомода возможен (R работает на паузе), а
+	# живой мир после респауна другой: проигрывание обязано закрыться до того,
+	# как мы очистим кольцо, — иначе машина осталась бы с replaying=true поверх
+	# собственной физики
+	if replay_player != null and replay_player.active: _exit_replay()
+	if photo != null and photo.active: _exit_photo()
 	# окно реплея — это ОДИН заход: рестарт телепортирует машину, и повтор через
 	# телепорт показывал бы не аварию, а прыжок
 	if replay != null: replay.clear()

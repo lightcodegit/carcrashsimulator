@@ -20,10 +20,11 @@ const PITCH_LIMIT := 1.35          # ±77°: за верх и низ тянут�
 const DOLLY_STEP := 0.6            # м на щелчок колеса
 const FOV_MIN := 12.0
 const FOV_MAX := 110.0
-const FOV_STEP := 3.0
+const FOV_STEP := 2.0              # на щелчок колеса с Ctrl
 
 signal shot_saved(path: String, index: int)
 signal hud_hidden(v: bool)
+signal fov_changed(v: float)
 
 var camera: Camera3D
 var car: CarRig
@@ -32,6 +33,7 @@ var active := false
 var shots := 0
 var _path := ""
 var _pending := false          # снимок по «СНИМОК»: интерфейс гаснет за кадр до захвата
+var _hud_before := false       # показывали ли панели до съёмки — на них и вернуться
 var hud_off := false
 var fov := 65.0
 var sprint := false
@@ -65,7 +67,10 @@ func begin() -> bool:
 	camera.current = true
 	_counted = _existing_count()
 	shots = 0
-	fov = camera.fov
+	# угол берём у живой камеры: camera.fov переживает выход из фотомода, и второй
+	# вход продолжал бы прошлый зум вместо вида, в который смотрит игрок
+	fov = clampf(live.fov if live != null else fov, FOV_MIN, FOV_MAX)
+	camera.fov = fov
 	hud_off = false
 	_pending = false
 	nav = Vector3.ZERO
@@ -74,6 +79,9 @@ func begin() -> bool:
 
 func end() -> void:
 	if not active: return
+	# кадр, назначенный кнопкой «СНИМОК», пишется только на следующем тике: если
+	# игрок вышел раньше, снимок обязан записаться, а не исчезнуть молча
+	if _pending: _take_pending()
 	active = false
 	camera.current = false
 	# снимать текущую камеру с игровой вручную не нужно: вьюпорт сам возвращает
@@ -96,6 +104,7 @@ func zoom(by_fov: float) -> void:
 	if not active: return
 	fov = clampf(fov + by_fov, FOV_MIN, FOV_MAX)
 	camera.fov = fov
+	fov_changed.emit(fov)
 
 func set_nav(x: float, y: float, z: float) -> void:
 	nav = Vector3(x, y, z)
@@ -115,21 +124,29 @@ func move_step(dt: float) -> void:
 func _pose() -> void:
 	camera.rotation = Vector3(_pitch, _yaw, 0.0)
 
-# Живое управление: WASD + QE + стрелки, Shift — быстрее, колесо — ближе/дальше.
-# Вне InputMap намеренно: эти клавиши фотомода не должны конфликтовать с
-# назначенными игроком биндами езды и не лезут в таблицу переопределений.
+# Живое управление: WASD + QE + стрелки, Shift — быстрее, колесо — ближе/дальше,
+# Ctrl+колесо — зум. Вне InputMap намеренно: эти клавиши фотомода не должны
+# конфликтовать с назначенными игроком биндами езды и не лезут в таблицу
+# переопределений. Служебная F5 уступает, если игрок назначил её своему действию:
+# отнимать чужую клавишу фотомод не имеет права.
 func _unhandled_input(event: InputEvent) -> void:
 	if not active: return
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_F5: hide_hud(not hud_off)
-			KEY_Z: zoom(FOV_STEP)
-			KEY_X: zoom(-FOV_STEP)
+		if event.keycode == KEY_F5 and _free_key(event): hide_hud(not hud_off)
 	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		look(event.relative.x, event.relative.y)
-	elif event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP: dolly(DOLLY_STEP)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN: dolly(-DOLLY_STEP)
+	elif event is InputEventMouseButton and event.pressed:
+		# колесо приходит парой событий (нажатие и отпускание): без привязки к
+		# нажатию каждый щелчок ехал бы вдвое дальше
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP: _wheel(1.0, event.ctrl_pressed)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN: _wheel(-1.0, event.ctrl_pressed)
+
+func _wheel(notches: float, ctrl: bool) -> void:
+	if ctrl: zoom(notches * FOV_STEP)
+	else: dolly(notches * DOLLY_STEP)
+
+func _free_key(event: InputEventKey) -> bool:
+	return InputRouter.find_owner(event, "") == ""
 
 func _process(dt: float) -> void:
 	if not active: return
@@ -153,13 +170,16 @@ func hide_hud(v: bool) -> void:
 # в каждый снимок, а это ровно то, от чего фотомод и спасает.
 func shoot() -> void:
 	if not active: return
+	_hud_before = hud_off
 	hide_hud(true)
 	_pending = true
 
 func _take_pending() -> void:
 	_pending = false
 	var p := capture()
-	hide_hud(false)
+	# возвращаем то состояние, что было до съёмки: если игрок сам спрятал
+	# интерфейс, кадр не обязан его показывать обратно
+	hide_hud(_hud_before)
 	if p == "": push_warning("PhotoMode: снимок не записан (нет кадра или нет права записи)")
 
 # Снимок: берём кадр, пишем PNG с порядковым именем и возвращаем путь.

@@ -111,6 +111,10 @@ func _ready() -> void:
 	add_child(photo)
 	photo.setup(car, self)
 	photo.hud_hidden.connect(func(v: bool) -> void: hud.set_panels_hidden(v))
+	# путь и номер кадра — по сигналу записи, а не «подождали кадр»: подпись
+	# обязана показывать то, что легло на диск, и только когда легло
+	photo.shot_saved.connect(func(_p: String, _i: int) -> void: _photo_label())
+	photo.fov_changed.connect(func(_v: float) -> void: _photo_label())
 	hud.photo_requested.connect(_open_photo)
 	hud.photo_exit_requested.connect(_exit_photo)
 	hud.photo_shot_requested.connect(_photo_shot)
@@ -406,11 +410,9 @@ func _exit_photo() -> void:
 	_set_paused(false)
 
 func _photo_shot() -> void:
+	# подпись обновляется по сигналу shot_saved, а не «через кадр»: кадр пишется
+	# ровно тогда, когда движок успел его взять, и ждать второй тик смысла нет
 	photo.shoot()
-	# путь и номер возвращаются в подписи полосы: игрок должен видеть, куда лёг
-	# кадр, не открывая проводник
-	await get_tree().process_frame
-	_photo_label()
 
 func _photo_hide() -> void:
 	photo.hide_hud(not photo.hud_off)

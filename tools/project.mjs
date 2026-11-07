@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -146,20 +147,60 @@ export async function withIsolation(callback) {
   }
 }
 
-export function runProcess(executable, args, { cwd = ROOT, env = process.env, timeoutMs = 120000, spawnImpl = spawn } = {}) {
+// Исполняемый файл ищется в PATH, а не «где окажется». Это не косметика:
+// spawn(..., {shell:false}) на Windows дополняет поиск текущим каталогом, и
+// godot.exe, положенный в клон репозитория, запускался бы вместо редактора из
+// PATH — а последующая проверка версии подделку пропускала бы.
+export function resolveExecutable(nameOrPath, {
+  env = process.env, cwd = ROOT, platform = process.platform, root = ROOT, exists = existsSync,
+} = {}) {
+  if (/[\\/]/.test(nameOrPath)) {
+    const abs = path.isAbsolute(nameOrPath) ? nameOrPath : path.resolve(root, nameOrPath);
+    if (!exists(abs)) {
+      throw new Error(`Godot не найден по пути: ${abs}. Передайте --godot PATH.`);
+    }
+    return abs;
+  }
+  const exts = platform === 'win32'
+    ? (env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';').map(x => x.toLowerCase())
+    : [''];
+  const dirs = String(env.PATH || '').split(path.delimiter).filter(Boolean);
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = path.join(dir, nameOrPath + ext);
+      if (exists(candidate)) return candidate;
+    }
+  }
+  throw new Error(
+    `Godot (${nameOrPath}) не найден в PATH. Установите 4.7.2 stable и передайте --godot PATH или GODOT.`);
+}
+
+export function runProcess(executable, args, { cwd = ROOT, env = process.env, timeoutMs = 120000, spawnImpl = spawn, maxOutputBytes = 8 * 1024 * 1024 } = {}) {
   return new Promise(resolve => {
     const start = Date.now();
-    const result = { stdout: '', stderr: '', exitCode: null, signal: null, timedOut: false, error: null };
+    const result = { stdout: '', stderr: '', exitCode: null, signal: null, timedOut: false, error: null, truncated: false };
+    // Потолок на поток: зациклившийся тест не должен выедать память раннера и
+    // раздувать лог. Факт усечения записывается, чтобы молчаливая потеря вывода
+    // не выглядела как «такого просто не было».
+    const collect = (stream, key) => {
+      stream.setEncoding('utf8');
+      stream.on('data', data => {
+        if (result[key].length >= maxOutputBytes) { result.truncated = true; return; }
+        result[key] += data;
+        if (result[key].length > maxOutputBytes) {
+          result[key] = result[key].slice(0, maxOutputBytes) + '\n… вывод обрезан по лимиту раннера …';
+          result.truncated = true;
+        }
+      });
+    };
     let timer;
     const finish = () => { clearTimeout(timer); resolve({ ...result, durationMs: Date.now() - start }); };
     let child;
     try {
       child = spawnImpl(executable, args, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (error) { result.error = error.message; finish(); return; }
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', data => { result.stdout += data; });
-    child.stderr.on('data', data => { result.stderr += data; });
+    collect(child.stdout, 'stdout');
+    collect(child.stderr, 'stderr');
     child.on('error', error => { result.error = error.message; });
     child.on('close', (code, signal) => { result.exitCode = code; result.signal = signal; finish(); });
     timer = setTimeout(() => {
@@ -206,7 +247,7 @@ async function main() {
   await mkdir(logs, { recursive: true });
   const reportDir = await mkdtemp(path.join(logs, `${new Date().toISOString().replace(/[:.]/g, '-')}-${options.command}-`));
   const report = { command: options.command, platform: process.platform, target: options.platform, startedAt: new Date().toISOString(), processes: [], tests: [], exitCode: 1 };
-  const executable = /[\\/]/.test(options.godot) ? path.resolve(options.godot) : options.godot;
+  const executable = resolveExecutable(options.godot, { env: process.env, root: ROOT });
   async function execute(label, args, overrides = {}) {
     const result = await runProcess(executable, args, { timeoutMs: options.timeoutMs, ...overrides });
     const log = `${String(report.processes.length).padStart(3, '0')}-${label.replace(/[^a-zA-Z0-9_-]/g, '_')}.log`;

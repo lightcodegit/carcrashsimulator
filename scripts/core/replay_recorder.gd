@@ -18,7 +18,8 @@ const MAX_FRAMES := int(HORIZON_S * RATE)
 const PROP_RADIUS := 45.0
 # События ударов хранятся дольше окна: перемотка пересобирает кузов из полного
 # списка, и лимит в 64 на длинной сессии стирал старые вмятины на время повтора.
-const MAX_DENTS := 256                # предметы вокруг машины, которые стоит писать
+const MAX_DENTS := 256
+const NEAR_REFRESH_S := 0.5        # раз в полсекунды симуляции пересчитываем окрестность                # предметы вокруг машины, которые стоит писать
 
 var car: CarRig
 var gm: GameManager
@@ -29,6 +30,8 @@ var sim_t := 0.0                 # время симуляции, а не час
 var _acc := 0.0
 var _props: Array[LooseProp] = []
 var _prop_idx := {}              # LooseProp -> номер в плоском списке кадра
+var _near := {}                  # номер предмета в окрестности машины (словарь: has() за O(1))
+var _near_at := -1.0
 
 func attach(p_car: CarRig, p_gm: GameManager) -> void:
 	car = p_car
@@ -85,14 +88,24 @@ func _sample() -> Dictionary:
 
 # Пишем только то, что имеет смысл: сбитые предметы и всё, что рядом с машиной.
 # Плоский массив (номер, 9 базиса, 3 позиции) — чтобы на кадр была одна аллокация.
+# «Рядом» пересчитывается раз в HALF_SECOND_S, а не на каждый сэмпл: на bigcity
+# с 703 предметами полный обход стоил 0.37 мс на сэмпл (20 Гц), а окрестность
+# машины меняется заметно медленнее.
 func _prop_frame() -> PackedFloat32Array:
 	_sync_props()
 	var cp := car.chassis.global_position
+	if sim_t - _near_at >= NEAR_REFRESH_S:
+		_near_at = sim_t
+		_near.clear()
+		for i in _props.size():
+			var p := _props[i]
+			if is_instance_valid(p) and p.global_position.distance_squared_to(cp) <= PROP_RADIUS * PROP_RADIUS:
+				_near[i] = true
 	var out := PackedFloat32Array()
 	for i in _props.size():
 		var p := _props[i]
 		if not is_instance_valid(p): continue
-		if not p.disturbed and p.global_position.distance_to(cp) > PROP_RADIUS: continue
+		if not p.disturbed and not _near.has(i): continue
 		var t := p.global_transform
 		var bb := t.basis
 		var o := out.size()
@@ -109,6 +122,8 @@ func _sync_props() -> void:
 	if live.size() == _props.size(): return
 	_props.clear()
 	_prop_idx.clear()
+	_near.clear()
+	_near_at = -1.0
 	for n in live:
 		if n is LooseProp:
 			_prop_idx[_props.size()] = n

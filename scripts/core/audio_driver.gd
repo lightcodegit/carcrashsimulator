@@ -169,8 +169,11 @@ func suspend() -> void:
 
 func resume() -> void:
 	_suspended = false
-	playback_missing = false
 	_start_playback()
+	# флаг отражает фактическое состояние вывода: прежнее безусловное false после
+	# первого же пауза/продолжить в headless прятало playback_missing, и h_audio
+	# терял основание сказать PARTIAL
+	playback_missing = _pb == null
 
 func stop_all() -> void:
 	suspend()

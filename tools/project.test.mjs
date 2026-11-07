@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+import { chmodSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, stat, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   ROOT, parseArgs, classifyTest, summarize, discoverTests, selectTests,
-  isolatedEnvironment, withIsolation, runProcess, stageProject,
+  isolatedEnvironment, withIsolation, resolveExecutable, runProcess, stageProject,
 } from './project.mjs';
 
 const ok = { stdout: 'ALL PASS\n', stderr: '', exitCode: 0, signal: null, error: null, timedOut: false };
@@ -243,4 +244,51 @@ test('staging uses only runtime sources and portable presets; local config stays
   assert.equal(await readFile(path.join(dest, 'assets', 'dynamic.glb'), 'utf8'), 'model');
   assert.equal(await readFile(path.join(source, 'export_presets.cfg'), 'utf8'), 'LOCAL SIGNING SECRET');
   assert.doesNotMatch(await readFile(path.join(dest, 'export_presets.cfg'), 'utf8'), /LOCAL SIGNING SECRET/);
+});
+
+// Исполняемый файл обязан искаться в PATH, а не в текущем каталоге: spawn с
+// shell:false на Windows дополняет поиск текущей директорией, и `godot.exe`,
+// положенный в клон репозитория, запускался бы вместо настоящего редактора.
+test('executable is resolved through PATH and never from the working directory', async t => {
+  const real = await temp(t);
+  const planted = await temp(t);
+  const name = 'zzgodotzz';
+  const ext = process.platform === 'win32' ? '.cmd' : '';
+  await writeFile(path.join(real, name + ext), '@echo off\r\n'.repeat(1));
+  chmodSync(path.join(real, name + ext), 0o755);
+  await writeFile(path.join(planted, name + ext), '@echo off\r\n'.repeat(1));
+  chmodSync(path.join(planted, name + ext), 0o755);
+  const env = { ...process.env, PATH: `${real}${path.delimiter}${process.env.PATH ?? ''}` };
+  const found = resolveExecutable(name, { env, cwd: planted, platform: process.platform });
+  assert.equal(found, path.join(real, name + ext));
+  assert.equal(path.dirname(found), real, 'каталог cwd не участвует в поиске');
+});
+
+test('a relative --godot path is resolved against the repository, not the shell cwd', () => {
+  const abs = resolveExecutable('./Godot.exe', {
+    env: {}, cwd: '/tmp/elsewhere', platform: 'linux', root: ROOT, exists: () => true,
+  });
+  assert.equal(abs, path.resolve(ROOT, 'Godot.exe'));
+});
+
+test('a missing executable is an error with a hint, not a silent spawn failure', () => {
+  assert.throws(
+    () => resolveExecutable('definitely-not-godot-xyz', { env: { PATH: '' }, cwd: ROOT, platform: 'linux' }),
+    /не найден|not found|Установите|--godot/i
+  );
+});
+
+// Поток процесса не должен съедать память раннера: болтающий тест обязан
+// обрезаться с явной меткой, а не раздувать RAM и лог до бесконечности.
+test('process output is capped and truncation is recorded', async t => {
+  const limit = 4096;
+  const noisy = {
+    stdout: { setEncoding() {}, on(_, d) { for (let i = 0; i < 400; i++) d('x'.repeat(100)); } },
+    stderr: { setEncoding() {}, on() {} },
+    on(ev, cb) { if (ev === 'close') cb(0, null); },
+    kill() {},
+  };
+  const result = await runProcess('whatever', [], { spawnImpl: () => noisy, maxOutputBytes: limit });
+  assert.ok(result.stdout.length <= limit + 512, `stdout урезан до ${result.stdout.length}`);
+  assert.ok(result.truncated, 'факт усечения записан в результат');
 });

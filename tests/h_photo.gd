@@ -12,6 +12,8 @@ var _car: CarRig
 var _p0 := Vector3.ZERO
 var _sim_at_entry := 0.0
 var _disk_shots := 0
+var _shots_at_stage := 0
+var _disk_at_stage := 0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
@@ -21,6 +23,13 @@ func _act(name: String) -> InputEventAction:
 	e.action = StringName(name)
 	e.pressed = true
 	e.strength = 1.0
+	return e
+
+func _wheel(notch: int, ctrl: bool) -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_WHEEL_UP if notch > 0 else MOUSE_BUTTON_WHEEL_DOWN
+	e.pressed = true
+	e.ctrl_pressed = ctrl
 	return e
 
 func _fake_shot(w: int) -> void:
@@ -142,22 +151,32 @@ func _s_camera() -> void:
 			"зум не проваливается под минимум %d° (%.1f)" % [int(PhotoMode.FOV_MIN), cam.fov])
 		cam.fov = f0
 		_p.fov = f0
+		var wu := _wheel(1, false)
+		var pos := cam.global_position
+		_p._unhandled_input(wu)
+		check(absf(cam.fov - f0) < 0.01, "обычное колесо не меняет угол (%.1f)" % cam.fov)
+		check(absf(pos.distance_to(cam.global_position) - PhotoMode.DOLLY_STEP) < 1e-4,
+			"колесо подъезжает на один шаг (%.2f м при шаге %.2f)" %
+			[pos.distance_to(cam.global_position), PhotoMode.DOLLY_STEP])
+		# колесо приходит парой событий; отпускание не обязано двигать камеру
+		var wu_off := _wheel(1, false)
+		wu_off.pressed = false
+		var parked := cam.global_position
+		_p._unhandled_input(wu_off)
+		check(cam.global_position.distance_to(parked) < 1e-6,
+			"отпускание колеса ничего не двигает (%.4f м)" % cam.global_position.distance_to(parked))
+		_p._unhandled_input(_wheel(1, true))
+		check(absf(cam.fov - (f0 + PhotoMode.FOV_STEP)) < 0.01,
+			"Ctrl+колесо расширяет угол (%.1f против %.1f)" % [cam.fov, f0 + PhotoMode.FOV_STEP])
+		_p._unhandled_input(_wheel(-1, true))
+		check(absf(cam.fov - f0) < 0.01,
+			"Ctrl+колесо назад возвращает угол (%.1f против %.1f)" % [cam.fov, f0])
 		var zk := InputEventKey.new()
 		zk.keycode = KEY_Z
 		zk.pressed = true
 		_p._unhandled_input(zk)
-		check(absf(cam.fov - (f0 + PhotoMode.FOV_STEP)) < 0.01,
-			"Z расширяет угол (%.1f против %.1f)" % [cam.fov, f0 + PhotoMode.FOV_STEP])
-		var xk := InputEventKey.new()
-		xk.keycode = KEY_X
-		xk.pressed = true
-		_p._unhandled_input(xk)
 		check(absf(cam.fov - f0) < 0.01,
-			"X возвращает угол назад (%.1f против %.1f)" % [cam.fov, f0])
-		var pos := cam.global_position
-		_p.dolly(2.0)
-		check(cam.global_position.distance_to(pos) > 1.5,
-			"колесо подъезжает к объекту (%.2f м)" % cam.global_position.distance_to(pos))
+			"Z больше не зумит — клавишу отдаёт игровым биндам (%.1f)" % cam.fov)
 	if _f == 6:
 		gm.hud.photo_button("БЕЗ HUD").pressed.emit()
 	if _f == 8:
@@ -179,6 +198,28 @@ func _s_camera() -> void:
 			if c.visible: shown += 1
 		check(shown == gm.hud._gameplay.size(),
 			"интерфейс вернулся целиком (%d из %d)" % [shown, gm.hud._gameplay.size()])
+		# служебная клавиша уступает, если игрок поставил на неё своё действие
+		var f5b := InputEventKey.new()
+		f5b.keycode = KEY_F5
+		f5b.pressed = true
+		InputRouter.rebind("cam_cycle", f5b)
+		_p._unhandled_input(f5b)
+		check(not _p.hud_off,
+			"F5, назначенная игровому действию, интерфейс не прячет")
+		InputRouter.reset_keys()
+		_fake_shot(16)
+		_p.hide_hud(true)
+	if _f == 12:
+		check(_p.hud_off, "интерфейс спрятан вручную («БЕЗ HUD»)")
+		gm.hud.photo_button("СНИМОК").pressed.emit()
+	if _f == 14:
+		check(_p.hud_off,
+			"снимок прячет интерфейс на кадр и возвращает ровно то, что было до съёмки")
+		var off := 0
+		for c in gm.hud._gameplay:
+			if not c.visible: off += 1
+		check(off == gm.hud._gameplay.size(), "и панели действительно скрыты (%d)" % off)
+		_p.hide_hud(false)
 		_stage = 3
 		_f = 0
 
@@ -188,6 +229,8 @@ func _s_shot() -> void:
 	if _f == 2:
 		_fake_shot(64)
 		var before := _p.shots
+		_shots_at_stage = before
+		_disk_at_stage = _count_files()
 		var p := _p.capture()
 		check(_p.shots == before + 1, "снимок увеличил счётчик (%d против %d)" % [_p.shots, before + 1])
 		check(p.begins_with("user://photos/photo_") and p.ends_with(".png"),
@@ -204,16 +247,21 @@ func _s_shot() -> void:
 				"первые байты — подпись PNG")
 		var second := _p.capture()
 		check(second != p, "второй снимок не перезатирает первый (%s против %s)" % [second, p])
+		check(gm.hud._photo_info.text.contains(second.replace("user://", "")),
+			"подпись полосы обновляется сигналом записи, а не ожиданием кадра (%s)" %
+			gm.hud._photo_info.text)
 		# «СНИМОК» по кнопке: сначала гаснит интерфейс, пишет кадр на следующем
 		# процесс-тик и возвращает интерфейс обратно
 		gm.hud.photo_button("СНИМОК").pressed.emit()
 	if _f == 4:
-		check(_p.shots == 3, "кнопка «СНИМОК» добавила третий кадр (%d)" % _p.shots)
+		check(_p.shots == _shots_at_stage + 3,
+			"кнопка «СНИМОК» добавила кадр (%d против %d)" % [_p.shots, _shots_at_stage + 3])
 		check(not _p.hud_off, "после съёмки интерфейс вернулся")
 		check(gm.hud.photo_ui_visible(), "после съёмки полоса снова видна")
 		_disk_shots = _count_files()
-		check(_disk_shots == 3,
-			"на диске три снимка: два руками и один кнопкой (%d)" % _disk_shots)
+		check(_disk_shots == _disk_at_stage + 3,
+			"на диске три новых снимка: два руками и один кнопкой (%d против %d)" %
+			[_disk_shots, _disk_at_stage + 3])
 		_p.look_fn = Callable()
 		var got := _p.capture()
 		if got == "":
@@ -272,10 +320,25 @@ func _s_numbering() -> void:
 		gm.hud.pause_button("ФОТОМОД").pressed.emit()
 	if _f == 8:
 		check(_p.active, "второй вход в фотомод открылся")
+		check(absf(_p.fov - gm.camera.fov) < 0.01,
+			"вход берёт угол игровой камеры, а не прошлый зум (%.1f против %.1f)" %
+			[_p.fov, gm.camera.fov])
+		check(absf(_p.camera.fov - gm.camera.fov) < 0.01,
+			"и сразу ставит его на свою камеру (%.1f)" % _p.camera.fov)
 		_fake_shot(8)
 		var p := _p.capture()
 		check(p.ends_with("photo_%04d.png" % (_disk_shots + 1)),
 			"нумерация продолжается с числа файлов на диске (%s после %d снимков)" % [p, _disk_shots])
+		# «СНИМОК» пишет кадр на следующем тике; выход раньше этого тика обязан
+		# дописать снимок, а не выбросить его молча
+		var shot_n := _p.shots
+		var disk_n := _count_files()
+		_p.shoot()
+		gm._exit_photo()
+		check(_p.shots == shot_n + 1,
+			"выход из фотомода дописал неотснятый кадр (%d против %d)" % [_p.shots, shot_n + 1])
+		check(_count_files() == disk_n + 1,
+			"и он лёг на диск (%d против %d)" % [_count_files(), disk_n + 1])
 		_finish()
 
 func _finish() -> void:

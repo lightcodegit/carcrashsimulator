@@ -1,4 +1,5 @@
 .godot/
+AGENTS.md
 *.tmp
 .tmp_*.log
 tests/out/

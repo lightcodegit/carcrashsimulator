@@ -202,8 +202,18 @@ func _apply_dents(force: bool) -> void:
 		if float(d.t) <= cursor + 1e-6: want += 1
 		else: break
 	if not force and want == _dents_applied: return
+	# Вперёд — только новые события: прежнее «reset + всё с нуля» на каждый шаг
+	# стоило сумму всех предыдущих пересборок (64 вмятины = 284 мс на один
+	# перескок). Назад пересборка остаётся: откатить вмятину по одной нельзя,
+	# накопленное смещение вершин не обратимо без исходной геометрии.
+	if want > _dents_applied and _dents_applied >= 0:
+		for i in range(_dents_applied, want):
+			var d: Dictionary = rec.dents[i]
+			car.body.apply_impact_local(d.lp, d.ld, float(d.kmh))
+		_dents_applied = want
+		return
 	_dents_applied = want
 	car.body.reset()
 	for i in want:
-		var d: Dictionary = rec.dents[i]
-		car.body.apply_impact_local(d.lp, d.ld, float(d.kmh))
+		var e: Dictionary = rec.dents[i]
+		car.body.apply_impact_local(e.lp, e.ld, float(e.kmh))

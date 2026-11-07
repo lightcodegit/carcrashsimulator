@@ -90,21 +90,51 @@ static func body_paint(src: Material, p: VehicleParams) -> StandardMaterial3D:
 		m.albedo_texture = ImageTexture.create_from_image(image)
 	if finish:
 		# база = выбранное значение, а маска возвращает заводское на непокрашенных
-		# ячейках: иначе ползунок ниже заводского молчал бы, не меняя материал
-		m.metallic = p.paint_metallic
-		m.roughness = p.paint_roughness
-		m.metallic_texture = _finish_mask(image.get_size(), rect, PAINT_METAL / m.metallic, 1.0)
-		m.roughness_texture = _finish_mask(image.get_size(), rect, PAINT_ROUGH / m.roughness, 1.0)
+		# ячейках: иначе ползунок ниже заводского молчал бы, не меняя материал.
+		# Знаменатель не может быть нулевым: 0 × что угодно = 0, то есть на нуле
+		# модель маски неопределима, а деление молча даёт INF, который
+		# generate_mipmaps() разносит по всему атласу и шейдер превращает в NaN.
+		m.metallic = clampf(p.paint_metallic, MIN_FINISH, 1.0)
+		m.roughness = clampf(p.paint_roughness, MIN_FINISH, 1.0)
+		var mask := _finish_mask(image.get_size(), rect,
+			PAINT_METAL / m.metallic, PAINT_ROUGH / m.roughness)
+		m.metallic_texture = mask
+		m.roughness_texture = mask
 		m.metallic_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
-		m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+		m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
 	return m
 
-static func _finish_mask(size: Vector2i, rect: Rect2i, protected_value: float, painted_value: float) -> ImageTexture:
-	var image := Image.create(size.x, size.y, false, Image.FORMAT_RF)
-	image.fill(Color(protected_value, 0, 0))
-	image.fill_rect(rect, Color(painted_value, 0, 0))
+# Один RF-слой на оба канала: R — множитель металличности, G — множитель
+# шероховатости. Полупрозрачный ответ на «дёргаем ползунок 60 раз в секунду»:
+# раньше на каждое событие строились две текстуры по 4 МБ. Теперь слои кэшируются
+# по значениям, а значения с ползунка дискретны (шаг 0.05), так что комбинаций
+# немного; кэш ограничен, чтобы затянувшаяся сессия не держала сотни текстур.
+static var _masks := {}
+static var _mask_order: Array[String] = []
+const MIN_FINISH := 0.05
+const MASK_CACHE := 24
+
+static func _finish_mask(size: Vector2i, rect: Rect2i, metal_ratio: float, rough_ratio: float) -> ImageTexture:
+	var mr := snappedf(metal_ratio, 0.001)
+	var rr := snappedf(rough_ratio, 0.001)
+	if not is_finite(mr) or not is_finite(rr):
+		# защита от чужого params: бесконечный множитель рисует INF-атлас
+		mr = 1.0
+		rr = 1.0
+	var key := "%dx%d_%d_%d_%.3f_%.3f" % [size.x, size.y, rect.position.x, rect.position.y, mr, rr]
+	if _masks.has(key): return _masks[key] as ImageTexture
+	var image := Image.create(size.x, size.y, false, Image.FORMAT_RGH)
+	# half-float, а не 8-бит: отношение 0.15/0.05 = 3.0 в нормализованном канале
+	# просто обрезалось бы до 1.0 и перекрашивало весь атлас в базу
+	image.fill(Color(mr, rr, 0, 1))
+	image.fill_rect(rect, Color(1, 1, 0, 1))
 	image.generate_mipmaps()
-	return ImageTexture.create_from_image(image)
+	var tex := ImageTexture.create_from_image(image)
+	_masks[key] = tex
+	_mask_order.append(key)
+	while _mask_order.size() > MASK_CACHE:
+		_masks.erase(_mask_order.pop_front())
+	return tex
 
 static func apply_vehicle(root: Node, p: VehicleParams) -> void:
 	if root is MeshInstance3D and String(root.name).to_lower() == "body":

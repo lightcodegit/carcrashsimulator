@@ -15,7 +15,10 @@ extends Node
 const HORIZON_S := 10.0
 const RATE := 20.0                       # снапшотов в секунду симуляции
 const MAX_FRAMES := int(HORIZON_S * RATE)
-const PROP_RADIUS := 45.0                # предметы вокруг машины, которые стоит писать
+const PROP_RADIUS := 45.0
+# События ударов хранятся дольше окна: перемотка пересобирает кузов из полного
+# списка, и лимит в 64 на длинной сессии стирал старые вмятины на время повтора.
+const MAX_DENTS := 256                # предметы вокруг машины, которые стоит писать
 
 var car: CarRig
 var gm: GameManager
@@ -121,7 +124,7 @@ func _on_impact(speed_kmh: float, point: Vector3, normal: Vector3) -> void:
 	var f := car.body.dent_frame(point, -normal)
 	dents.append({"t": sim_t, "lp": f[0], "ld": f[1], "kmh": speed_kmh,
 		"point": point, "normal": normal})
-	while dents.size() > 64: dents.pop_front()
+	while dents.size() > MAX_DENTS: dents.pop_front()
 
 # Момент последнего удара в окне или -1, если ударов не было.
 func last_impact_t() -> float:

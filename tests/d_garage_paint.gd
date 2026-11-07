@@ -57,9 +57,11 @@ func _initialize() -> void:
 			else:
 				protected_uv += 1
 				check(result.get_pixelv(pixel) == original.get_pixelv(pixel), id + " window/light/trim UV protected")
-			for pair in [[mat.metallic_texture, mat.metallic, 0.8, 0.15], [mat.roughness_texture, mat.roughness, 0.7, 0.28]]:
+			# слой теперь общий: R — множитель металла, G — множитель лака
+			for pair in [[mat.metallic_texture, mat.metallic, 0.8, 0.15, 0], [mat.roughness_texture, mat.roughness, 0.7, 0.28, 1]]:
 				var image: Image = pair[0].get_image()
-				var value: float = image.get_pixel(int(uv.x * image.get_width()), int(uv.y * image.get_height())).r * pair[1]
+				var px := image.get_pixel(int(uv.x * image.get_width()), int(uv.y * image.get_height()))
+				var value: float = (px.r if int(pair[4]) == 0 else px.g) * pair[1]
 				check(absf(value - float(pair[2] if is_paint else pair[3])) < 0.004, id + " finish follows body mask")
 		check(painted_uv > 100 and protected_uv > 100, id + " actual geometry includes painted and protected UVs")
 		var dent := DentBody.new()

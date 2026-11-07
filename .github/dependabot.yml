@@ -1,0 +1,11 @@
+# Зависимостей кода нет: раннер на Node без npm-пакетов, игра — на GDScript.
+# Обновлять поэтому есть только действия CI, и они запинены коммитами: dependabot
+# поднимает пин вместе с комментарием версии, а не превращает его в движущийся тег.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5

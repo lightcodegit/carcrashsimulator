@@ -85,5 +85,20 @@ func _initialize() -> void:
 	check(hostile.save() != OK, "blocked temporary file fails")
 	check(FileAccess.get_file_as_string(PATH) == before, "failed save preserves old file")
 	DirAccess.remove_absolute(PATH + ".tmp")
+	# файл без версии — ручная правка или формат до версионирования: профили в нём
+	# те же самые, и запирать из-за этого сохранение нельзя
+	put('{"vehicles":{"sedan":{"accel_max":9.0}}}')
+	var unversioned = service.new()
+	check(unversioned.effective_params("sedan").accel_max == 9.0,
+		"файл без version принят как свой")
+	unversioned.select_vehicle("sedan")
+	unversioned.set_value("accel_max", 8.0)
+	check(unversioned.save() == OK, "и после такого файла сохранение работает")
+	var doc: Variant = JSON.parse_string(FileAccess.get_file_as_string(PATH))
+	check(doc is Dictionary and (doc as Dictionary).get("version") == 1,
+		"записанный файл снова с версией")
+	put('{"version":1.0,"vehicles":{"sedan":{"accel_max":9.0}}}')
+	check(service.new().effective_params("sedan").accel_max == 9.0,
+		"version, записанная как 1.0, читается")
 	print("ALL PASS" if fails == 0 else "FAILS %d" % fails)
 	quit(0 if fails == 0 else 1)

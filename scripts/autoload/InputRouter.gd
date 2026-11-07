@@ -43,6 +43,14 @@ const AXIS_NAMES := {
 	4: "КУРОК L", 5: "КУРОК R",
 }
 
+# Границы токенов в конфиге. Публичных «максимумов» у скриптового API нет —
+# Key.MAX, JoyButton.MAX и JoyAxis.MAX в этой сборке не существуют (проверено
+# компилятором), поэтому запас задан руками и щедро: движок отдаёт до 27 кнопок
+# и до 10 осей, настоящий клавишный код меньше 2^22.
+const CODE_MAX := 4194304
+const BUTTON_MAX := 31
+const AXIS_MAX := 9
+
 var _custom := {}      # action -> Array[InputEvent]: то, что назначил игрок
 # Последний виденный номер геймпада: вибрация и тесты должны понимать, какому
 # устройству слать импульс, когда бинды назначены на «любой» (-1). Пишется из
@@ -122,7 +130,11 @@ static func _same_event(a: InputEvent, b: InputEvent) -> bool:
 		var kb := b as InputEventKey
 		var va := ka.physical_keycode if ka.physical_keycode != 0 else ka.keycode
 		var vb := kb.physical_keycode if kb.physical_keycode != 0 else kb.keycode
-		return va == vb
+		if va != vb: return false
+		# Ctrl+F и F — разные клавиши: иначе назначение с модификатором считалось
+		# бы конфликтом с обычной и снимало её
+		return ka.ctrl_pressed == kb.ctrl_pressed and ka.shift_pressed == kb.shift_pressed \
+			and ka.alt_pressed == kb.alt_pressed and ka.meta_pressed == kb.meta_pressed
 	if (a is InputEventJoypadButton) and (b is InputEventJoypadButton):
 		return (a as InputEventJoypadButton).button_index == (b as InputEventJoypadButton).button_index
 	if (a is InputEventJoypadMotion) and (b is InputEventJoypadMotion):
@@ -193,7 +205,13 @@ static func event_name(e: InputEvent) -> String:
 	if e is InputEventKey:
 		var k := e as InputEventKey
 		var code: int = k.physical_keycode if k.physical_keycode != 0 else k.keycode
-		return OS.get_keycode_string(code)
+		var mods: Array[String] = []
+		if k.ctrl_pressed: mods.append("CTRL")
+		if k.shift_pressed: mods.append("SHIFT")
+		if k.alt_pressed: mods.append("ALT")
+		if k.meta_pressed: mods.append("WIN")
+		var base := OS.get_keycode_string(code)
+		return base if mods.is_empty() else "%s+%s" % ["+".join(mods), base]
 	if e is InputEventJoypadButton:
 		var i := (e as InputEventJoypadButton).button_index
 		return String(BUTTON_NAMES.get(i, "КНОПКА %d" % i))
@@ -233,7 +251,15 @@ func load_keys(cf: ConfigFile) -> void:
 static func _encode(e: InputEvent) -> String:
 	if e is InputEventKey:
 		var k := e as InputEventKey
-		return "k%d" % (k.physical_keycode if k.physical_keycode != 0 else k.keycode)
+		# модификаторы — часть назначения, и в файле они живут вместе с кодом:
+		# «k70» и «k70+C» — разные клавиши
+		var mods := ""
+		if k.ctrl_pressed: mods += "C"
+		if k.shift_pressed: mods += "S"
+		if k.alt_pressed: mods += "A"
+		if k.meta_pressed: mods += "W"
+		var code := k.physical_keycode if k.physical_keycode != 0 else k.keycode
+		return "k%d" % code if mods == "" else "k%d+%s" % [code, mods]
 	if e is InputEventJoypadButton:
 		var jb := e as InputEventJoypadButton
 		# device пишется всегда: без него бинд переживает перезапуск как «любой
@@ -250,32 +276,56 @@ static func _decode(tok: String) -> InputEvent:
 	var head := tok.substr(0, 1)
 	var rest := tok.substr(1)
 	if head == "k":
-		var code := int(rest)
+		var plus := rest.find("+")
+		var codes := rest if plus < 0 else rest.substr(0, plus)
+		var mods := "" if plus < 0 else rest.substr(plus + 1)
+		if not codes.is_valid_int(): return null
+		var code := int(codes)
 		# Физический код 0 нельзя нажать. Оставить его — значит выдать действию
 		# бинд-призрак: пауза открывается только клавишей, и в заезде игрок остаётся
 		# без выхода до перезапуска процесса.
-		if code <= 0: return null
+		if code <= 0 or code > CODE_MAX: return null
 		var e := InputEventKey.new()
 		e.physical_keycode = code
+		e.ctrl_pressed = mods.contains("C")
+		e.shift_pressed = mods.contains("S")
+		e.alt_pressed = mods.contains("A")
+		e.meta_pressed = mods.contains("W")
 		return e
 	# «@<device>» есть только у новых записей: старый токен («b0», «a0_50») читается
 	# как -1 — «любой геймпад», ровно то поведение, что было до правки.
 	var dev := -1
 	var at := rest.find("@")
 	if at >= 0:
-		dev = int(rest.substr(at + 1))
+		var dtok := rest.substr(at + 1)
+		if not dtok.is_valid_int(): return null
+		dev = int(dtok)
+		# -1 — «любой», отрицательных номеров устройств у движка не бывает
+		if dev < -1: return null
 		rest = rest.substr(0, at)
 	if head == "b":
+		if not rest.is_valid_int(): return null
+		var idx := int(rest)
+		# Границы щедрее нашего списка подписей: бинд на несуществующей кнопке
+		# выглядит в настройках как «КНОПКА 999» и не нажимается никогда, но и
+		# молча съесть из-за предела файл игрока дороже одного пропуска.
+		if idx < 0 or idx > BUTTON_MAX: return null
 		var b := InputEventJoypadButton.new()
-		b.button_index = int(rest)
+		b.button_index = idx
 		b.device = dev
 		return b
 	if head == "a":
 		var parts := rest.split("_")
 		if parts.size() != 2: return null
+		if not parts[0].is_valid_int() or not parts[1].is_valid_int(): return null
+		var ax := int(parts[0])
+		if ax < 0 or ax > AXIS_MAX: return null
+		var scaled := int(parts[1])
+		# ось живёт в -1..1, в файле значение умножено на 100: больше — уже не ось
+		if absi(scaled) > 100: return null
 		var m := InputEventJoypadMotion.new()
-		m.axis = int(parts[0])
-		m.axis_value = float(parts[1]) / 100.0
+		m.axis = ax
+		m.axis_value = float(scaled) / 100.0
 		m.device = dev
 		return m
 	return null

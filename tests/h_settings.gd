@@ -204,6 +204,19 @@ func _codec() -> void:
 	check(found_b, "4: кнопка геймпада пережила перезапись")
 	check(found_m, "4: ось геймпада пережила перезапись с направлением")
 	check(InputRouter.describe("slowmo").length() > 1, "4: ось описана (%s)" % InputRouter.describe("slowmo"))
+	var kmod := InputEventKey.new()
+	kmod.physical_keycode = KEY_F
+	kmod.ctrl_pressed = true
+	kmod.shift_pressed = true
+	var ktok := InputRouter._encode(kmod)
+	var back: InputEventKey = InputRouter._decode(ktok)
+	check(back != null and back.ctrl_pressed and back.shift_pressed and not back.alt_pressed \
+			and back.physical_keycode == KEY_F,
+			"4: модификаторы пережили запись в файл (%s)" % ktok)
+	var bare: InputEventKey = InputRouter._decode("k%d" % KEY_F)
+	check(bare != null and not bare.ctrl_pressed and not bare.shift_pressed,
+			"4: старый токен без модификаторов читается как раньше")
+	InputRouter.reset_keys()
 	Settings.reset()
 
 func _build_menu() -> void:   # вызывается из _ready, поэтому await здесь не нужен
@@ -242,6 +255,29 @@ func _build_menu() -> void:   # вызывается из _ready, поэтому
 	menu._input(ev)   # захват перехватывает событие до GUI
 	check(not menu.capturing(), "5: захват завершился по нажатию")
 	check("G" in InputRouter.describe("cam_cycle"), "5: назначение записано (%s)" % InputRouter.describe("cam_cycle"))
+	# Модификатор — часть назначения: раньше захват выбрасывал Ctrl, «Ctrl+G»
+	# превращалось в простую G и вступало с ней в конфликт молча.
+	menu._begin_capture("cam_cycle")
+	var evc := InputEventKey.new()
+	evc.physical_keycode = KEY_G
+	evc.ctrl_pressed = true
+	evc.pressed = true
+	menu._input(evc)
+	var held := false
+	for e in InputMap.action_get_events("cam_cycle"):
+		if e is InputEventKey and (e as InputEventKey).ctrl_pressed \
+				and (e as InputEventKey).physical_keycode == KEY_G:
+			held = true
+	check(held, "5: захват сохранил Ctrl у клавиши (%s)" % str(InputMap.action_get_events("cam_cycle")))
+	check("CTRL" in InputRouter.describe("cam_cycle"),
+		"5: экран показывает модификатор (%s)" % InputRouter.describe("cam_cycle"))
+	var plain := InputEventKey.new()
+	plain.physical_keycode = KEY_G
+	var with := InputEventKey.new()
+	with.physical_keycode = KEY_G
+	with.ctrl_pressed = true
+	check(not InputRouter._same_event(plain, with),
+		"5: Ctrl+G и G — разные клавиши, один бинд не вытесняет другой")
 	# Esc во время захвата отменяет его, но не закрывает экран
 	menu._begin_capture("cam_cycle")
 	var esc := InputEventKey.new()

@@ -1,0 +1,48 @@
+name: Предложение
+description: Новая возможность или изменение поведения
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Проект маленький, и «нет» здесь — нормальный ответ: у v1 есть явно
+        очерченная граница (см. README, раздел «Вне v1»). Помогает описание
+        проблемы, а не готовое решение.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какая проблема за этим стоит
+      description: Что вы не можете сделать сегодня и чем это обходится.
+      placeholder: После долгой сессии вмятины накапливаются, и кузов выглядит одинаково — хочется сравнивать состояния.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Что предлагаете
+      description: Поведение со стороны игрока, а не имена функций.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Какие альтернативы рассматривали
+  - type: textarea
+    id: done
+    attributes:
+      label: По чему видно, что получилось
+      description: Проверяемое утверждение. Идеально — строка теста, которая могла бы падать до правки.
+      placeholder: Снимок фотомода после «БЕЗ HUD» не содержит панели интерфейса.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Как относится к границе v1
+      description: AI-трафик, сеть, манекены, отрыв панелей и фотореализм — вне v1 осознанно и лицензионно.
+      options:
+        - внутри v1
+        - расширение уже сделанного
+        - похоже, вне v1 — хочу обсудить
+    validations:
+      required: true

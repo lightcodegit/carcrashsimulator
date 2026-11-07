@@ -7,18 +7,20 @@ Godot 4.7.2 (standard, **не** .NET), GL Compatibility, GDScript. Продук�
 ## Команды
 
 ```sh
-node --test tools/project.test.mjs                                  # тесты самого раннера, Godot не нужен
-node tools/project.mjs import   --godot C:/Users/makscoder/Desktop/Godot.exe
-node tools/project.mjs test     --godot C:/Users/makscoder/Desktop/Godot.exe --timeout 400
-node tools/project.mjs test     --godot C:/Users/makscoder/Desktop/Godot.exe --test h_audio --test d_params
-node tools/project.mjs build    windows --godot C:/Users/makscoder/Desktop/Godot.exe
-node tools/project.mjs run      --godot C:/Users/makscoder/Desktop/Godot.exe
+export GODOT=<путь к редактору>             # один раз; не нужен, если godot в PATH
+node --test tools/project.test.mjs          # тесты самого раннера, Godot не нужен
+node tools/project.mjs import
+node tools/project.mjs test     --timeout 400
+node tools/project.mjs test     --test h_audio --test d_params
+node tools/project.mjs build    windows
+node tools/project.mjs run
 ```
 
 - `import` обязателен после добавления или переименования `.gd`/`.tscn`: без него
   классы и сцены не видны тестам, и провал выглядит как «не существует функция».
-- Редактор на этой машине лежит в `Desktop\Godot.exe` и **не в PATH** — путь всегда
-  передавать `--godot` (или `GODOT`).
+- На машине автора редактор лежит в `Desktop\Godot.exe` и **не в PATH**, поэтому
+  путь передают `--godot <путь>` каждой команде, или один раз экспортируют
+  `GODOT`.
 - Текущая база: 66 тестов → 54 pass / 8 partial / 4 skipped / 0 failed. Любое
   изменение, поднявшее `failed` или уронившее найденное количество, — регресс.
 - Логи и JSON-отчёты: `artifacts/logs/<затом>/<тест>/` (в git не попадают).
@@ -75,7 +77,7 @@ node tools/project.mjs run      --godot C:/Users/makscoder/Desktop/Godot.exe
 ## Живая верификация (её не заменит headless)
 
 ```sh
-APPDATA=<пустая папка> C:/Users/makscoder/Desktop/Godot.exe --path . res://tests/p_live_probe.tscn --fixed-fps 60
+APPDATA=<пустая папка> "$GODOT" --path . res://tests/p_live_probe.tscn --fixed-fps 60
 ```
 
 Одна проверка ~2–3 минуты, GUI-окно на экране пользователя. Покрывает то, что

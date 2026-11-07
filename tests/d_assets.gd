@@ -62,5 +62,14 @@ func _initialize() -> void:
 		check(a.size.length() > 0.1, "%s has a sane AABB (%s)" % [path.get_file(), str(a.size)])
 		check(a.position.y > -0.35, "%s sits on the ground plane (%.2f)" % [path.get_file(), a.position.y])
 	check(FileAccess.file_exists("res://assets/LICENSE-kenney-car-kit.txt"), "CC0 license file shipped")
+	check(FileAccess.file_exists("res://assets/racing/LICENSE-kenney-racing-kit.txt"),
+		"racing kit CC0 license file shipped")
+	# The repo goes public with this file as the only grant for the code: an empty
+	# or truncated LICENSE still "exists", so the marker text is what is checked.
+	check(FileAccess.file_exists("res://LICENSE"), "code license shipped")
+	var lic := FileAccess.get_file_as_string("res://LICENSE")
+	check(lic.contains("MIT License") and lic.contains("Permission is hereby granted"),
+		"LICENSE is the MIT text, not a stub (%d bytes)" % lic.length())
+	check(lic.contains("Copyright (c)"), "LICENSE carries a copyright line")
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	quit(0 if _fails == 0 else 1)

@@ -210,11 +210,21 @@ export function runProcess(executable, args, { cwd = ROOT, env = process.env, ti
   });
 }
 
+// Root files that are not Godot resources but must travel with the build: a
+// player who unpacks only the .pck has to see the grant the code ships under.
+const STAGE_ROOT_FILES = ['LICENSE'];
+
 export async function stageProject(source, destination) {
   await mkdir(destination, { recursive: true });
   // Whitelist includes dynamically loaded assets, not just main-scene dependencies.
   for (const entry of ['project.godot', 'assets', 'scenes', 'scripts']) {
     await cp(path.join(source, entry), path.join(destination, entry), { recursive: true });
+  }
+  // Missing here means silently missing in every release, so an absent optional
+  // file (a fork without LICENSE) is skipped rather than failing the build.
+  for (const entry of STAGE_ROOT_FILES) {
+    const from = path.join(source, entry);
+    if (existsSync(from)) await cp(from, path.join(destination, entry));
   }
   await cp(path.join(source, 'tools', 'export_presets.cfg'), path.join(destination, 'export_presets.cfg'));
 }

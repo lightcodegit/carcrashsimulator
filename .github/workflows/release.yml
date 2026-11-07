@@ -1,0 +1,128 @@
+name: Release
+
+# Публикация собирается только по тегу v* в этом репозитории (или вручную).
+# На pull_request из форка workflow не запускается: тег — действие владельца
+# репозитория, и права contents:write уезжают именно в релиз, а не в чужой PR.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Существующий тег, который нужно опубликовать'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            asset: Godot_v4.7.2-stable_linux.x86_64.zip
+            executable: Godot_v4.7.2-stable_linux.x86_64
+            sha256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+          - os: windows-latest
+            platform: windows
+            asset: Godot_v4.7.2-stable_win64.exe.zip
+            executable: Godot_v4.7.2-stable_win64.exe
+            sha256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '22'
+      - uses: ./.github/actions/setup-godot
+        with:
+          asset: ${{ matrix.asset }}
+          executable: ${{ matrix.executable }}
+          sha256: ${{ matrix.sha256 }}
+
+      - name: Import project headlessly
+        run: node tools/project.mjs import --timeout 600
+      - name: Headless suite must be clean before publishing
+        run: node tools/project.mjs test --timeout 180
+      - name: Export platform release
+        run: node tools/project.mjs build ${{ matrix.platform }} --timeout 600
+
+      # «Экспортируется» не значит «запускается»: собранный билд стартует
+      # headless на несколько кадров и обязан выйти без ошибки и без таймаута.
+      - name: Smoke run the exported build
+        uses: ./.github/actions/smoke-build
+        with:
+          platform: ${{ matrix.platform }}
+
+      - name: Package the build
+        run: |
+          $dir = Join-Path 'artifacts/build' '${{ matrix.platform }}'
+          Compress-Archive -Path (Join-Path $dir '*') -DestinationPath "car-crash-simulator-${{ matrix.platform }}.zip" -Force
+          Get-Item "car-crash-simulator-${{ matrix.platform }}.zip" | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: package-${{ matrix.platform }}
+          path: car-crash-simulator-${{ matrix.platform }}.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          pattern: package-*
+          path: dist
+          merge-multiple: true
+
+      - name: Resolve the tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tag must match the project version
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          v=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
+          if [ "v$v" != "$TAG" ]; then
+            echo "Тег $TAG, а в project.godot config/version=\"$v\": публикация собрала бы не тот релиз." >&2
+            exit 1
+          fi
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          NOTES=$(sed -n "/^## \[$TAG\]/,/^## \[/{/^## \[/d;p}" CHANGELOG.md | sed '/^$/d')
+          if [ -z "$NOTES" ]; then NOTES="Сборки $TAG. Подробности — в CHANGELOG.md."; fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.zip --clobber
+          else
+            gh release create "$TAG" dist/*.zip --title "Car Crash Simulator $TAG" --notes "$NOTES"
+          fi

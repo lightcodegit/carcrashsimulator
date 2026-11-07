@@ -564,12 +564,19 @@ func _dismiss() -> void:
 func _take(event: InputEvent) -> void:
 	var mapped: InputEvent = null
 	if event is InputEventKey:
-		var code: int = (event as InputEventKey).physical_keycode
+		var ev := event as InputEventKey
+		var code: int = ev.physical_keycode
 		if code == KEY_ESCAPE:
 			_end_capture()
 			return
 		var k := InputEventKey.new()
 		k.physical_keycode = code
+		# Модификаторы — часть назначения: без них «Ctrl+F» превращался в простую
+		# F и вступал в конфликт с настоящей F, а игрок видел одну букву в списке.
+		k.ctrl_pressed = ev.ctrl_pressed
+		k.shift_pressed = ev.shift_pressed
+		k.alt_pressed = ev.alt_pressed
+		k.meta_pressed = ev.meta_pressed
 		mapped = k
 	elif event is InputEventJoypadButton:
 		var b := InputEventJoypadButton.new()

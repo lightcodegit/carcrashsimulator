@@ -206,6 +206,22 @@ func _pad_device() -> void:
 	var modern: InputEventJoypadMotion = InputRouter._decode("a0_50@2")
 	check(modern != null and modern.device == 2 and is_equal_approx(modern.axis_value, 0.5),
 		"ось с номером геймпада читается целиком")
+	# токен мог быть испорчен ручной правкой файла; бинд на несуществующую кнопку
+	# выглядит в настройках как «КНОПКА 999» и не нажимается никогда
+	for bad in ["b", "k0", "k-3", "kabc", "b-1", "bXX", "b1000", "a-1_50", "a1000_50",
+			"a0_5000", "a0_ab", "a0", "b3@-2", "b3@x", "q0_50"]:
+		check(InputRouter._decode(bad) == null, "мусорный токен %s биндом не становится" % bad)
+	check(InputRouter._decode("b%d" % (InputRouter.BUTTON_MAX + 1)) == null,
+		"кнопка за границей токена биндом не становится")
+	var last_button: InputEventJoypadButton = InputRouter._decode("b%d" % InputRouter.BUTTON_MAX)
+	check(last_button != null and last_button.button_index == InputRouter.BUTTON_MAX,
+		"последняя легальная кнопка читается (%s)" % str(last_button))
+	var neg: InputEventJoypadMotion = InputEventJoypadMotion.new()
+	neg.axis = 1
+	neg.axis_value = -0.5
+	neg.device = 0
+	check(InputRouter._decode(InputRouter._encode(neg)) != null,
+		"отрицательное значение оси переживает запись и чтение")
 	InputRouter.clear_binding("throttle")
 	InputRouter.reset_keys()
 

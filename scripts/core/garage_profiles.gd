@@ -128,7 +128,12 @@ func _load() -> void:
 		last_error = "Повреждённый файл гаража; используются заводские настройки"
 		return
 	var data: Dictionary = json.data
-	if data.get("version") != VERSION:
+	var raw_version: Variant = data.get("version")
+	# «Новая версия» — это только число больше нашей. Файл без версии (ручная
+	# правка, черновая запись, формат до версионирования) содержит те же профили,
+	# и запереть из-за него сохранение навсегда — хуже, чем принять его и дописать
+	# версию при первой записи.
+	if (raw_version is int or raw_version is float) and float(raw_version) > float(VERSION):
 		_future_version = true
 		last_error = "Неподдерживаемая версия файла гаража"
 		return

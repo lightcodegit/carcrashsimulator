@@ -6,7 +6,7 @@
 
 **Architecture:** Рама — `RigidBody3D` с аркадным `custom_integrator`; кузов — `SoftShell` (точки FOLLOW/DYNAMIC: целые зоны следуют за рамой, повреждённые симулируются verlet с пластичностью и разрывом пружин). Все сцены — тонкие `.tscn`-корни, содержимое строится кодом (меню, HUD, карты, машина); никаких .tres и внешних ассетов.
 
-**Tech Stack:** Godot 4.7.2 (`C:/Users/makscoder/Desktop/Godot.exe`), GDScript, Forward+.
+**Tech Stack:** Godot 4.7.2 (путь к редактору см. в `AGENTS.md`), GDScript, Forward+.
 
 **Spec:** `docs/superpowers/specs/2026-10-29-car-crash-simulator-design.md`
 
@@ -19,7 +19,7 @@
 - Тесты: pure-data — `--script` (SceneTree-режим, только RefCounted-логика); узловых узлов physics — harness-сцены, печатают `PASS`/`FAIL` и `quit(0/1)`.
 - Бюджет: шаг симуляции клетки < 8 мс в среднем (smoke логирует).
 - Координаты машины: **+X = вперёд**, Y вверх, Z вбок (левый борт z<0).
-- Команды: `"C:/Users/makscoder/Desktop/Godot.exe" --headless --path . <args>` из корня репо.
+- Команды: `node tools/project.mjs test --godot <Godot.exe> …` (путь редактора — в `AGENTS.md`).
 - После каждой задачи: `git add -A && git commit`.
 
 **Отклонения от файлового списка спеки (осознанные):** `vehicle_controller.gd` + `car_base.tscn` объединены в `car_rig.gd` (сборка машины кодом, сцена не нужна); `resources/cars/*.tres` → `vehicle_db.gd` (пресеты кодом, без .tres); частицы CPUParticles3D вместо GPUParticles (determinism в headless, простой one-shot reposition); input-карта регистрируется рантаймом `InputRouter` вместо сериализации в `project.godot` (версионно-безопасно); карты — `map_db.gd` кодом вместо `scenes/maps/*.tscn`. Поведенческие требования спеки (§3–§10) покрыты без отклонений; звук/AI/экспорт — §11.
@@ -170,8 +170,8 @@ script = ExtResource("1")
 
 - [ ] **Step 4: Import + прогон harness (fail→pass)**
 
-Run: `"C:/Users/makscoder/Desktop/Godot.exe" --headless --path . --import`
-Run: `"C:/Users/makscoder/Desktop/Godot.exe" --headless --path . --quit-after 10 res://tests/h_t1.tscn`
+Run: `node tools/project.mjs import --godot <Godot.exe>`
+Run: `node tools/project.mjs test --godot <Godot.exe> --test h_t1`
 Expected: `ALL PASS`, exit code 0. (До регистрации autoloads harness обязан упасть с FAIL — проверить порядок.)
 
 - [ ] **Step 5: Commit** `git add -A && git commit -m "feat(t1): Godot project scaffold, autoloads, input map, test harness pattern"`

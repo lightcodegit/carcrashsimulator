@@ -27,7 +27,10 @@ runs:
         $exe = if ($platform -eq 'windows') {
           Get-ChildItem -LiteralPath $dir -Filter '*.exe' | Select-Object -First 1
         } else {
-          Get-ChildItem -LiteralPath $dir | Where-Object { $_.PSIsContainer -eq $false -and $_.Extension -eq '' } | Select-Object -First 1
+          # Linux-бинарник зовётся «Car Crash Simulator.x86_64»: расширение у него
+          # есть, и фильтр «без расширения» молча не находил ничего. Имя берём от
+          # pck — они всегда одноимённы, и это не зависит от суффикса платформы.
+          Get-ChildItem -LiteralPath $dir | Where-Object { -not $_.PSIsContainer -and $_.Extension -ne '.pck' -and $_.BaseName -eq $pck.BaseName } | Select-Object -First 1
         }
         if (-not $exe) { throw "No exported binary under $dir." }
         if (-not $IsWindows) {

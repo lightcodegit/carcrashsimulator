@@ -114,3 +114,15 @@ headless не может: аудиовывод (WASAPI), GPU-кадр, дым и
 - Корневой `export_presets.cfg` — локальный и игнорируется; переносимые пресеты
   живут в `tools/export_presets.cfg`, CI собирается только из них. Не коммитить
   `artifacts/`, `tests/out/`, `tests/tmpappdata/`, `*.tpz`.
+
+## Публикация от агента
+
+- Тело PR начинается строкой `> 🤖 Opened by <login>'s AI agent (<инструмент, модель>),
+  not by <login> personally.`; комментарии — с `🤖 Agent:`; коммит несёт
+  `Co-Authored-By:` агента. Процесс и очереди — в `CONTRIBUTING.md`, раздел
+  «Если вы — агент».
+- Коммиты этого репозитория идут от `lightcodegit <lightcodegit@users.noreply.github.com>`:
+  локальный `git config` машины может хранить другую личность, поэтому личность
+  передавайте явно: `git -c user.name=lightcodegit -c user.email=lightcodegit@users.noreply.github.com commit …`
+  (иначе GitHub не атрибутирует коммит аккаунту — проверено на потерянной атрибуции).
+- Теги `v*`, видимость репозитория и force-push — только явное решение владельца.

@@ -10,8 +10,24 @@ extends RefCounted
 # над полом на толщину плиты.
 static var _surfaces: Array[Dictionary] = []
 
+# Индекс поверхностей. surface_y вызывается на каждый расставляемый предмет, и
+# полный обход 399 плит на сборке города стоил 662 мс — hitch, который игрок
+# видит как подвисание при заезде на карту. Запись кладётся во ВСЕ ячейки,
+# которые пересекает её прямоугольник, поэтому точка внутри прямоугольника
+# обязательно лежит в своей ячейке и ответ совпадает с перебором бит в бит.
+const GRID_CELL := 48.0
+# Прямоугольник шире этого числа ячеек уходит в общий список: иначе одна
+# плита-пол заполнила бы сетку тысячами ссылок и сборка стала бы дороже запроса.
+const GRID_SPAN_MAX := 16
+static var _grid: Dictionary = {}
+static var _grid_wide: Array[Dictionary] = []
+static var _grid_count := -1
+
 static func clear_surfaces() -> void:
 	_surfaces.clear()
+	_grid.clear()
+	_grid_wide.clear()
+	_grid_count = -1
 
 static func surfaces() -> Array[Dictionary]:
 	return _surfaces
@@ -19,15 +35,40 @@ static func surfaces() -> Array[Dictionary]:
 static func add_surface(entry: Dictionary) -> void:
 	_surfaces.append(entry)
 
+static func _build_grid() -> void:
+	_grid.clear()
+	_grid_wide.clear()
+	for r in _surfaces:
+		var rect: AABB = r["rect"]
+		var from := Vector2i(int(floor(rect.position.x / GRID_CELL)), int(floor(rect.position.z / GRID_CELL)))
+		var to := Vector2i(int(floor((rect.position.x + rect.size.x) / GRID_CELL)),
+			int(floor((rect.position.z + rect.size.z) / GRID_CELL)))
+		if (to.x - from.x + 1) * (to.y - from.y + 1) > GRID_SPAN_MAX:
+			_grid_wide.append(r)
+			continue
+		for gx in range(from.x, to.x + 1):
+			for gz in range(from.y, to.y + 1):
+				var k := Vector2i(gx, gz)
+				if not _grid.has(k):
+					# Array, а не PackedInt32Array: упакованный массив — значение,
+					# и append через каст молча писал бы в копию
+					_grid[k] = []
+				(_grid[k] as Array).append(r)
+	_grid_count = _surfaces.size()
+
 # Высота, на которую нужно ставить предмет в этой точке: берётся НАИБОЛЕЕ НИЗКАЯ
 # подходящая поверхность. Предмет стоит коробкой, и если центр попал на полотно, а
 # углом задел бордюр, установка на бордюр оставит под ним пустоту, а втиснутый в
 # бордюр ящик solver вытолкнет вниз — конус запрыгает по дороге. Низкая поверхность
 # даёт крошечное пересечение с бордюром, которое машина просто переезжает.
 static func surface_y(x: float, z: float) -> float:
+	if _grid_count != _surfaces.size(): _build_grid()
 	var got := INF
 	var c := Vector3(x, 0.0, z)
-	for r in _surfaces:
+	var bucket: Array = _grid.get(Vector2i(int(floor(x / GRID_CELL)), int(floor(z / GRID_CELL))), [])
+	for r in bucket:
+		if (r["rect"] as AABB).has_point(c): got = minf(got, float(r["y"]))
+	for r in _grid_wide:
 		if (r["rect"] as AABB).has_point(c): got = minf(got, float(r["y"]))
 	return got if is_finite(got) else MapDefs.FLOOR_Y + 0.001
 

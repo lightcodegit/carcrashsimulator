@@ -67,7 +67,48 @@ func _ready() -> void:
 				"%s/%s экранный непрямой свет следует настройке и движку" % [map_id, car_id])
 			check(env != null and env.reflected_light_source == Environment.REFLECTION_SOURCE_SKY,
 				"%s/%s отражения от неба" % [map_id, car_id])
+			if map_id == "bigcity" and car_id == "sedan":
+				_check_surface_index()
 			gm.queue_free()
 			await get_tree().process_frame
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
+
+# Индекс поверхностей против полного перебора: сравнение и по значению, и по
+# цене в одном процессе — так проверка не зависит от скорости машины, на которой
+# бежит. До сетки surface_y и был перебором, поэтому соотношение было 1.0.
+func _check_surface_index() -> void:
+	var surfaces := MapKit.surfaces()
+	check(surfaces.size() > 200, "на городе есть что индексировать (%d поверхностей)" % surfaces.size())
+	if surfaces.size() <= 1: return
+	var rnd := RandomNumberGenerator.new()
+	rnd.seed = 20261107
+	var pts: Array[Vector2] = []
+	for i in 4000:
+		# точку берём внутри случайного прямоугольника: иначе половина запросов
+		# уходила бы в промах и не трогала индекс вовсе
+		var rect: AABB = surfaces[rnd.randi() % surfaces.size()]["rect"]
+		pts.append(Vector2(rnd.randf_range(rect.position.x, rect.end.x),
+			rnd.randf_range(rect.position.z, rect.end.z)))
+	for i in 200:
+		pts.append(Vector2(9000.0 + float(i), 9000.0))
+	var brute := func(p: Vector2) -> float:
+		var g := INF
+		for r in surfaces:
+			if (r["rect"] as AABB).has_point(Vector3(p.x, 0.0, p.y)): g = minf(g, float(r["y"]))
+		return g if is_finite(g) else MapDefs.FLOOR_Y + 0.001
+	var same := 0
+	for p in pts:
+		if is_equal_approx(brute.call(p), MapKit.surface_y(p.x, p.y)): same += 1
+	check(same == pts.size(),
+		"сетка отдаёт ровно те же высоты, что перебор (%d из %d)" % [same, pts.size()])
+	var tb := Time.get_ticks_usec()
+	for p in pts: brute.call(p)
+	tb = Time.get_ticks_usec() - tb
+	var tg := Time.get_ticks_usec()
+	for p in pts: MapKit.surface_y(p.x, p.y)
+	tg = Time.get_ticks_usec() - tg
+	check(tg * 3 < tb,
+		"индекс быстрее перебора втрое на тех же точках (%d мкс против %d)" % [tg, tb])
+	print("NOTE: surface_y %d запросов: перебор %d мкс, сетка %d мкс, ускорение %.1f×" %
+		[pts.size(), tb, tg, float(tb) / maxf(float(tg), 1.0)])

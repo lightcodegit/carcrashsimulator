@@ -80,7 +80,7 @@ static func mono_font(weight: int = 400) -> SystemFont:
 # ---------------------------------------------------------------- тексты
 static func label(text: String, size_px: int, color: Color, weight := 400, mono := false) -> Label:
 	var l := Label.new()
-	l.text = text
+	I18n.bind(l, text)
 	l.add_theme_font_override("font", mono_font(weight) if mono else sans_font(weight))
 	l.add_theme_font_size_override("font_size", px(size_px))
 	l.add_theme_color_override("font_color", color)
@@ -103,7 +103,7 @@ static func nav_style(selected: bool) -> StyleBoxFlat:
 
 static func nav_item(text: String, big := false) -> Button:
 	var b := Button.new()
-	b.text = text
+	I18n.bind(b, text)
 	# flat=false: под flat движок не рисует стейт-стильбоксы, и полоса активного
 	# пункта исчезала, стоило навести мышь (жалоба со скриншота). Все наши
 	# стильбоксы с прозрачным фоном — плашки не появится, полоса рисуется всегда
@@ -186,7 +186,7 @@ static func action_style() -> Dictionary:
 
 static func action_button(text: String, size_px := 22) -> Button:
 	var b := Button.new()
-	b.text = text
+	I18n.bind(b, text)
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_override("font", sans_font(700))
 	b.add_theme_font_size_override("font_size", px(size_px))
@@ -200,7 +200,7 @@ static func action_button(text: String, size_px := 22) -> Button:
 
 static func ghost_button(text: String, size_px := 16) -> Button:
 	var b := Button.new()
-	b.text = text
+	I18n.bind(b, text)
 	b.flat = true
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_override("font", sans_font(600))

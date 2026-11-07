@@ -23,5 +23,5 @@ node --test tools/project.test.mjs
 - [ ] Смесь алфавитов проверена: `grep -rnIP "[\x{4E00}-\x{9FFF}\x{3040}-\x{30FF}]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" scripts tests tools README.md` пусто, склеек вида `[а-я][a-zA-Z]` тоже нет.
 - [ ] В diff нет локального мусора: `artifacts/`, `tests/out/`, `tests/tmpappdata/`, `*.tpz`, корневой `export_presets.cfg`.
 - [ ] Команды и пути переносимы: без `C:/Users/…` в коде, документации и workflow.
-- [ ] Если изменилось поведение игрока — обновлены `README.md`, `CHANGELOG.md` и, когда это правило для агентов, `AGENTS.md`.
+- [ ] Если изменилось поведение игрока — обновлены `README.md` и `CHANGELOG.md`.
 - [ ] Границы кода не нарушены: `map_db.gd` остаётся фасадом, частицы — `CPUParticles3D`, реплей проигрывает записанное и не пересимулирует физику, аудиовывод один на процесс.

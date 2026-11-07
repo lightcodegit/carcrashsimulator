@@ -124,6 +124,7 @@ var audio_volume := 0.8
 var vibration_enabled := true
 var vibration_strength := 1.0
 var particles_enabled := true
+var language := "ru"
 # как выглядит сам экран настроек
 var tier_extended := false
 var preset := 1
@@ -241,7 +242,7 @@ func values() -> Dictionary:
 		"ambient": ambient, "fov": fov, "shake": shake, "slowmo": slowmo,
 		"audio_enabled": audio_enabled, "audio_volume": audio_volume,
 		"vibration_enabled": vibration_enabled, "vibration_strength": vibration_strength,
-		"particles_enabled": particles_enabled,
+		"particles_enabled": particles_enabled, "language": language,
 		"tier_extended": tier_extended, "preset": preset, "fullscreen": fullscreen,
 	}
 
@@ -257,7 +258,11 @@ func set_value(key: String, v: Variant, persist := true) -> void:
 			val = clampi(int(v), int(NUMS[key][0]), int(NUMS[key][1]))
 		else:
 			val = clampf(float(v), float(NUMS[key][0]), float(NUMS[key][1]))
+	if key == "language":
+		if not (v is String and (v == "ru" or v == "en")): return
+		val = v
 	set(key, val)
+	if key == "language": I18n.set_locale(language)
 	if key != "preset" and key != "tier_extended":
 		_mark_custom(key, val)
 	if persist:
@@ -480,6 +485,8 @@ func load_values() -> void:
 			_win_rect = Rect2i(x, y, w, h)
 		_win_max = _as_bool(cf.get_value(WIN_SECTION, "max", false), false)
 	InputRouter.load_keys(cf)
+	if language != "en": language = "ru"
+	I18n.set_locale(language)
 	changed.emit()
 
 func reset() -> void:

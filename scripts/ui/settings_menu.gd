@@ -292,7 +292,7 @@ func _video_page(box: VBoxContainer) -> void:
 		box.add_child(UiTheme.label("Движок: %s · не поддерживается: %s" % [
 			Settings.rendering_method(), ", ".join(miss)], 14, UiTheme.DIM))
 	var mode := CheckBox.new()
-	mode.text = "РАСШИРЕННЫЙ РЕЖИМ — ВСЯ ГРАФИКА ПО ПУНКТАМ"
+	I18n.bind(mode, "РАСШИРЕННЫЙ РЕЖИМ — ВСЯ ГРАФИКА ПО ПУНКТАМ")
 	mode.focus_mode = Control.FOCUS_ALL
 	mode.set_meta("key", "tier_extended")
 	mode.set_meta("tier", 0)
@@ -333,6 +333,7 @@ func _sound_page(box: VBoxContainer) -> void:
 	box.add_child(_sep())
 	box.add_child(_spacer(8))
 	box.add_child(_section_head("ЗВУК"))
+	box.add_child(_language_row())
 	box.add_child(_row_for("audio_enabled"))
 	box.add_child(_row_for("audio_volume"))
 	box.add_child(_spacer(14))
@@ -348,6 +349,23 @@ func _sound_page(box: VBoxContainer) -> void:
 	box.add_child(_spacer(14))
 	box.add_child(_section_head("ЭФФЕКТЫ"))
 	box.add_child(_row_for("particles_enabled"))
+
+func _language_row() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", UiTheme.px(12))
+	row.add_theme_stylebox_override("panel", _rowline())
+	var lab := UiTheme.label("ЯЗЫК", 16, UiTheme.TEXT, 500)
+	lab.custom_minimum_size = Vector2(UiTheme.fx(400), UiTheme.fx(0))
+	row.add_child(lab)
+	var opt := OptionButton.new()
+	opt.custom_minimum_size = Vector2(UiTheme.fx(320), UiTheme.fx(36))
+	opt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	I18n.bind_options(opt, ["Русский", "English"])
+	UiTheme.style_option(opt)
+	opt.item_selected.connect(func(i: int) -> void:
+		Settings.set_value("language", "ru" if i == 0 else "en"))
+	row.add_child(opt)
+	return row
 
 func _row_for(key: String) -> Control:
 	for o in OPTIONS:
@@ -377,7 +395,7 @@ func _option_row(o: Array) -> Control:
 	var opt := OptionButton.new()
 	opt.custom_minimum_size = Vector2(UiTheme.fx(320), UiTheme.fx(36))
 	opt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	for l in o[2]: opt.add_item(l)
+	I18n.bind_options(opt, o[2])
 	opt.set_meta("key", String(o[0]))
 	opt.set_meta("values", o[3])
 	UiTheme.style_option(opt)
@@ -391,7 +409,7 @@ func _check_row(c: Array) -> Control:
 	var wrap := MarginContainer.new()
 	wrap.set_meta("tier", int(c[2]))
 	var cb := CheckBox.new()
-	cb.text = String(c[1])
+	I18n.bind(cb, String(c[1]))
 	cb.focus_mode = Control.FOCUS_ALL
 	cb.set_meta("key", String(c[0]))
 	UiTheme.style_check(cb)
@@ -606,6 +624,9 @@ static func _is_echo(e: InputEvent) -> bool:
 # ---- перечитать всё из Settings/InputRouter ---------------------------------
 func refresh() -> void:
 	for n in _all_of("OptionButton"):
+		if not n.has_meta("key"):
+			n.select(0 if Settings.language == "ru" else 1)
+			continue
 		var key := String(n.get_meta("key"))
 		var vals: Array = n.get_meta("values")
 		var cur := float(Settings.get(key))

@@ -43,7 +43,7 @@ body:
     attributes:
       label: Версия игры
       description: Номер тега сборки, либо вывод `git describe --tags` из исходников.
-      placeholder: v0.1.0
+      placeholder: git describe --tags
     validations:
       required: true
   - type: textarea

@@ -194,7 +194,7 @@ func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE, weight := 50
 
 func _row(panel: Control, y: float, title: String) -> Label:
 	var t := _label(Vector2(14, y), 12, DIM, 600)
-	t.text = title
+	I18n.bind(t, title)
 	panel.add_child(t)
 	var v := _label(Vector2(0, y - 2), 16, Color.WHITE, 700)
 	v.size = Vector2(panel.size.x - UiTheme.fx(28), UiTheme.fx(22))
@@ -210,7 +210,7 @@ func _caption(panel: Control, y: float, title: String) -> Label:
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(v)
 	var t := _label(Vector2(14, y), 12, DIM, 600)
-	t.text = title
+	I18n.bind(t, title)
 	panel.add_child(t)
 	return v
 
@@ -243,7 +243,7 @@ func _build_telemetry(root: Control) -> void:
 	root.add_child(panel)
 	_gameplay.append(panel)
 	var title := _label(Vector2(14, 8), 12, ACCENT, 700)
-	title.text = "ТЕЛЕМЕТРИЯ"
+	I18n.bind(title, "ТЕЛЕМЕТРИЯ")
 	panel.add_child(title)
 	_rule(panel, ACCENT)
 	# Из панели убрано то, что не меняется в заезде или дублирует другое показание:
@@ -299,11 +299,11 @@ func _build_crash_log(root: Control) -> void:
 	root.add_child(panel)
 	_gameplay.append(panel)
 	var title := _label(Vector2(14, 8), 12, ACCENT, 700)
-	title.text = "ЖУРНАЛ УДАРОВ"
+	I18n.bind(title, "ЖУРНАЛ УДАРОВ")
 	panel.add_child(title)
 	_rule(panel, ACCENT)
 	var cap := _label(Vector2(14, 42), 12, DIM, 600)
-	cap.text = "ЛУЧШИЙ УДАР"
+	I18n.bind(cap, "ЛУЧШИЙ УДАР")
 	panel.add_child(cap)
 	_stat_top = _label(Vector2(0, 38), 20, Color.WHITE, 700)
 	_stat_top.text = "—"
@@ -311,7 +311,7 @@ func _build_crash_log(root: Control) -> void:
 	_stat_top.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(_stat_top)
 	_stat_count = _label(Vector2(14, 68), 12, DIM, 600)
-	_stat_count.text = "УДАРОВ: 0"
+	I18n.bind(_stat_count, "УДАРОВ: 0")
 	panel.add_child(_stat_count)
 	for i in 4:
 		var l := _label(Vector2(14, 88 + i * 17), 13, Color(0.82, 0.86, 0.92))
@@ -368,7 +368,7 @@ func _build_pause(root: Control) -> void:
 	card.add_theme_stylebox_override("panel", _style(8))
 	_pause_panel.add_child(card)
 	_pause_label = _label(Vector2(24, 24), 40, Color.WHITE, 800)
-	_pause_label.text = "ПАУЗА"
+	I18n.bind(_pause_label, "ПАУЗА")
 	_pause_label.size = Vector2(UiTheme.fx(332), UiTheme.fx(52))
 	card.add_child(_pause_label)
 	var rule := ColorRect.new()
@@ -378,7 +378,7 @@ func _build_pause(root: Control) -> void:
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(rule)
 	_run_stats = _label(Vector2(24, 102), 14, DIM)
-	_run_stats.text = "В РЕЖИМЕ ОЖИДАНИЯ"
+	I18n.bind(_run_stats, "В РЕЖИМЕ ОЖИДАНИЯ")
 	_run_stats.size = Vector2(UiTheme.fx(332), UiTheme.fx(60))
 	_run_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(_run_stats)
@@ -417,10 +417,10 @@ func _build_replay(root: Control) -> void:
 	root.add_child(panel)
 	_replay_panel = panel
 	_replay_title = _label(Vector2(14, 8), 14, ACCENT, 800)
-	_replay_title.text = "РЕПЛЕЙ"
+	I18n.bind(_replay_title, "РЕПЛЕЙ")
 	panel.add_child(_replay_title)
 	_replay_info = _label(Vector2(120, 8), 13, Color.WHITE, 600)
-	_replay_info.text = "0.00 / 0.00 с"
+	I18n.bind(_replay_info, "0.00 / 0.00 с")
 	panel.add_child(_replay_info)
 	var bg := ColorRect.new()
 	bg.color = Color(1, 1, 1, 0.10)
@@ -444,7 +444,7 @@ func _build_replay(root: Control) -> void:
 	]
 	for i in rows.size():
 		var b := Button.new()
-		b.text = rows[i][0] as String
+		I18n.bind(b, rows[i][0] as String)
 		b.position = Vector2(UiTheme.fx(14 + i * 110), UiTheme.fx(42))
 		b.size = Vector2(UiTheme.fx(102), UiTheme.fx(44))
 		b.focus_mode = Control.FOCUS_ALL
@@ -461,14 +461,14 @@ func set_replay_ui(v: bool) -> void:
 
 func set_replay_info(t: float, total: float, rate: float, playing: bool, dents: int) -> void:
 	if _replay_info == null: return
-	_replay_info.text = "%.2f / %.2f с · ×%.2f · %s · вмятин %d" % [
-		t, total, rate, "ИДЁТ" if playing else "СТОП", dents]
+	_replay_info.text = I18n.t("%.2f / %.2f с · ×%.2f · %s · вмятин %d") % [
+		t, total, rate, I18n.t("ИДЁТ") if playing else I18n.t("СТОП"), dents]
 	var span := maxf(total, 1e-3)
 	_replay_fill.size = Vector2(UiTheme.fx(652) * clampf(t / span, 0.0, 1.0), UiTheme.fx(4))
 
 func replay_button(label: String) -> Button:
 	for b in _replay_buttons:
-		if b.text == label: return b
+		if b.text == I18n.t(label): return b
 	return null
 
 func replay_ui_visible() -> bool:
@@ -497,7 +497,7 @@ func _build_photo(root: Control) -> void:
 	root.add_child(panel)
 	_photo_panel = panel
 	_photo_info = _label(Vector2(14, 8), 13, Color.WHITE, 600)
-	_photo_info.text = "ФОТОМОД"
+	I18n.bind(_photo_info, "ФОТОМОД")
 	panel.add_child(_photo_info)
 	var rows := [
 		["СНИМОК", func() -> void: photo_shot_requested.emit()],
@@ -507,7 +507,7 @@ func _build_photo(root: Control) -> void:
 	]
 	for i in rows.size():
 		var b := Button.new()
-		b.text = rows[i][0] as String
+		I18n.bind(b, rows[i][0] as String)
 		b.position = Vector2(UiTheme.fx(14 + i * 144), UiTheme.fx(44))
 		b.size = Vector2(UiTheme.fx(136), UiTheme.fx(44))
 		b.focus_mode = Control.FOCUS_ALL
@@ -529,7 +529,7 @@ func set_photo_info(text: String) -> void:
 
 func photo_button(label: String) -> Button:
 	for b in _photo_buttons:
-		if b.text == label: return b
+		if b.text == I18n.t(label): return b
 	return null
 
 func photo_ui_visible() -> bool:
@@ -617,8 +617,8 @@ func reset_run() -> void:
 		l.text = ""
 
 func set_crash_stats(crashes: int, top: float) -> void:
-	_stat_count.text = "УДАРОВ: %d" % crashes
-	_stat_top.text = ("%d км/ч" % int(top)) if top > 0 else "—"
+	_stat_count.text = I18n.t("УДАРОВ: %d") % crashes
+	_stat_top.text = (I18n.t("%d км/ч") % int(top)) if top > 0 else "—"
 	_stat_top.add_theme_color_override("font_color", ACCENT if top > 0 else Color.WHITE)
 
 func show_tip(text: String) -> void:
@@ -634,7 +634,7 @@ func set_paused(v: bool) -> void:
 		_buttons[0].grab_focus()
 
 func set_run_stats(text: String) -> void:
-	_run_stats.text = text
+	_run_stats.text = I18n.t(text)
 
 # Кнопки меню паузы наружу нужны тестам и внешним экранам: искать их по тексту,
 # а не по индексу, — иначе любой порядок кнопок ломает чужой код.

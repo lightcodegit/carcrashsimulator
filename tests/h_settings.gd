@@ -245,8 +245,18 @@ func _build_menu() -> void:   # вызывается из _ready, поэтому
 		if SettingsMenu._supported(c[0]): want_checks += 1
 	# +1 переключатель: сам режим (базовый/расширенный) тоже CheckBox, но он не
 	# настройка картинки, а способ их показать
-	check(opts == want_opts and checks == want_checks + 1,
-		"5: картинки настроек: %d списка и %d+1 переключателя (%d/%d)" % [want_opts, want_checks, opts, checks])
+	check(opts == want_opts + 1 and checks == want_checks + 1,
+		"5: параметры, включая язык, и %d+1 переключателя (%d/%d)" % [want_checks, opts, checks])
+	Settings.set_value("language", "en")
+	var translated := false
+	for label in menu._all_of("Label"):
+		if label.text == "SETTINGS": translated = true
+	check(I18n.locale == "en" and translated,
+		"5: английский язык сразу переводит надписи меню")
+	Settings.load_values()
+	check(Settings.language == "en", "5: выбранный язык сохраняется")
+	Settings.set_value("language", "ru")
+	check(I18n.locale == "ru", "5: русский язык можно выбрать обратно")
 	menu._begin_capture("cam_cycle")
 	check(menu.capturing(), "5: режим захвата включён")
 	var ev := InputEventKey.new()

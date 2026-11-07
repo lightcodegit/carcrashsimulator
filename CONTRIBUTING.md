@@ -107,8 +107,8 @@ conventional prefix (`fix(ui): …`, `test: …`, `docs: …`) и тело с о
 собственный текст. Перед коммитом:
 
 ```sh
-grep -rnIP "[\x{4E00}-\x{9FFF}\x{3040}-\x{30FF}]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" --include="*.yml" scripts tests tools docs README.md AGENTS.md CHANGELOG.md CONTRIBUTING.md SECURITY.md .github
-grep -rnPI "[а-я][a-zA-Z]{3,}|[a-zA-Z]{3,}[а-я]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" --include="*.yml" scripts tests tools docs README.md AGENTS.md CHANGELOG.md CONTRIBUTING.md SECURITY.md .github
+grep -rnIP "[\x{4E00}-\x{9FFF}\x{3040}-\x{30FF}]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" --include="*.yml" scripts tests tools docs README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md .github
+grep -rnPI "[а-я][a-zA-Z]{3,}|[a-zA-Z]{3,}[а-я]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" --include="*.yml" scripts tests tools docs README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md .github
 ```
 
 Флаг `-I` обязателен в обоих: без него скан тонет в бинарных кэшах из
@@ -150,6 +150,4 @@ workflow. Логика правки не должна оставлять одн�
 - **Изоляция обязательна.** Любой запуск игры или харнеса — со свежей пустой
   `APPDATA` (Windows) или `XDG_DATA_HOME`/`XDG_CONFIG_HOME` (Linux): тесты пишут в
   настоящий `user://`, и без изоляции вы правите профиль живого игрока.
-- **Карта репозитория для агентов** — в `AGENTS.md`: команды, ловушки headless,
-  границы кода и запрет маскировать коды завершения. Этот файл — про процесс,
-  `AGENTS.md` — про то, где что лежит и что кусается.
+- **Карта репозитория** — в `README.md`; здесь описан процесс участия в проекте.

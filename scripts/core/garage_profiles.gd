@@ -12,7 +12,7 @@ const LIMITS := {
 	"damping_relaxation": Vector2(4.5, 13.5),
 	"nitro_accel": Vector2(2.0, 18.0),
 	"nitro_capacity": Vector2(50.0, 200.0),
-	"paint_metallic": Vector2(0.0, 1.0),
+	"paint_metallic": Vector2(0.05, 1.0),
 	"paint_roughness": Vector2(0.05, 1.0),
 }
 # Тяга — множитель заводной (иначе лимузину 6.0 не дали бы и паспортного),

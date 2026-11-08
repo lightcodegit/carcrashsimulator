@@ -1,45 +1,96 @@
-# Car Crash Simulator
-
-[![CI](https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml/badge.svg)](https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Godot 4.7.2](https://img.shields.io/badge/Godot-4.7.2%20stable-blue.svg)](https://godotengine.org/download/archive/)
-
-3D-краш-песочница на Godot 4.7 (GL Compatibility, GDScript): кузов из CC0-моделей
-мнётся вмятинами в точке удара, заезд сопровождает телеметрический HUD, а вокруг —
-меню с живым 3D-миром под интерфейсом, гараж с тюнингом и окраской, настройки с
-переназначением любых клавиш.
-
 <p align="center">
-  <img src="docs/images/crumple.jpg" width="32%" alt="Фотомод у стены: кузов смят в точке удара, слева — телеметрия, снизу — полоса фотомода">
-  <img src="docs/images/garage.jpg" width="32%" alt="Гараж: зелёный седан в живом мире и панель тюнинга с окраской">
-  <img src="docs/images/skid.jpg" width="32%" alt="Занос на арене: след резины остаётся на асфальте">
+  <img src="docs/images/crumple.jpg" alt="Car Crash Simulator: кузов смят в точке удара, слева — телеметрия, снизу — полоса фотомода" width="100%">
 </p>
 
-<p align="center"><sub>Смятие и фотомод · гараж с окраской · след резины в заносе. Кадры сняты
-живым рендером GL Compatibility, 1600×900.</sub></p>
+<p align="center">
+  <a href="#что-в-игре"><b>Возможности</b></a> ·
+  <a href="#управление"><b>Управление</b></a> ·
+  <a href="#скачать"><b>Скачать</b></a> ·
+  <a href="#сборка-из-исходников"><b>Сборка</b></a> ·
+  <a href="#тесты"><b>Тесты</b></a> ·
+  <a href="CONTRIBUTING.md"><b>Contributing</b></a>
+</p>
 
-## Что в игре
+<p align="center">
+  <a href="https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml"><img src="https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/license-MIT-F0795A" alt="license: MIT">
+  <a href="https://godotengine.org/download/archive/"><img src="https://img.shields.io/badge/Godot-4.7.2%20stable-F0795A" alt="Godot 4.7.2"></a>
+  <img src="https://img.shields.io/badge/карт-6-F0795A" alt="6 карт">
+  <img src="https://img.shields.io/badge/машин-5-F0795A" alt="5 машин">
+</p>
 
-- **Деформация кузова** — вершины меша смещаются вдоль вектора потери скорости:
-  лобовой, боковой и кормовой удары мнут свой борт, вмятины накапливаются и
-  сбрасываются рестартом.
-- **5 машин** — от тяжёлого пикапа до «Машины бесконечности» без потолка скорости;
-  у каждой паспортные vmax, масса, разгон и нитро.
-- **6 карт** — испытательная арена, городок, трасса с финишной стеной, кольцевая
-  гонка, бесконечная лента плит и большой город с районами.
-- **Слоу-мо, реплей удара, фотомод** — повтор последних 10 секунд с перемоткой,
-  свободная камера со снимками в PNG, ручное замедление времени.
-- **Гараж** — жёсткость подвески, демпферы, тяга, тормоз, сцепление, бак нитро и
-  окраска кузова; профиль на каждую машину хранится в `user://garage_v1.json`.
-- **Звук и вибрация** — синтезированный DSP-мотор, визг резины, удар и нитро;
+# Car Crash Simulator
+
+**3D-краш-песочница на Godot 4.7.** Разгоняйся, бейся и смотри, как кузов мнётся
+вмятинами ровно в точке удара: телеметрия заезда, реплей последних десяти секунд,
+фотомод со свободной камерой, гараж с тюнингом и окраской. Бесплатно, исходники
+открыты (MIT), ассеты — CC0.
+
+## Что уже в игре
+
+Всё перечисленное — в текущем релизе.
+
+- **Деформация.** Вершины кузова смещаются вдоль вектора потери скорости:
+  лобовой, боковой и кормовой удары мнут свой борт; вмятины накапливаются
+  и сбрасываются рестартом.
+- **5 машин.** От тяжёлого пикапа до «Машины бесконечности» без потолка скорости;
+  у каждой паспортные vmax, масса, разгон и нитро с баком и пламенем.
+- **6 карт.** Испытательная арена, городок с припаркованными машинами, трасса
+  с финишной стеной, кольцевая гонка на километр, бесконечная лента плит
+  и большой город с районами.
+- **Реплей удара и фотомод.** Повтор последних 10 секунд с шагом и скоростью
+  проигрывания; свободная камера с зумом и снимками в PNG.
+- **Гараж.** Жёсткость подвески, демпферы, тяга, тормоз, сцепление, бак нитро
+  и окраска кузова в любой цвет; профиль хранится на каждую машину.
+- **Звук и вибрация.** Мотор, визг резины, удар и нитро синтезируются DSP-микшером;
   геймпад вибрирует на ударе и заносе.
-- **Интерфейс на русском и английском** — переключается в настройках на ходу;
-  отладочный оверлей F2/F3 показывает телеметрию движка.
+- **Настройки и два языка.** Пресеты картинки, вся графика по пунктам, слоу-мо
+  и камера; интерфейс на русском и английском, переключается на ходу. Любое
+  действие переназначается на клавишу, кнопку или ось — клавиатура и геймпад
+  хранятся раздельно, модификаторы — часть назначения.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/garage.jpg" alt="Гараж: зелёный седан в живом мире и панель тюнинга с окраской"></td>
+    <td width="50%"><img src="docs/images/skid.jpg" alt="Занос на арене: след резины остаётся на асфальте"></td>
+  </tr>
+</table>
+
+## Производительность
+
+Симуляция стоит ≈1 мс на физический тик (6–7% бюджета шага 16.67 мс) — кадр
+упирается в рисование, поэтому рендер — GL Compatibility, а пресеты картинки
+собраны по замерам цены кадра. Замеры `tools/project.mjs test` (`p_perf`, живой
+рендер) на Intel HD 630 при 1600×900:
+
+| Конфигурация кадра (Compatibility) | Цена кадра |
+| --- | --- |
+| только геометрия, без теней и пост-эффектов, масштаб 70% | **6.7 мс** |
+| дымка и свечение, тени 120 м (дефолт) | **13.7 мс** |
+| всё включено: SSAO/SSIL, MSAA 4×, тени 260 м | 29.4 мс |
+| мягкие тени 420 м, bloom, экспозиция 1.15 (кино) | 29.2 мс |
+
+Дефолт влезает в 60 Гц на встроенной графике; пресеты «ВЫСОКОЕ» и «КИНО» —
+для дискретных GPU.
+
+## Скачать
+
+Готовые сборки публикуются на [странице релизов](https://github.com/lightcodegit/carcrashsimulator/releases):
+workflow `Release` собирает их автоматически по тегу `v*`, и номер тега сверяется
+с версией в `project.godot` и записью в `CHANGELOG.md`. Пока тега нет — собирайте
+из исходников (ниже) или скачивайте CI-артефакты со вкладки Actions.
+
+| Платформа | Файл | Нужно |
+| --- | --- | --- |
+| Windows x86_64 | `Car Crash Simulator.exe` + `.pck` | Windows 10/11, GPU с OpenGL 3.3 |
+| Linux x86_64 | `Car Crash Simulator.x86_64` + `.pck` | glibc-дистрибутив, X11 или Wayland |
+
+После скачивания Linux-версии может понадобиться `chmod +x "Car Crash Simulator.x86_64"`.
 
 ## Управление
 
 | Действие | Клавиатура | Геймпад |
-|---|---|---|
+| --- | --- | --- |
 | Газ / тормоз | W / S | RT / LT |
 | Руль | A/D, ←/→ | левый стик |
 | Ручник / стояночный | Space | A (крестик) **или** L1 |
@@ -49,92 +100,58 @@
 | Рестарт | R | Y |
 | Пауза | Esc | Start |
 
-Все действия переопределяются в **НАСТРОЙКИ → УПРАВЛЕНИЕ** (из главного меню и из
-паузы): клавиатура и геймпад хранятся раздельно, модификаторы (Ctrl, Shift, Alt,
-Win) — часть назначения, `Ctrl+F` и `F` — две разные клавиши. Таблица выше —
-раскладка по умолчанию.
+Таблица — раскладка по умолчанию. Всё переопределяется в
+**НАСТРОЙКИ → УПРАВЛЕНИЕ** (из главного меню и из паузы): на клавишу, кнопку
+или ось геймпада; `Ctrl+F` и `F` — две разные клавиши, и в файле настроек они
+хранятся с модификаторами.
 
-## Запуск
+## Сборка из исходников
 
-1. Открой проект в Godot **4.7.2 stable** (не .NET), файл `project.godot`.
-2. Нажми **F5** — игра запустится с меню.
-
-### Windows / Linux: переносимые команды
-
-Нужны **Node.js >=22** (без npm-зависимостей) и стандартный Godot **4.7.2 stable**.
-Для экспорта установи шаблоны **4.7.2.stable** через
-**Editor → Manage Export Templates** или из
-[официального релиза](https://github.com/godotengine/godot-builds/releases/tag/4.7.2-stable).
+Нужны **Godot 4.7.2 stable** (не .NET) и **Node.js >=22** (без npm-зависимостей).
+Для экспорта — шаблоны **4.7.2.stable** через **Editor → Manage Export Templates**
+или из [официального релиза](https://github.com/godotengine/godot-builds/releases/tag/4.7.2-stable);
 CI скачивает этот же редактор и шаблоны, проверяя SHA-256.
 
 ```sh
-node tools/project.mjs --help
-node tools/project.mjs import
-node tools/project.mjs test
-node tools/project.mjs build windows
+git clone https://github.com/lightcodegit/carcrashsimulator.git
+cd carcrashsimulator
+node tools/project.mjs import          # импорт ресурсов и классов
+node tools/project.mjs run             # запуск игры из исходников
+node tools/project.mjs build windows   # релиз в artifacts/build/windows/
 node tools/project.mjs build linux
-node tools/project.mjs run                 # открывает GUI, использует настройки игрока
 ```
 
 Godot ищется в PATH как `godot`; можно задать переменную `GODOT` или добавить
 `--godot "C:/path with spaces/Godot.exe"` к любой команде. `help <команда>` и
-`<команда> --help` описывают опции. Import, test и build окон не открывают;
-тесты гоняются параллельно (`--jobs N`, по умолчанию — половина ядер, потолок 4).
-
-Сборка импортирует временную копию проекта с `tools/export_presets.cfg` и кладёт
-релиз в `artifacts/build/{windows,linux}/` (бинарник **вместе с .pck**). Локальный
-`export_presets.cfg` не читается и не перезаписывается. Логи и JSON-отчёты
-каждого запуска — `artifacts/logs/` (игнорируется Git). CI проверяет обе ОС и
-**обязательно запускает собранный билд** headless на несколько кадров:
-«экспортировалось» без «запустилось» сборкой не считается. После скачивания
-Linux-артефакта может понадобиться `chmod +x "Car Crash Simulator.x86_64"`.
-
-### Готовые сборки
-
-Играть без сборки из исходников можно со
-[страницы релизов](https://github.com/lightcodegit/carcrashsimulator/releases):
-каждая версия `v*` публикуется автоматически workflow-ом `Release` — два архива
-(Windows и Linux x86_64) с бинарником и `.pck` внутри. Номер тега сверяется с
-`application/config/version` в `project.godot` и с записью в `CHANGELOG.md`.
-
-## Структура
-
-```
-assets/           CC0-модели Kenney Car Kit и Racing Kit + лицензии
-scenes/           main_menu.tscn, game.tscn
-scripts/core/     car_rig (VehicleBody3D), dent_body (деформация кузова),
-                  materials, effects_director (частицы), camera_rig, skid_marks,
-                  game_manager, vehicle_params, vehicle_db, garage_profiles,
-                  audio_mixer + audio_driver (синтез звука), vibration_feed,
-                  replay_recorder + replay_player, photo_mode, i18n
-scripts/maps/     map_db (фасад), map_defs, map_kit, map_props, map_circuit
-                  и по файлу на карту: arena / town / bigcity / speedway
-scripts/ui/       ui_theme, main_menu, garage_panel, hud, settings_menu,
-                  debug_overlay
-scripts/autoload/ GameContext, TimeScale, InputRouter, Settings
-tests/            d_* — data-тесты, h_* — интеграционные харнесы, p_* —
-                  ручная диагностика и скриншот-раннеры
-tools/            project.mjs — раннер импорта/тестов/сборки/запуска
-```
+`<команда> --help` описывают опции; import, test и build окон не открывают.
+Можно и без раннера: открыть `project.godot` в редакторе и нажать F5.
 
 ## Тесты
 
 ```sh
 node --test tools/project.test.mjs          # тесты самого раннера, Godot не нужен
-node tools/project.mjs import              # сначала импортировать ресурсы и классы
 node tools/project.mjs test --list
 node tools/project.mjs test --test d_assets --test h_crash --timeout 180
-node tools/project.mjs test                # весь автоматически найденный набор
-node tools/project.mjs test --fail-on-skip  # строгий режим: partial/skip тоже ошибка
+node tools/project.mjs test                # весь набор, параллельно (--jobs N)
+node tools/project.mjs test --fail-on-skip # строгий режим: partial/skip тоже ошибка
 ```
 
-Раннер находит `tests/**/d_*.gd` и `tests/**/h_*.tscn`; `--test` принимает точные
-имена из `--list`. Каждый тест получает изолированные `APPDATA`/`HOME`/`XDG_*`
-в системном temp — настройки игрока и результаты соседних тестов не подменяют
-дефолты. Успех требует строки `ALL PASS`, кода 0 и отсутствия `SCRIPT ERROR`/`FAIL`;
-`PARTIAL`/`SKIP` считаются отдельно и не равны pass. Тесты, которым нужен живой
-GPU, окно или геймпад, в headless честно сообщают partial либо помечены skipped —
-полное их покрытие делается ручным прогоном с живым окном (`p_live_probe`).
+Раннер находит `tests/**/d_*.gd` и `tests/**/h_*.tscn`; `--test` принимает
+точные имена из `--list`. Каждый тест получает изолированные `APPDATA`/`HOME`/
+`XDG_*` в системном temp — настройки игрока и результаты соседних тестов не
+подменяют дефолты. Успех требует строки `ALL PASS`, кода 0 и отсутствия
+`SCRIPT ERROR`/`FAIL`; `PARTIAL`/`SKIP` считаются отдельно и не равны pass.
+Тесты, которым нужен живой GPU, окно или геймпад, в headless честно сообщают
+partial либо помечены skipped; полное их покрытие — ручной прогон `p_live_probe`
+с живым окном (звук, дым, окраска, реплей и фотомод — пикселем и настоящим
+аудиовыводом). CI гоняет обе ОС и **обязательно запускает собранный билд**
+headless на несколько кадров: «экспортировалось» без «запустилось» сборкой
+не считается.
+
+## Contributing
+
+Процесс и очереди — в [CONTRIBUTING.md](CONTRIBUTING.md); если работу делает
+AI-агент, там же раздел «Если вы — агент».
 
 ## Лицензия
 

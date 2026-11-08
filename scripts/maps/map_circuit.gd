@@ -121,8 +121,11 @@ static func endless() -> Dictionary:
 			# асфальте и цепляется боком
 			MapKit.kit(root, "barrierWall", Vector3(-40.0 + k * 10.0, 0, 4.9 if side > 0 else -6.13),
 				0, true, false)
-	# стартовое кольцо прожекторов и щит — чтобы первый взгляд был на трассу, а не в пустоту
-	for k in 4:
+	# стартовое кольцо прожекторов и щит — чтобы первый взгляд был на трассу, а не в пустоту.
+	# Щиты и прожекторы входят в ленты перестановки (свой шаг у каждого ряда), поэтому
+	# декорация идёт вдоль всей ленты, а не заканчивается на первых сотнях метров —
+	# иначе впереди, за туманом, обочина пустая, и карта выглядит непрогруженной.
+	for k in 12:
 		MapKit.kit(root, "lightRed", Vector3(-30.0 + k * 40.0, 0, 6.5), 0, true, false)
 		MapKit.kit(root, "billboard", Vector3(10.0 + k * 60.0, 0, -17.0), 0, true, false)
 	# сносимый хлам у обочин: предметам известно только плоское полотно, поэтому они
@@ -164,60 +167,71 @@ static func rc_lines_fresh(root: Node3D) -> bool:
 	if root != _rc_root or root.get_child_count() != _rc_count:
 		return false
 	for line in rc_lines:
-		if not is_instance_valid(line[0]) or not is_instance_valid(line[line.size() - 1]):
+		var nodes: Array = line[0]
+		if not is_instance_valid(nodes[0]) or not is_instance_valid(nodes[nodes.size() - 1]):
 			return false
 	return true
 
 static func _rc_rebuild_lines(root: Node3D) -> void:
-	# полотно и каждый ряд отбойников — своя линия: у барьеров два ряда по разные
-	# стороны полосы, и у ряда свой передний край; общая «голова» на два ряда
-	# оставляла в них дыры в 20 м
+	# полотно и каждый ряд обочины — своя линия: у барьеров два ряда по разные
+	# стороны полосы, у щитов и прожекторов свой шаг раскладки (60 и 40 м), и общая
+	# «голова» оставляла в них дыры. Каждая лента несёт свой шаг: 0 — шаг берётся
+	# по узлу (плиты: рампа, растянутая втрое, занимает 60 м), число — фиксированный
+	# шаг ряда, каким он и раскладывался при постройке карты.
+	var fixed_advance := {"kit_road": 0.0, "kit_barrier": 10.0, "kit_billboard": 60.0, "kit_light": 40.0}
 	var groups := {}
 	for c in root.get_children():
 		var mi := c as MeshInstance3D
 		if mi == null: continue
 		var nm := String(mi.name)
 		var cls := ""
-		if nm.begins_with("kit_road"): cls = "kit_road"
-		elif nm.begins_with("kit_barrier"): cls = "kit_barrier"
+		for kind in fixed_advance:
+			if nm.begins_with(kind): cls = kind; break
 		if cls == "": continue
 		var gkey := cls + "|%.0f" % mi.position.z
-		if not groups.has(gkey): groups[gkey] = []
-		groups[gkey].append(mi)
+		if not groups.has(gkey): groups[gkey] = {"nodes": [], "adv": float(fixed_advance[cls])}
+		(groups[gkey]["nodes"] as Array).append(mi)
 	rc_lines = []
 	for gkey in groups:
-		var line: Array = groups[gkey]
+		var line: Array = groups[gkey]["nodes"]
 		if line.size() < 2: continue
 		line.sort_custom(func(a: Node, b: Node) -> bool: return a.position.x < b.position.x)
-		rc_lines.append(line)
+		rc_lines.append([line, groups[gkey]["adv"]])
 	_rc_root = root
 	_rc_count = root.get_child_count()
 
 # Прокрутка одной ленты: хвост уходит за голову, пока полностью не останется
 # за спиной машины; обратно — если машина телепортировалась в начало трассы.
 static func _rc_roll(line: Array, car_x: float, spacing: float, root: Node3D) -> int:
+	var nodes: Array = line[0]
+	var fixed: float = line[1]
 	var moved := 0
-	var guard := line.size()
+	var guard := nodes.size()
 	while guard > 0:
 		guard -= 1
-		var tail: Node3D = line[0]
-		var head: Node3D = line[line.size() - 1]
-		# плита едет в хвост, только когда полностью осталась за машиной
-		if tail.position.x + _advance_of(tail) + spacing >= car_x - 120.0: break
-		_shift(tail, head.position.x + _advance_of(head) - tail.position.x, root)
-		line.pop_front()
-		line.append(tail)
+		var tail: Node3D = nodes[0]
+		var head: Node3D = nodes[nodes.size() - 1]
+		# плита едет в хвост, только когда полностью осталась за машиной; шаг
+		# впереди берётся по классу ленты: у плит — по фактической длине тайла,
+		# у рядов обочины — их фиксированный шаг раскладки
+		var adv_tail := fixed if fixed > 0.0 else _advance_of(tail)
+		if tail.position.x + adv_tail + spacing >= car_x - 120.0: break
+		var adv_head := fixed if fixed > 0.0 else _advance_of(head)
+		_shift(tail, head.position.x + adv_head - tail.position.x, root)
+		nodes.pop_front()
+		nodes.append(tail)
 		moved += 1
 	# телепорт назад (вылет за карту, R на старте) оставляет ленту впереди:
 	# голова переезжает перед хвостом, пока полотно не дотянется до машины
-	guard = line.size()
+	guard = nodes.size()
 	while guard > 0:
 		guard -= 1
-		var tail2: Node3D = line[0]
+		var tail2: Node3D = nodes[0]
 		if tail2.position.x <= car_x - spacing: break
-		var head2: Node3D = line.pop_back()
-		_shift(head2, tail2.position.x - _advance_of(head2) - head2.position.x, root)
-		line.insert(0, head2)
+		var head2: Node3D = nodes.pop_back()
+		var adv_h2 := fixed if fixed > 0.0 else _advance_of(head2)
+		_shift(head2, tail2.position.x - adv_h2 - head2.position.x, root)
+		nodes.insert(0, head2)
 		moved += 1
 	return moved
 

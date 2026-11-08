@@ -129,10 +129,11 @@ func _persist() -> void:
 	check(Settings.fog and Settings.glow and Settings.shadow_enabled(), "2: сброс возвращает значения по умолчанию")
 	check(is_equal_approx(get_window().scaling_3d_scale, 0.7),
 		"2: масштаб применяется к окну (%.2f)" % get_window().scaling_3d_scale)
+	check(Engine.max_fps == 60, "2: потолок кадров по умолчанию 60 (%d)" % Engine.max_fps)
+	Settings.set_value("fps_limit", 0)
 	check(Engine.max_fps == 0, "2: без потолка кадров Engine.max_fps = 0 (%d)" % Engine.max_fps)
 	Settings.set_value("fps_limit", 60)
 	check(Engine.max_fps == 60, "2: потолок кадров применяется сразу (%d)" % Engine.max_fps)
-	Settings.set_value("fps_limit", 0)
 
 func _key(code: int, down: bool) -> void:
 	var e := InputEventKey.new()

@@ -5,6 +5,35 @@ versions follow [semantic versioning](https://semver.org/). The version number
 lives in `project.godot` (`application/config/version`), and the release
 workflow refuses to publish a tag that does not match it.
 
+## [Unreleased]
+
+### Added
+
+- Loading screen with the animated game emblem on scene switches: starting a
+  run and returning to the menu show it until the target scene is ready.
+- The chosen car and map persist across returning to the menu and quitting
+  the game; the menu restores the card highlight from the last choice.
+
+### Changed
+
+- The language setting now lives in its own GENERAL section on the sound tab
+  instead of sitting inside the SOUND section.
+- The default frame cap is 60 (was uncapped). On 120–144 Hz monitors the GPU
+  no longer renders every refresh, which removes the progressive slowdown
+  from thermal throttling on weaker machines. Uncapped is still available in
+  the settings.
+
+### Fixed
+
+- Ramp rear walls render double-sided: from behind, ramps looked transparent
+  even though the collider stopped the car.
+- The Endless map keeps billboards and light poles moving with the road strip,
+  so the roadside has scenery along the whole ribbon instead of only the first
+  few hundred metres.
+- Jumps off a ramp at low speed no longer descend like a parachute: the
+  hydro-stop engages only against falls harder than 7.5 m/s of natural impact
+  speed, and normal jumps fall under real gravity.
+
 ## [v0.1.0] - 2026-11-08
 
 ### Added

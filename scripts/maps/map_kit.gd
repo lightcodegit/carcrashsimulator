@@ -377,6 +377,15 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		var shell := MeshInstance3D.new()
 		shell.name = "shell"
 		shell.mesh = _closure_mesh(m, close)
+		# Стенка видна и с тыла: односторонняя грань с обратной стороны отсекается,
+		# и горка выглядела прозрачной, хотя коллайдер стоял (жалоба игрока). Дубли
+		# материала с отключённым клиппингом хватает: треугольников не прибавляется,
+		# и проверка h_ramp_solid по их числу не ломается.
+		var sm: Material = shell.mesh.surface_get_material(0)
+		if sm is BaseMaterial3D:
+			var sm2: BaseMaterial3D = (sm as BaseMaterial3D).duplicate()
+			sm2.cull_mode = BaseMaterial3D.CULL_DISABLED
+			shell.material_override = sm2
 		mi.add_child(shell)
 	# имя с координатами: одинаковые имена среди соседей Godot молча переименовывает в @MeshInstance3D@N
 	mi.name = "kit_%s_%.0f_%.0f" % [name, pos.x, pos.z]

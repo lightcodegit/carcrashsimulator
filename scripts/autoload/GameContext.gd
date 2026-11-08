@@ -13,8 +13,12 @@ var _loading_until_ms := 0
 # моменту: восстанавливаем последний выбор машины и карты. Мусорные id из
 # чужого файла отсеет select — до car.build они не доживают.
 func _ready() -> void:
+	# Автозагрузки ниже по списку (Settings) уже прочитали settings.cfg к этому
+	# моменту: восстанавливаем последний выбор машины и карты. Мусорные id из
+	# чужого файла отсеет select — до car.build они не доживают.
 	select(Settings.last_car, Settings.last_map)
 	_build_loading()
+	set_process(false)   # анимация крутится только пока экран загрузки виден
 
 func select(c: String, m: String) -> void:
 	if c in VehicleDB.ids(): car_id = c
@@ -61,6 +65,7 @@ func loading_show() -> void:
 	_loading_hide_ready = false
 	_loading_until_ms = Time.get_ticks_msec() + LOADING_MIN_MS
 	_loading_layer.visible = true
+	set_process(true)
 
 func loading_hide() -> void:
 	_loading_hide_ready = true
@@ -69,8 +74,8 @@ func loading_visible() -> bool:
 	return _loading_layer != null and _loading_layer.visible
 
 func _process(_dt: float) -> void:
-	if _loading_layer == null or not _loading_layer.visible: return
 	_loading_ring.rotation += _dt * 2.2
 	_loading_ring.pivot_offset = _loading_ring.size * 0.5
 	if _loading_hide_ready and Time.get_ticks_msec() >= _loading_until_ms:
 		_loading_layer.visible = false
+		set_process(false)

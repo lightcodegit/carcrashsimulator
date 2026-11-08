@@ -32,3 +32,12 @@ workflow refuses to publish a tag that does not match it.
   fly.
 - Debug overlay (F2/F3) with frame, car, world and log sections.
 - English and Russian localization with live switching.
+
+### Known issues
+
+- On Windows, closing the game window right after a run with sound can
+  terminate the process with a SIGSEGV (~3 of 12 launches on Intel UHD 730).
+  The crash happens after the game has already stopped rendering and saving:
+  it is a shutdown race between OpenGL resources and the live audio stream in
+  the graphics driver, not a defect in game logic. Player progress and
+  settings are written before the crash window, so nothing is lost.

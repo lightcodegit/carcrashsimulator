@@ -35,12 +35,12 @@ workflow refuses to publish a tag that does not match it.
   the soft-touch speed grew up to the ground clearance); until that moment
   every fall is free fall, and the arrest happens in the last decimetres —
   ramp jumps at any speed and drops off ledges land like real cars.
-- Landings and light scrapes no longer count as impacts: the detector now
-  measures the death of speed in the DRIVING plane. A touchdown — even a hard
-  one that bottoms the suspension — kills only the vertical component, and
-  the horizontal speed the crash detector watches survives it; a wall kills
-  the horizontal speed outright. Player log showed phantom impacts at
-  97–238 km/h.
+- Landings and light scrapes no longer count as impacts. The detector is
+  two-tier now: 20 km/h of dead HORIZONTAL speed (a wall, a barrier, a real
+  scrape) or 54 km/h of dead VERTICAL speed (a suspension-bottoming slam from
+  15 m/s and harder — the kind the impact replay exists for). Ordinary
+  touchdowns at 7–12 m/s of vertical, which the suspension absorbs, no longer
+  dent the car; the player log showed phantom impacts at 97–238 km/h.
 - The Endless asphalt no longer flickers: the giant floor's visual top sits
   6 cm below the road plane (the physics drive surface is untouched — flat
   road tiles have no colliders of their own and ride on the floor).

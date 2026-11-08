@@ -1,7 +1,7 @@
 class_name SettingsMenu
 extends Control
 # Экран настроек в духе BeamNG.drive: затемнённый живой мир, слева вертикальные
-# вкладки (КАЧЕСТВО / ГРАФИКА / КАМЕРА / УПРАВЛЕНИЕ / ЗВУК), справа — содержимое
+# вкладки (ОБЩЕЕ / КАЧЕСТВО / ГРАФИКА / КАМЕРА / УПРАВЛЕНИЕ / ЗВУК), справа — содержимое
 # секциями.
 # Пресеты картинки — крупные карточки с ценой в мс; бинды — таблица
 # «действие | клавиатура | геймпад», где каждый класс устройств назначается своей
@@ -139,7 +139,7 @@ func _ready() -> void:
 	holder.offset_left = UiTheme.fx(26); holder.offset_right = UiTheme.fx(-26)
 	holder.offset_top = UiTheme.fx(20); holder.offset_bottom = UiTheme.fx(-20)
 	host.add_child(holder)
-	var builders := ["_quality_page", "_video_page", "_camera_page", "_controls_page", "_sound_page"]
+	var builders := ["_general_page", "_quality_page", "_video_page", "_camera_page", "_controls_page", "_sound_page"]
 	for i in builders.size():
 		var sc := ScrollContainer.new()
 		sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -181,7 +181,7 @@ func _build_nav() -> void:
 	box.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
 	box.add_theme_constant_override("separation", UiTheme.px(6))
 	add_child(box)
-	var names := ["КАЧЕСТВО", "ГРАФИКА", "КАМЕРА", "УПРАВЛЕНИЕ", "ЗВУК"]
+	var names := ["ОБЩЕЕ", "КАЧЕСТВО", "ГРАФИКА", "КАМЕРА", "УПРАВЛЕНИЕ", "ЗВУК"]
 	for i in names.size():
 		var b := UiTheme.nav_item(names[i])
 		b.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
@@ -329,6 +329,14 @@ func _camera_page(box: VBoxContainer) -> void:
 	for key in CAMERA_KEYS:
 		box.add_child(_row_for(String(key)))
 
+# ---- вкладка ОБЩЕЕ: язык и настройки, не привязанные к картинке или звуку ----
+func _general_page(box: VBoxContainer) -> void:
+	box.add_child(UiTheme.label("ОБЩЕЕ", 30, Color.WHITE, 800))
+	box.add_child(_sep())
+	box.add_child(_spacer(8))
+	box.add_child(_section_head("ЯЗЫК"))
+	box.add_child(_language_row())
+
 # ---- вкладка ЗВУК: звук, вибрация, частицы -----------------------------------
 # Тот же язык строк, что у ГРАФИКИ: строки берутся из CHECKS/SLIDERS, поэтому
 # refresh() синхронизирует их без отдельного кода.
@@ -336,11 +344,6 @@ func _sound_page(box: VBoxContainer) -> void:
 	box.add_child(UiTheme.label("ЗВУК И ВИБРАЦИЯ", 30, Color.WHITE, 800))
 	box.add_child(_sep())
 	box.add_child(_spacer(8))
-	# Язык — не про звук: раньше строка сидела внутри секции ЗВУК и выглядела
-	# случайной. Своя секция сверху чинит смысл, не переезжая между вкладками.
-	box.add_child(_section_head("ОБЩЕЕ"))
-	box.add_child(_language_row())
-	box.add_child(_spacer(14))
 	box.add_child(_section_head("ЗВУК"))
 	box.add_child(_row_for("audio_enabled"))
 	box.add_child(_row_for("audio_volume"))

@@ -26,17 +26,17 @@ func _ready() -> void:
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
-# A) пять вкладок, ЗВУК — пятая, достижима фокусом и нажатием кнопки
+# A) шесть вкладок, ОБЩЕЕ — первая, ЗВУК — шестая, достижимы фокусом и кнопкой
 func _tabs() -> void:
-	check(menu._tabs_btn.size() == 5, "вкладок пять (%d)" % menu._tabs_btn.size())
-	check(menu._pages.size() == 5, "страниц пять (%d)" % menu._pages.size())
-	menu._tabs_btn[4].grab_focus()
-	check(menu._tabs_btn[4].has_focus(), "вкладка ЗВУК берёт фокус")
-	menu._tabs_btn[4].pressed.emit()
-	check(menu._pages[4].visible and not menu._pages[0].visible,
-		"нажатие открывает пятую страницу")
+	check(menu._tabs_btn.size() == 6, "вкладок шесть (%d)" % menu._tabs_btn.size())
+	check(menu._pages.size() == 6, "страниц шесть (%d)" % menu._pages.size())
+	menu._tabs_btn[5].grab_focus()
+	check(menu._tabs_btn[5].has_focus(), "вкладка ЗВУК берёт фокус")
+	menu._tabs_btn[5].pressed.emit()
+	check(menu._pages[5].visible and not menu._pages[0].visible,
+		"нажатие открывает шестую страницу")
 	menu._tabs_btn[0].pressed.emit()
-	check(menu._pages[0].visible and not menu._pages[4].visible,
+	check(menu._pages[0].visible and not menu._pages[5].visible,
 		"возврат на первую страницу работает")
 
 func _find_check(key: String) -> CheckBox:
@@ -56,6 +56,9 @@ func _row_by_key(key: String) -> Control:
 
 # B) все обещанные строки на месте; тумблеры и ползунки пишут в Settings
 func _rows_and_settings() -> void:
+	# сортировка скрытой страницы откладывается до показа: меряем на видимой
+	menu._tabs_btn[5].pressed.emit()
+	await get_tree().process_frame
 	for key in ["audio_enabled", "vibration_enabled", "particles_enabled"]:
 		check(_row_by_key(key) != null, "строка-галка %s существует" % key)
 	check(menu._sliders.has("audio_volume"), "ползунок ОБЩАЯ ГРОМКОСТЬ существует")
@@ -79,14 +82,22 @@ func _rows_and_settings() -> void:
 	check(pad_hint == Input.get_connected_joypads().is_empty(),
 		"подсказка про геймпад показывается ровно когда его нет (подключено %d, подсказка %s)" % [
 			Input.get_connected_joypads().size(), pad_hint])
-	# язык — не часть секции ЗВУК: у строки своя секция ОБЩЕЕ на той же вкладке
+	# язык — не про звук: строка живёт на первой вкладке ОБЩЕЕ, а на вкладке ЗВУК
+	# её быть не должно
 	var general_walk: Array[Node] = [menu]
 	var general_head := false
 	while not general_walk.is_empty():
 		var gn: Node = general_walk.pop_back()
 		if gn is Label and (gn as Label).text == I18n.t("ОБЩЕЕ"): general_head = true
 		for c in gn.get_children(): general_walk.append(c)
-	check(general_head, "язык живёт в секции ОБЩЕЕ, а не внутри ЗВУК")
+	check(general_head, "вкладка ОБЩЕЕ существует")
+	var lang_on_sound := false
+	var sound_walk: Array[Node] = [menu._pages[5]]
+	while not sound_walk.is_empty():
+		var sn: Node = sound_walk.pop_back()
+		if sn is Label and (sn as Label).text == I18n.t("ЯЗЫК"): lang_on_sound = true
+		for c in sn.get_children(): sound_walk.append(c)
+	check(not lang_on_sound, "на вкладке ЗВУК нет строки ЯЗЫК")
 	var cb := _find_check("audio_enabled")
 	cb.button_pressed = false
 	check(not Settings.audio_enabled, "галка ЗВУК пишет audio_enabled=false")
@@ -162,7 +173,7 @@ func _metrics_at_step(step: int) -> Dictionary:
 	var mm := SettingsMenu.new()
 	add_child(mm)
 	mm.open()
-	mm._tabs_btn[4].pressed.emit()
+	mm._tabs_btn[5].pressed.emit()
 	await get_tree().process_frame
 	var out := {}
 	var cb := _menu_check(mm, "audio_enabled")
@@ -170,7 +181,7 @@ func _metrics_at_step(step: int) -> Dictionary:
 	var rec: Array = mm._sliders["audio_volume"]
 	out["slider_w"] = int((rec[0] as HSlider).custom_minimum_size.x)
 	out["slider_font"] = (rec[1] as Label).get_theme_font_size("font_size")
-	var page: Node = mm._pages[4]
+	var page: Node = mm._pages[5]
 	var box := page.get_child(0)
 	for c in box.get_children():
 		if c is Label and (c as Label).text == I18n.t("ЗВУК И ВИБРАЦИЯ"):

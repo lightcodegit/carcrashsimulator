@@ -391,12 +391,12 @@ func _panel_play() -> void:
 	s.add_child(title)
 	s.add_child(_sep())
 	_kv(s, "МАШИНА", String(CARS[_car_i][0]))
-	var cdesc := UiTheme.label(String(CARS[_car_i][2]).split("\n")[0], 14, UiTheme.DIM)
+	var cdesc := UiTheme.label_line(String(CARS[_car_i][2]), 0, 14, UiTheme.DIM)
 	cdesc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cdesc.custom_minimum_size = Vector2(UiTheme.fx(560), 0)
 	s.add_child(cdesc)
 	_kv(s, "КАРТА", String(MAPS[_map_i][0]))
-	var mdesc := UiTheme.label(String(MAPS[_map_i][2]).replace("\n", " "), 14, UiTheme.DIM)
+	var mdesc := UiTheme.label_flat(String(MAPS[_map_i][2]), 14, UiTheme.DIM)
 	mdesc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	mdesc.custom_minimum_size = Vector2(UiTheme.fx(560), 0)
 	s.add_child(mdesc)
@@ -450,16 +450,18 @@ func _pick_card(items: Array, i: int, sel: bool, meta_key: String, cb: Callable)
 		host.add_child(lbox)
 		var nm := UiTheme.label(String(row[0]), 21, UiTheme.AMBER_HI if sel else Color.WHITE, 700)
 		lbox.add_child(nm)
-		var fl := UiTheme.label(String(row[2]).split("\n")[1], 13, UiTheme.DIM, 500)
+		var fl := UiTheme.label_line(String(row[2]), 1, 13, UiTheme.DIM, 500)
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.max_lines_visible = 2
 		fl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		lbox.add_child(fl)
 		var vmax: float = row[3]
-		_stat(host, 344, 10, "СКОРОСТЬ", "∞" if not is_finite(vmax) else "%d км/ч" % int(vmax),
-			clampf(vmax / 220.0, 0.0, 1.0))
-		_stat(host, 344, 38, "МАССА", "%d кг" % int(row[4]), clampf(row[4] / 2200.0, 0.0, 1.0))
-		_stat(host, 344, 66, "РАЗГОН", "%.1f м/с²" % float(row[5]), clampf(row[5] / 45.0, 0.0, 1.0))
+		if is_finite(vmax):
+			_stat(host, 344, 10, "СКОРОСТЬ", "%d км/ч", clampf(vmax / 220.0, 0.0, 1.0), [int(vmax)])
+		else:
+			_stat(host, 344, 10, "СКОРОСТЬ", "∞", clampf(1.0, 0.0, 1.0))
+		_stat(host, 344, 38, "МАССА", "%d кг", clampf(row[4] / 2200.0, 0.0, 1.0), [int(row[4])])
+		_stat(host, 344, 66, "РАЗГОН", "%.1f м/с²", clampf(row[5] / 45.0, 0.0, 1.0), [float(row[5])])
 	else:
 		var col := VBoxContainer.new()
 		col.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -470,21 +472,21 @@ func _pick_card(items: Array, i: int, sel: bool, meta_key: String, cb: Callable)
 		host.add_child(col)
 		var nm2 := UiTheme.label(String(row[0]), 21, UiTheme.AMBER_HI if sel else Color.WHITE, 700)
 		col.add_child(nm2)
-		var sub := UiTheme.label(String(row[2]).split("\n")[0], 13, UiTheme.DIM, 500)
+		var sub := UiTheme.label_line(String(row[2]), 0, 13, UiTheme.DIM, 500)
 		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col.add_child(sub)
 	return card
 
 # Одна строка паспорта машины: подпись, значение и полоса относительно шкалы
 # (за максимум принят лучший показатель ростера, поэтому полосы сравнимы).
-func _stat(host: Control, x: float, y: float, title: String, val: String, t: float) -> void:
+func _stat(host: Control, x: float, y: float, title: String, val: String, t: float, args: Array = []) -> void:
 	# все координаты строки паспорта — дизайн-px; ступень применяем один раз здесь
 	var sx := UiTheme.fx(x)
 	var sy := UiTheme.fx(y)
 	var lab := UiTheme.label(title, 11, UiTheme.FAINT, 600)
 	lab.position = Vector2(sx, sy)
 	host.add_child(lab)
-	var v := UiTheme.label(val, 11, Color.WHITE, 700)
+	var v := UiTheme.label(val, 11, Color.WHITE, 700, false, args)
 	v.position = Vector2(sx + UiTheme.fx(106), sy)
 	v.size = Vector2(UiTheme.fx(66), UiTheme.fx(16))
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -512,7 +514,7 @@ func _panel_garage() -> void:
 	_garage = GaragePanel.new()
 	_panel.get_node("PanelContent").add_child(_garage)
 	_garage.preview_changed.connect(_preview_garage)
-	_garage.setup(_profiles, String(CARS[_car_i][0]))
+	_garage.setup(_profiles, I18n.t(String(CARS[_car_i][0])))
 
 func _panel_maps() -> void:
 	var s := _scroller()

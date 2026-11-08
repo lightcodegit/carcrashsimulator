@@ -111,7 +111,7 @@ func save() -> Error:
 	return OK
 
 func _error(code: Error, message: String) -> Error:
-	last_error = "%s (%s)" % [message, error_string(code)]
+	last_error = "%s (%s)" % [I18n.t(message), error_string(code)]
 	return code
 
 func _load() -> void:
@@ -121,11 +121,11 @@ func _load() -> void:
 		_error(FileAccess.get_open_error(), "Не удалось прочитать гараж")
 		return
 	if file.get_length() > 1048576:
-		last_error = "Файл гаража слишком большой; используются заводские настройки"
+		last_error = I18n.t("Файл гаража слишком большой; используются заводские настройки")
 		return
 	var json := JSON.new()
 	if json.parse(file.get_as_text()) != OK or not json.data is Dictionary:
-		last_error = "Повреждённый файл гаража; используются заводские настройки"
+		last_error = I18n.t("Повреждённый файл гаража; используются заводские настройки")
 		return
 	var data: Dictionary = json.data
 	var raw_version: Variant = data.get("version")
@@ -135,7 +135,7 @@ func _load() -> void:
 	# версию при первой записи.
 	if (raw_version is int or raw_version is float) and float(raw_version) > float(VERSION):
 		_future_version = true
-		last_error = "Неподдерживаемая версия файла гаража"
+		last_error = I18n.t("Неподдерживаемая версия файла гаража")
 		return
 	if not data.get("vehicles") is Dictionary: return
 	for id in data.vehicles:

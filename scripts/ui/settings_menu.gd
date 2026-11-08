@@ -87,7 +87,14 @@ static func _supported(key: String) -> bool:
 	match key:
 		"ssil": return Settings.supports_ssil()
 		"screen_aa": return Settings.supports_screen_aa()
-	return true
+		_: return true
+
+# Имена неподдерживаемых движком фич для заметки на вкладке графики.
+static func _miss_names() -> Array[String]:
+	var miss: Array[String] = []
+	if not Settings.supports_screen_aa(): miss.append(I18n.t("сглаживание"))
+	if not Settings.supports_ssil(): miss.append("SSIL")
+	return miss
 
 var _tabs_btn: Array[Button] = []
 var _pages: Array[Control] = []
@@ -286,11 +293,8 @@ func _quality_page(box: VBoxContainer) -> void:
 # ---- вкладка ГРАФИКА: секции строк ------------------------------------------
 func _video_page(box: VBoxContainer) -> void:
 	if not Settings.supports_screen_aa() or not Settings.supports_ssil():
-		var miss: Array[String] = []
-		if not Settings.supports_screen_aa(): miss.append("сглаживание")
-		if not Settings.supports_ssil(): miss.append("SSIL")
-		box.add_child(UiTheme.label("Движок: %s · не поддерживается: %s" % [
-			Settings.rendering_method(), ", ".join(miss)], 14, UiTheme.DIM))
+		box.add_child(UiTheme.label("Движок: %s · не поддерживается: %s", 14, UiTheme.DIM,
+			500, false, [Settings.rendering_method(), ", ".join(_miss_names())]))
 	var mode := CheckBox.new()
 	I18n.bind(mode, "РАСШИРЕННЫЙ РЕЖИМ — ВСЯ ГРАФИКА ПО ПУНКТАМ")
 	mode.focus_mode = Control.FOCUS_ALL
@@ -469,8 +473,8 @@ func _controls_page(box: VBoxContainer) -> void:
 	box.add_child(UiTheme.label("УПРАВЛЕНИЕ", 30, Color.WHITE, 800))
 	box.add_child(_sep())
 	box.add_child(UiTheme.label(
-		"Клавиатура и геймпад назначаются раздельно: кнопка геймпада не съест клавишу, " +
-		"и наоборот. Нажмите клетку и клавишу/кнопку — назначение впишется в свой столбец.",
+		"Клавиатура и геймпад назначаются раздельно: кнопка геймпада не съест клавишу, и наоборот. " +
+		"Нажмите клетку и клавишу/кнопку — назначение впишется в свой столбец.",
 		14, UiTheme.DIM))
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", UiTheme.px(10))
@@ -540,14 +544,14 @@ func _class_name(action: String, want_key: bool) -> String:
 # ---- захват назначения ------------------------------------------------------
 func _begin_capture(action: String) -> void:
 	_capturing = action
-	_capture_label.text = "Нажмите клавишу или кнопку для «%s» · ESC отменяет" % \
-		String(ACTION_NAMES.get(action, action.to_upper()))
+	_capture_label.text = I18n.t("Нажмите клавишу или кнопку для «%s» · ESC отменяет") % \
+		I18n.t(String(ACTION_NAMES.get(action, action.to_upper())))
 	# клетка, которая ждёт назначение, подсвечивается янтарём и просит клавишу:
 	# без этого непонятно, куда смотрит экран
 	var pair: Array = _bind_btns.get(action, [])
 	if pair.size() == 2:
 		var kb := pair[0] as Button
-		kb.text = "НАЖМИ КЛАВИШУ…"
+		kb.text = I18n.t("НАЖМИ КЛАВИШУ…")
 		kb.add_theme_stylebox_override("normal", UiTheme.card_style(true))
 
 func _end_capture() -> void:
@@ -613,7 +617,8 @@ func _take(event: InputEvent) -> void:
 	if taken != "":
 		# событие осталось у другого действия по умолчанию: предупреждаем, а не
 		# отказываем — иначе игрок не понял бы, почему газ и тормоз жмутся вместе
-		_capture_label.text = "Клавиша уже есть у «%s» — назначена всё равно" % 			String(ACTION_NAMES.get(taken, taken.to_upper()))
+		_capture_label.text = I18n.t("Клавиша уже есть у «%s» — назначена всё равно") % \
+			I18n.t(String(ACTION_NAMES.get(taken, taken.to_upper())))
 		refresh()
 		return
 	_end_capture()
@@ -652,7 +657,7 @@ func refresh() -> void:
 		_preset_cards[i].add_theme_stylebox_override("normal", UiTheme.card_style(on))
 		_preset_titles[i].add_theme_color_override("font_color", UiTheme.AMBER_HI if on else Color.WHITE)
 	_custom_note.text = "" if Settings.preset < Settings.PRESET_CUSTOM else \
-		"СВОЁ — хотя бы одно значение изменено вручную. Карточка вернёт пресет целиком."
+		I18n.t("СВОЁ — хотя бы одно значение изменено вручную. Карточка вернёт пресет целиком.")
 	_apply_tier()
 
 # Расширенные строки скрыты, пока режим базовый. Прячем по meta, а не пересобираем:

@@ -78,9 +78,27 @@ static func mono_font(weight: int = 400) -> SystemFont:
 	return _mono_cache[weight]
 
 # ---------------------------------------------------------------- тексты
-static func label(text: String, size_px: int, color: Color, weight := 400, mono := false) -> Label:
+# args — аргументы формата для живой надписи: ключ-шаблон переводится целиком,
+# а подстановка происходит при каждой смене языка, а не один раз при сборке.
+static func label(text: String, size_px: int, color: Color, weight := 400, mono := false, args: Array = []) -> Label:
 	var l := Label.new()
-	I18n.bind(l, text)
+	I18n.bind(l, text, args)
+	return _style_label(l, size_px, color, weight, mono)
+
+# Надпись-строка длинного ключа: описание в каталоге хранится целиком,
+# а на карточке показывается только первая или вторая его строка.
+static func label_line(key: String, line: int, size_px: int, color: Color, weight := 400, mono := false) -> Label:
+	var l := Label.new()
+	I18n.bind_line(l, key, line)
+	return _style_label(l, size_px, color, weight, mono)
+
+# Надпись, склеенная из многострочного ключа в одну строку.
+static func label_flat(key: String, size_px: int, color: Color, weight := 400, mono := false) -> Label:
+	var l := Label.new()
+	I18n.bind_flat(l, key)
+	return _style_label(l, size_px, color, weight, mono)
+
+static func _style_label(l: Label, size_px: int, color: Color, weight: int, mono: bool) -> Label:
 	l.add_theme_font_override("font", mono_font(weight) if mono else sans_font(weight))
 	l.add_theme_font_size_override("font_size", px(size_px))
 	l.add_theme_color_override("font_color", color)

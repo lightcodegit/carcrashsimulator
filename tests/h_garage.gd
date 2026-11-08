@@ -16,7 +16,7 @@ func _ready() -> void:
 	await frames(8)
 	var garage_button: Button
 	for b in menu._nav:
-		if b.text == "ГАРАЖ": garage_button = b
+		if b.text == I18n.t("ГАРАЖ"): garage_button = b
 	check(garage_button != null, "garage entry missing from main menu")
 	if garage_button == null:
 		get_tree().quit(1)

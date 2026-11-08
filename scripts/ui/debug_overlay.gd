@@ -77,11 +77,11 @@ func _track_events() -> void:
 	var s := gm.debug_scene()
 	var crashes := int(s.crashes)
 	if crashes > _last_crashes:
-		_note("удар #%d, топ %d км/ч" % [crashes, int(s.top_crash)])
+		_note(I18n.t("удар #%d, топ %d км/ч") % [crashes, int(s.top_crash)])
 	_last_crashes = crashes
 	var dents := gm.car.body.dent_count if gm.car.body != null else 0
 	if dents < _last_dents:
-		_note("рестарт: вмятин %d → %d" % [_last_dents, dents])
+		_note(I18n.t("рестарт: вмятин %d → %d") % [_last_dents, dents])
 	_last_dents = dents
 
 func _note(text: String) -> void:
@@ -99,55 +99,55 @@ func _redraw() -> void:
 
 func _text_frame() -> String:
 	var fps := float(Performance.get_monitor(Performance.TIME_FPS))
-	return "DEBUG · %s\n" % SECTION_NAMES[_section] + \
-		"кадр (интервал)  %.1f мс\n" % _frame_ms + \
-		"физика (шаг)     %.1f мс\n" % _phys_ms + \
+	return "DEBUG · %s\n" % I18n.t(String(SECTION_NAMES[_section])) + \
+		I18n.t("кадр (интервал)  %.1f мс\n") % _frame_ms + \
+		I18n.t("физика (шаг)     %.1f мс\n") % _phys_ms + \
 		"fps              %.1f\n" % fps + \
-		"движок           %s\n" % RenderingServer.get_current_rendering_method() + \
-		"объектов в кадре %d\n" % int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)) + \
-		"вызовов отрисовки %d\n" % int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)) + \
-		"примитивов        %d\n" % int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)) + \
-		"видеопамять       %d МБ\n" % int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0) + \
-		"узлов %d · сирот %d\n" % [int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		I18n.t("движок           %s\n") % RenderingServer.get_current_rendering_method() + \
+		I18n.t("объектов в кадре %d\n") % int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)) + \
+		I18n.t("вызовов отрисовки %d\n") % int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)) + \
+		I18n.t("примитивов        %d\n") % int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)) + \
+		I18n.t("видеопамять       %d МБ\n") % int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0) + \
+		I18n.t("узлов %d · сирот %d\n") % [int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
 			int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT))]
 
 func _text_car() -> String:
-	if gm == null or gm.car == null: return "DEBUG · МАШИНА\nнет машины"
+	if gm == null or gm.car == null: return I18n.t("DEBUG · МАШИНА\nнет машины")
 	var s := gm.car.debug_snapshot()
 	var g: Dictionary = hud.debug_g() if hud != null else {"live": 0.0, "peak": 0.0}
 	var contacts := ""
 	for y in s.contacts:
 		contacts += "·" if float(y) > 0.0 else " "
-	return "DEBUG · МАШИНА\n" + \
-		"скорость     %.0f км/ч\n" % float(s.speed_kmh) + \
-		"руль         %.1f° из %.0f°\n" % [float(s.steer_deg), float(s.steer_max_deg)] + \
-		"занос        %.2f\n" % float(s.slip) + \
-		"боковое g    %.2f (пик %.2f)\n" % [float(g.live), float(g.peak)] + \
-		"педали       тормоз %.2f · ручник %.2f\n" % [float(s.pedal), float(s.hand)] + \
-		"колёса       %s (%s)\n" % [contacts, "на земле" if s.grounded else "в воздухе"] + \
-		"курс         %.0f°\n" % float(s.heading_deg)
+	return I18n.t("DEBUG · МАШИНА\n") + \
+		I18n.t("скорость     %.0f км/ч\n") % float(s.speed_kmh) + \
+		I18n.t("руль         %.1f° из %.0f°\n") % [float(s.steer_deg), float(s.steer_max_deg)] + \
+		I18n.t("занос        %.2f\n") % float(s.slip) + \
+		I18n.t("боковое g    %.2f (пик %.2f)\n") % [float(g.live), float(g.peak)] + \
+		I18n.t("педали       тормоз %.2f · ручник %.2f\n") % [float(s.pedal), float(s.hand)] + \
+		I18n.t("колёса       %s (%s)\n") % [contacts, I18n.t("на земле") if s.grounded else I18n.t("в воздухе")] + \
+		I18n.t("курс         %.0f°\n") % float(s.heading_deg)
 
 func _text_world() -> String:
-	if gm == null: return "DEBUG · МИР\nнет сцены"
+	if gm == null: return I18n.t("DEBUG · МИР\nнет сцены")
 	var s := gm.debug_scene()
 	var cam := gm.camera.global_position if gm.camera != null else Vector3.ZERO
 	var c := MapDB.debug_counts(s.map_root, cam)
 	var b: AABB = s.bounds
 	var near := float(c.nearest)
 	var probe := _probe(cam)
-	return "DEBUG · МИР\n" + \
-		"карта        %s%s\n" % [String(s.map_id), " (лента)" if s.endless else ""] + \
-		"узлов %d · тел %d · стат. %d\n" % [int(c.nodes), int(c.bodies), int(c.statics)] + \
-		"мешей %d · за LOD %d\n" % [int(c.meshes), int(c.hidden)] + \
-		"ближ. тело   %s\n" % ("%.1f м" % near if is_finite(near) else "нет") + \
-		"луч: %s\n" % probe + \
-		"границы      x %.0f..%.0f z %.0f..%.0f\n" % [b.position.x, b.end.x, b.position.z, b.end.z] + \
-		"спавн        %.0f, %.0f, %.0f\n" % [s.spawn.x, s.spawn.y, s.spawn.z] + \
-		"пар физики   %d\n" % int(Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS))
+	return I18n.t("DEBUG · МИР\n") + \
+		I18n.t("карта        %s%s\n") % [String(s.map_id), I18n.t(" (лента)") if s.endless else ""] + \
+		I18n.t("узлов %d · тел %d · стат. %d\n") % [int(c.nodes), int(c.bodies), int(c.statics)] + \
+		I18n.t("мешей %d · за LOD %d\n") % [int(c.meshes), int(c.hidden)] + \
+		I18n.t("ближ. тело   %s\n") % ((I18n.t("%.1f м") % near) if is_finite(near) else I18n.t("нет")) + \
+		I18n.t("луч: %s\n") % probe + \
+		I18n.t("границы      x %.0f..%.0f z %.0f..%.0f\n") % [b.position.x, b.end.x, b.position.z, b.end.z] + \
+		I18n.t("спавн        %.0f, %.0f, %.0f\n") % [s.spawn.x, s.spawn.y, s.spawn.z] + \
+		I18n.t("пар физики   %d\n") % int(Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS))
 
 func _text_log() -> String:
-	var out := "DEBUG · ЖУРНАЛ\n"
-	if _log.is_empty(): return out + "событий пока нет\n"
+	var out := I18n.t("DEBUG · ЖУРНАЛ\n")
+	if _log.is_empty(): return out + I18n.t("событий пока нет\n")
 	for l in _log:
 		out += l + "\n"
 	return out
@@ -156,9 +156,9 @@ func _text_log() -> String:
 # ни PhysicsServer3DDrawing), а вопрос «во что я врезался, если этого не видно»
 # остаётся. Отвечаем на него прямым запросом к физическому пространству.
 func _probe(from: Vector3) -> String:
-	if gm == null: return "нет сцены"
+	if gm == null: return I18n.t("нет сцены")
 	var space := gm.get_world_3d().direct_space_state
-	if space == null: return "нет пространства"
+	if space == null: return I18n.t("нет пространства")
 	var dir := -gm.camera.global_transform.basis.z
 	var q := PhysicsRayQueryParameters3D.create(from, from + dir * PROBE_LEN)
 	q.collide_with_bodies = true
@@ -168,15 +168,15 @@ func _probe(from: Vector3) -> String:
 	if gm.car != null and gm.car.chassis != null:
 		q.exclude = [gm.car.chassis.get_rid()]
 	var hit := space.intersect_ray(q)
-	if hit.is_empty(): return "чисто на %.0f м" % PROBE_LEN
+	if hit.is_empty(): return I18n.t("чисто на %.0f м") % PROBE_LEN
 	var where: Vector3 = hit.position
 	# Автоимена вида «@StaticBody3D@7» игроку ничего не говорят, а вопрос именно про
 	# «во что я врезался». Поэтому: форма и её размер (это и есть опознание — бордюр,
 	# плита, стена) плюс ближайшее осмысленное имя наверх по дереву.
 	var body := _body_of(hit.collider as Node)
 	var desc := _shape_desc(hit.collider as Node, body)
-	var label := _named(body) if body != null else "без тела"
-	return "%s · %s в %.1f м" % [desc, label, where.distance_to(from)]
+	var label := _named(body) if body != null else I18n.t("без тела")
+	return I18n.t("%s · %s в %.1f м") % [desc, label, where.distance_to(from)]
 
 func _body_of(n: Node) -> Node:
 	var p := n
@@ -202,7 +202,7 @@ func _shape_desc(collider: Node, body: Node) -> String:
 			if c is CollisionShape3D:
 				shape_node = c as CollisionShape3D
 				break
-	if shape_node == null or shape_node.shape == null: return "форма?"
+	if shape_node == null or shape_node.shape == null: return I18n.t("форма?")
 	var sh := shape_node.shape
 	if sh is BoxShape3D:
 		var s := (sh as BoxShape3D).size

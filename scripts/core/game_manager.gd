@@ -424,8 +424,8 @@ func _photo_reset() -> void:
 func _photo_label() -> void:
 	if hud == null or photo == null: return
 	var p := photo.last_path()
-	hud.set_photo_info("ФОТОМОД · FOV %.0f° · снимков %d%s" % [
-		photo.fov, photo.shots, "" if p == "" else " · " + p.replace("user://", "")])
+	hud.set_photo_info(I18n.fmt("ФОТОМОД · FOV %.0f° · снимков %d%s", [
+		photo.fov, photo.shots, "" if p == "" else " · " + p.replace("user://", "")]))
 
 func _set_paused(v: bool) -> void:
 	_paused = v
@@ -450,9 +450,10 @@ func _set_paused(v: bool) -> void:
 # именно кончился заход, а не вспоминать это по памяти.
 func run_summary() -> String:
 	var secs := int((Time.get_ticks_msec() - _start_ms) / 1000)
-	return "УДАРОВ %d · ЛУЧШИЙ %d КМ/Ч · %02d:%02d · %s / %s" % [
+	# fmt здесь, а не в HUD: составленная строка — уже не ключ каталога.
+	return I18n.fmt("УДАРОВ %d · ЛУЧШИЙ %d КМ/Ч · %02d:%02d · %s / %s", [
 		_crashes, int(_top_crash), secs / 60, secs % 60,
-		GameContext.car_id.to_upper(), GameContext.map_id.to_upper()]
+		GameContext.car_id.to_upper(), GameContext.map_id.to_upper()])
 
 func debug_scene() -> Dictionary:
 	# То же правило, что и для шасси: оверлей читает состояние сцены через один

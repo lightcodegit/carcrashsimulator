@@ -67,12 +67,15 @@ func _process(_d: float) -> void:
 	for b in mm._nav:
 		nav_texts.append(b.text)
 		check(btns.has(b), "пункт навигации видим: " + b.text)
-	check(nav_texts == ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"], "состав и порядок навигации (%s)" % str(nav_texts))
+	var nav_expected: Array[String] = []
+	for k in ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"]:
+		nav_expected.append(I18n.t(k))
+	check(nav_texts == nav_expected, "состав и порядок навигации (%s)" % str(nav_texts))
 	# выбор по умолчанию — первая машина и первая карта
 	check(mm._car_i == 0 and mm._map_i == 0, "по умолчанию выбраны первые (%d/%d)" % [mm._car_i, mm._map_i])
 	# раздел МАШИНЫ: карточка на каждую машину из списка меню
 	for b in btns:
-		if b.text == "МАШИНЫ": b.emit_signal("pressed")
+		if b.text == I18n.t("МАШИНЫ"): b.emit_signal("pressed")
 	var btns2: Array = []; _buttons(mm, btns2)
 	var consts: Dictionary = (mm.get_script() as GDScript).get_script_constant_map()
 	var ncars: int = (consts["CARS"] as Array).size()
@@ -82,7 +85,7 @@ func _process(_d: float) -> void:
 	check(cards == ncars, "в разделе МАШИНЫ карточка на каждую (%d из %d)" % [cards, ncars])
 	# раздел КАРТЫ: карточка на каждую карту
 	for b in btns2:
-		if b.text == "КАРТЫ": b.emit_signal("pressed")
+		if b.text == I18n.t("КАРТЫ"): b.emit_signal("pressed")
 	var btns3: Array = []; _buttons(mm, btns3)
 	var nmaps: int = (consts["MAPS"] as Array).size()
 	var mcards := 0
@@ -97,11 +100,11 @@ func _process(_d: float) -> void:
 		"смена машины подменяет модель в живом фоне")
 	# раздел НАЧАТЬ: большая кнопка запуска
 	for b in btns3:
-		if b.text == "НАЧАТЬ": b.emit_signal("pressed")
+		if b.text == I18n.t("НАЧАТЬ"): b.emit_signal("pressed")
 	var btns4: Array = []; _buttons(mm, btns4)
 	var startb: Button = null
 	for b in btns4:
-		if b.text == "ЗАПУСТИТЬ СИМУЛЯЦИЮ": startb = b
+		if b.text == I18n.t("ЗАПУСТИТЬ СИМУЛЯЦИЮ"): startb = b
 	check(startb != null, "в разделе НАЧАТЬ есть кнопка запуска")
 	var br: Rect2 = startb.get_global_rect()
 	check(br.position.x > 0 and br.position.y > 0 and br.position.x + br.size.x < vp.x and br.position.y + br.size.y < vp.y,

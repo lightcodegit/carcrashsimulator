@@ -525,7 +525,7 @@ func set_photo_ui(v: bool) -> void:
 
 func set_photo_info(text: String) -> void:
 	if _photo_info == null: return
-	_photo_info.text = text
+	_photo_info.text = I18n.t(text)
 
 func photo_button(label: String) -> Button:
 	for b in _photo_buttons:
@@ -622,7 +622,7 @@ func set_crash_stats(crashes: int, top: float) -> void:
 	_stat_top.add_theme_color_override("font_color", ACCENT if top > 0 else Color.WHITE)
 
 func show_tip(text: String) -> void:
-	_tip_label.text = text
+	_tip_label.text = I18n.t(text)
 	_tip_label.visible = text != ""
 	_tip_until = Time.get_ticks_msec() + 2500
 
@@ -637,10 +637,11 @@ func set_run_stats(text: String) -> void:
 	_run_stats.text = I18n.t(text)
 
 # Кнопки меню паузы наружу нужны тестам и внешним экранам: искать их по тексту,
-# а не по индексу, — иначе любой порядок кнопок ломает чужой код.
+# а не по индексу, — иначе любой порядок кнопок ломает чужой код. Ярлык — ключ
+# локализации: работает и в русской, и в английской раскладке.
 func pause_button(label: String) -> Button:
 	for b in _buttons:
-		if b.text == label: return b
+		if b.text == I18n.t(label): return b
 	return null
 
 func _resume_cb() -> void: resume_requested.emit()
@@ -670,7 +671,7 @@ func _process(dt: float) -> void:
 			_fps_avg = _fps_frames * 1000.0 / maxf(float(span), 1.0)
 			_fps_frames = 0
 			_fps_win_ms = now
-			_fps_label.text = "%3d FPS · %.1f мс" % [int(round(_fps_avg)), 1000.0 / maxf(_fps_avg, 0.001)]
+			_fps_label.text = I18n.fmt("%3d FPS · %.1f мс", [int(round(_fps_avg)), 1000.0 / maxf(_fps_avg, 0.001)])
 			_fps_label.modulate = OK if _fps_avg > 50.0 else (WARN if _fps_avg > 30.0 else BAD)
 	if _car == null or _car.chassis == null: return
 	var kmh := _car.speed_kmh()

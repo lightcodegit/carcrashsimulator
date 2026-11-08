@@ -124,7 +124,7 @@ var audio_volume := 0.8
 var vibration_enabled := true
 var vibration_strength := 1.0
 var particles_enabled := true
-var language := "ru"
+var language := "en"
 # как выглядит сам экран настроек
 var tier_extended := false
 var preset := 1
@@ -434,6 +434,10 @@ static func _as_num(raw: Variant, fallback: float) -> float:
 
 func load_values() -> void:
 	var cf := ConfigFile.new()
+	# Локаль от заводского языка должна ставиться и без файла настроек: ранние
+	# выходы ниже пропускали хвостовое set_locale, и игра стартовала по-русски,
+	# хотя язык по умолчанию — английский.
+	I18n.set_locale(language)
 	# Если процесс умер между «цель ушла в .old» и «черновик встал на место»,
 	# настройки нет, а единственная копия — тень. Восстанавливаем её ДО всего
 	# остального: иначе первый же save этого заезда стёр бы .old как мусор.
@@ -485,7 +489,7 @@ func load_values() -> void:
 			_win_rect = Rect2i(x, y, w, h)
 		_win_max = _as_bool(cf.get_value(WIN_SECTION, "max", false), false)
 	InputRouter.load_keys(cf)
-	if language != "en": language = "ru"
+	if language != "ru" and language != "en": language = "en"
 	I18n.set_locale(language)
 	changed.emit()
 

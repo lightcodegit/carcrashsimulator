@@ -71,7 +71,8 @@ func _rows_and_settings() -> void:
 		var n: Node = stack.pop_back()
 		if n is Label:
 			var t := (n as Label).text
-			if "Геймпад" in t: pad_hint = true
+			if t == I18n.t("Геймпад не подключён: вибрация заработает сама, когда контроллер появится в системе"):
+				pad_hint = true
 			if "headless" in t or "заглушк" in t: dev_noise = true
 		for c in n.get_children(): stack.append(c)
 	check(not dev_noise, "на вкладке нет заметок про метод тестирования (headless/заглушка)")
@@ -164,7 +165,7 @@ func _metrics_at_step(step: int) -> Dictionary:
 	var page: Node = mm._pages[4]
 	var box := page.get_child(0)
 	for c in box.get_children():
-		if c is Label and (c as Label).text == "ЗВУК И ВИБРАЦИЯ":
+		if c is Label and (c as Label).text == I18n.t("ЗВУК И ВИБРАЦИЯ"):
 			out["head_font"] = (c as Label).get_theme_font_size("font_size")
 	# относительная геометрия: три новых ряда стоят в одной колонке друг под
 	# другом. В headless якорные панели схлопнуты в нулевой rect, поэтому

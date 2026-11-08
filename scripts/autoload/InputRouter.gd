@@ -214,10 +214,12 @@ static func event_name(e: InputEvent) -> String:
 		return base if mods.is_empty() else "%s+%s" % ["+".join(mods), base]
 	if e is InputEventJoypadButton:
 		var i := (e as InputEventJoypadButton).button_index
-		return String(BUTTON_NAMES.get(i, "КНОПКА %d" % i))
+		var btn_fallback: String = I18n.t("КНОПКА %d") % i
+		return I18n.t(String(BUTTON_NAMES.get(i, btn_fallback)))
 	if e is InputEventJoypadMotion:
 		var m := e as InputEventJoypadMotion
-		var base: String = AXIS_NAMES.get(m.axis, "ОСЬ %d" % m.axis)
+		var axis_fallback: String = I18n.t("ОСЬ %d") % m.axis
+		var base: String = I18n.t(String(AXIS_NAMES.get(m.axis, axis_fallback)))
 		return base + (" −" if m.axis_value < 0.0 else " +")
 	return ""
 

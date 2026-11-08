@@ -5,8 +5,8 @@ extends RefCounted
 # Переключение живое: bind() регистрирует надпись, и set_locale() перерисовывает все
 # живые узлы без пересборки экранов; освобождённые узлы из реестра выпадают сами.
 #
-# Строки разработчика (push_warning, print, отладочный оверлей) не переводятся:
-# их читает агент и журнал, а не игрок.
+# Строки разработчика (push_warning, print) не переводятся: их читает агент и
+# журнал, а не игрок.
 
 static var locale := "ru"
 
@@ -21,6 +21,10 @@ const EN := {
 	"%d кг": "%d kg",
 	"%d км/ч": "%d km/h",
 	"%s за кадр": "%s per frame",
+	"6.7 мс за кадр": "6.7 ms per frame",
+	"13.7 мс за кадр": "13.7 ms per frame",
+	"29.2 мс за кадр": "29.2 ms per frame",
+	"29.4 мс за кадр": "29.4 ms per frame",
 	"0.00 / 0.00 с": "0.00 / 0.00 s",
 	"600 метров разгона и бетонная стена на финише.\nДля максимального лобового краш-теста.":
 		"600 metres of run-up and a concrete wall at the finish.\nFor the hardest head-on crash test.",
@@ -53,7 +57,7 @@ const EN := {
 	"Восстановлена сохранённая конфигурация": "Saved configuration restored",
 	"Выйти из Car Crash Simulator?": "Quit Car Crash Simulator?",
 	"ГАЗ": "THROTTLE",
-	"ГАРАЖ · ": "GARAGE · ",
+	"ГАРАЖ · %s": "GARAGE · %s",
 	"ГАРАЖ": "GARAGE",
 	"ГЕЙМПАД": "GAMEPAD",
 	"ГОНКА": "RACE",
@@ -100,8 +104,8 @@ const EN := {
 		"Blocks of buildings, trees, lamps, parked\ncars. Narrow streets — side impacts and ricochets.",
 	"Километр на километр: периметр, сетка улиц и районы —\nцентр, жилые кварталы, промзона, парк и стадион. Трамплин на бульваре.":
 		"A kilometre by a kilometre: perimeter, street grid and districts —\ndowntown, residential, industrial, park and stadium. Ramp on the boulevard.",
-	"Клавиатура и геймпад назначаются раздельно: кнопка геймпада не съест клавишу, ":
-		"Keyboard and gamepad are bound separately: a pad button will not eat a key, ",
+	"Клавиатура и геймпад назначаются раздельно: кнопка геймпада не съест клавишу, и наоборот. Нажмите клетку и клавишу/кнопку — назначение впишется в свой столбец.":
+		"Keyboard and gamepad are bound separately: a pad button will not eat a key, and vice versa. Press a cell and a key/button — the binding lands in its own column.",
 	"Клавиша уже есть у «%s» — назначена всё равно": "Key already used by “%s” — bound anyway",
 	"Кольцо почти в километр: длинная прямая с трамплином, четыре\nповорота, трибуны, боксы и отбойники по всему периметру.":
 		"Almost a kilometre of loop: a long straight with a ramp, four\nturns, stands, pits and barriers all around.",
@@ -222,17 +226,80 @@ const EN := {
 	"ЭФФЕКТЫ": "EFFECTS",
 	"без теней и пост-эффектов, 70%": "no shadows or post effects, 70%",
 	"всё применяется сразу · файл настроек пишется после тишины": "everything applies at once · the settings file is written after a quiet moment",
+	"удар #%d, топ %d км/ч": "impact #%d, top %d km/h",
+	"рестарт: вмятин %d → %d": "restart: dents %d → %d",
+	"кадр (интервал)  %.1f мс\n": "frame (interval) %.1f ms\n",
+	"физика (шаг)     %.1f мс\n": "physics (step)   %.1f ms\n",
+	"движок           %s\n": "engine           %s\n",
+	"объектов в кадре %d\n": "objects in frame %d\n",
+	"вызовов отрисовки %d\n": "draw calls       %d\n",
+	"примитивов        %d\n": "primitives       %d\n",
+	"видеопамять       %d МБ\n": "video memory     %d MB\n",
+	"узлов %d · сирот %d\n": "nodes %d · orphans %d\n",
+	"DEBUG · МАШИНА\nнет машины": "DEBUG · CAR\nno car",
+	"скорость     %.0f км/ч\n": "speed        %.0f km/h\n",
+	"руль         %.1f° из %.0f°\n": "steering     %.1f° of %.0f°\n",
+	"занос        %.2f\n": "slip         %.2f\n",
+	"боковое g    %.2f (пик %.2f)\n": "lateral g    %.2f (peak %.2f)\n",
+	"педали       тормоз %.2f · ручник %.2f\n": "pedals       brake %.2f · hand %.2f\n",
+	"колёса       %s (%s)\n": "wheels       %s (%s)\n",
+	"на земле": "on ground",
+	"в воздухе": "airborne",
+	"курс         %.0f°\n": "heading      %.0f°\n",
+	"DEBUG · МИР\nнет сцены": "DEBUG · WORLD\nno scene",
+	"карта        %s%s\n": "map          %s%s\n",
+	" (лента)": " (strip)",
+	"узлов %d · тел %d · стат. %d\n": "nodes %d · bodies %d · stat %d\n",
+	"мешей %d · за LOD %d\n": "meshes %d · past LOD %d\n",
+	"ближ. тело   %s\n": "near body    %s\n",
+	"%.1f м": "%.1f m",
+	"нет": "none",
+	"луч: %s\n": "ray: %s\n",
+	"границы      x %.0f..%.0f z %.0f..%.0f\n": "bounds       x %.0f..%.0f z %.0f..%.0f\n",
+	"спавн        %.0f, %.0f, %.0f\n": "spawn        %.0f, %.0f, %.0f\n",
+	"пар физики   %d\n": "physics pairs %d\n",
+	"DEBUG · ЖУРНАЛ\n": "DEBUG · LOG\n",
+	"DEBUG · МАШИНА\n": "DEBUG · CAR\n",
+	"DEBUG · МИР\n": "DEBUG · WORLD\n",
+	"событий пока нет\n": "no events yet\n",
+	"нет сцены": "no scene",
+	"нет пространства": "no space",
+	"чисто на %.0f м": "clear for %.0f m",
+	"без тела": "no body",
+	"%s · %s в %.1f м": "%s · %s at %.1f m",
+	"форма?": "shape?",
+	"Файл гаража из более новой версии игры": "Garage file from a newer game version",
+	"Неизвестная машина": "Unknown car",
+	"Не удалось записать гараж": "Could not write the garage",
+	"Не удалось сохранить гараж; прежний файл сохранён": "Could not save the garage; the previous file is intact",
+	"Не удалось прочитать гараж": "Could not read the garage",
+	"Файл гаража слишком большой; используются заводские настройки": "Garage file is too large; factory settings are used",
+	"Повреждённый файл гаража; используются заводские настройки": "Corrupted garage file; factory settings are used",
+	"Неподдерживаемая версия файла гаража": "Unsupported garage file version",
 	"выбор сразу подменяет машину в фоне": "picking swaps the background car immediately",
 	"вылет за пределы — рестарт": "out of bounds — restart",
 	"дымка и свечение, тени 120 м": "haze and glow, shadows 120 m",
 	"заезд начат заново": "run restarted",
-	"и наоборот. Нажмите клетку и клавишу/кнопку — назначение впишется в свой столбец.":
-		"and vice versa. Press a cell and a key/button — the binding lands in its own column.",
 	"машина на крыше — R для рестарта": "car on its roof — R to restart",
 	"мягкие тени 420 м, bloom, экспозиция 1.15": "soft shadows 420 m, bloom, exposure 1.15",
 	"окно реплея пусто — разгонитесь и ударьтесь": "replay window is empty — get speed and crash",
 	"рестарт": "restart",
 	"сглаживание": "anti-aliasing",
+	"6.7 мс": "6.7 ms",
+	"13.7 мс": "13.7 ms",
+	"29.2 мс": "29.2 ms",
+	"29.4 мс": "29.4 ms",
+	"КНОПКА %d": "BUTTON %d",
+	"КУРОК L": "L TRIGGER",
+	"КУРОК R": "R TRIGGER",
+	"ОСЬ %d": "AXIS %d",
+	"СТИК L →/←": "L STICK →/←",
+	"СТИК L ↑/↓": "L STICK ↑/↓",
+	"СТИК R →/←": "R STICK →/←",
+	"СТИК R ↑/↓": "R STICK ↑/↓",
+	"КАДР": "FRAME",
+	"МИР": "WORLD",
+	"ЖУРНАЛ": "LOG",
 	"◀ ШАГ": "◀ STEP",
 	"ЯЗЫК": "LANGUAGE",
 	"Русский": "Russian",
@@ -252,6 +319,24 @@ static func fmt(key: String, args: Array) -> String:
 static func bind(node: Node, key: String, args: Array = []) -> void:
 	_apply(node, key, args)
 	_bindings.append([weakref(node), key, args])
+
+# Производные длинного ключа: каталог хранит описание целиком (с переводом
+# строки), а экран режет его на строки или склеивает в одну. Реестр хранит
+# спецификацию, и set_locale пересчитывает производную надпись от перевода.
+static func bind_line(node: Node, key: String, line: int) -> void:
+	node.set("text", _line_of(key, line))
+	_bindings.append([weakref(node), key, { "line": line }])
+
+static func bind_flat(node: Node, key: String) -> void:
+	node.set("text", _flat(key))
+	_bindings.append([weakref(node), key, { "flat": true }])
+
+static func _line_of(key: String, line: int) -> String:
+	var parts := t(key).split("\n")
+	return parts[clampi(line, 0, parts.size() - 1)]
+
+static func _flat(key: String) -> String:
+	return t(key).replace("\n", " ")
 
 static func bind_options(ob: OptionButton, keys: Array) -> void:
 	var sel := ob.selected
@@ -284,6 +369,12 @@ static func set_locale(l: String) -> void:
 			ob.select(sel)
 			b[2] = sel
 		else:
-			_apply(node, b[1], b[2])
+			var spec: Variant = b[2]
+			if spec is Dictionary and spec.has("line"):
+				node.set("text", _line_of(b[1], int(spec["line"])))
+			elif spec is Dictionary and spec.has("flat"):
+				node.set("text", _flat(b[1]))
+			else:
+				_apply(node, b[1], spec)
 		live.append(b)
 	_bindings = live

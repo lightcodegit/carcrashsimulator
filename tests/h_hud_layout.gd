@@ -56,9 +56,9 @@ func _ready() -> void:
 		cover * 100.0, COVER_MAX * 100.0])
 	check(_labels <= LABEL_MAX, "надписей не перебор (%d ≤ %d)" % [_labels, LABEL_MAX])
 	for t in GONE:
-		check(not t in _texts, "из HUD убрано «%s»" % t)
+		check(not I18n.t(t) in _texts, "из HUD убрано «%s»" % t)
 	for t in MUST:
-		check(t in _texts, "в HUD осталось «%s»" % t)
+		check(I18n.t(t) in _texts, "в HUD осталось «%s»" % t)
 	for i in _panels.size():
 		for j in range(i + 1, _panels.size()):
 			var a: Rect2 = _panels[i][0]

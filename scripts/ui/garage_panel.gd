@@ -31,7 +31,7 @@ func setup(store: GarageProfiles, vehicle_name: String) -> void:
 	name = "GaragePanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_theme_constant_override("separation", UiTheme.px(10))
-	add_child(UiTheme.label("ГАРАЖ · " + vehicle_name, 28, Color.WHITE, 800))
+	add_child(UiTheme.label("ГАРАЖ · %s", 28, Color.WHITE, 800, false, [vehicle_name]))
 	var hint := UiTheme.label("Черновик · Сохрани для следующего заезда.\nУход из раздела отменяет несохранённые изменения.", 13, UiTheme.DIM)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(hint)
@@ -140,7 +140,9 @@ func _changed(message := "Черновик изменён · ещё не сох�
 	preview_changed.emit(profiles.draft_params())
 
 func _message(text: String, error := false) -> void:
-	status.text = text
+	# last_error уже переведён у источника, ключи-сообщения переводятся здесь:
+	# t() возвращает неизменённой любую строку, которой нет в каталоге.
+	status.text = I18n.t(text)
 	status.add_theme_color_override("font_color", UiTheme.BAD if error else UiTheme.DIM)
 
 func _save() -> void:

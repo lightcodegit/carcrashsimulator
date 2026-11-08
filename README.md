@@ -82,8 +82,11 @@ the Actions tab.
 
 | Platform | File | Needs |
 | --- | --- | --- |
-| Windows x86_64 | `Car Crash Simulator.exe` + `.pck` | Windows 10/11, a GPU with OpenGL 3.3 |
-| Linux x86_64 | `Car Crash Simulator.x86_64` + `.pck` | a glibc distribution, X11 or Wayland |
+| Windows x86_64 | `Car Crash Simulator.exe` | Windows 10/11, a GPU with OpenGL 3.3 |
+| Linux x86_64 | `Car Crash Simulator.x86_64` | a glibc distribution, X11 or Wayland |
+
+Each build is a single file: the game data (.pck) is embedded into the
+executable, so there is nothing to keep next to it.
 
 ## Controls
 

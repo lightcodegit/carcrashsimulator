@@ -7,6 +7,14 @@ workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-11-08
+
+### Changed
+
+- The `.pck` with all game data is now embedded into the executable: each
+  release ships one file per platform instead of two, so there is nothing to
+  keep next to the binary.
+
 ## [v0.1.0] - 2026-11-08
 
 ### Added

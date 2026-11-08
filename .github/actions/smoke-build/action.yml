@@ -1,14 +1,14 @@
 name: Smoke run the exported build
 
-# Экспорт считается удачным не тогда, когда Godot отписался об успехе, а когда
-# собранный билд запускается. Headless-старт на несколько кадров ловит пустой
-# .pck, отсутствующую главную сцену и падение при инициализации — то, что
-# headless-тесты исходников не проверяют, потому что живут в другом окружении.
+# Exporting counts as success only when Godot says so? No: when the built game
+# actually starts. A headless boot for a few frames catches an empty or corrupt
+# embedded .pck, a missing main scene and initialization crashes — things the
+# headless source tests cannot see, because they live in a different environment.
 
 description: 'Launch the exported binary headless and fail if it does not boot'
 inputs:
   platform:
-    description: 'windows или linux'
+    description: 'windows or linux'
     required: true
 
 runs:
@@ -21,18 +21,14 @@ runs:
         $platform = '${{ inputs.platform }}'
         $dir = Join-Path 'artifacts/build' $platform
         if (-not (Test-Path -LiteralPath $dir)) { throw "No build directory $dir." }
-        $pck = Get-ChildItem -LiteralPath $dir -Filter '*.pck' | Select-Object -First 1
-        if (-not $pck) { throw "No .pck in $dir — экспорт не собрал данные." }
-        if ($pck.Length -lt 100kb) { throw "Подозрительно маленький .pck: $($pck.Length) байт." }
-        $exe = if ($platform -eq 'windows') {
-          Get-ChildItem -LiteralPath $dir -Filter '*.exe' | Select-Object -First 1
-        } else {
-          # Linux-бинарник зовётся «Car Crash Simulator.x86_64»: расширение у него
-          # есть, и фильтр «без расширения» молча не находил ничего. Имя берём от
-          # pck — они всегда одноимённы, и это не зависит от суффикса платформы.
-          Get-ChildItem -LiteralPath $dir | Where-Object { -not $_.PSIsContainer -and $_.Extension -ne '.pck' -and $_.BaseName -eq $pck.BaseName } | Select-Object -First 1
-        }
-        if (-not $exe) { throw "No exported binary under $dir." }
+        # The .pck is embedded into the executable, so the directory holds one
+        # binary per platform. Names come from the export presets: "Car Crash
+        # Simulator.exe" on Windows, "Car Crash Simulator.x86_64" on Linux.
+        $exe = Get-ChildItem -LiteralPath $dir -File |
+          Where-Object { $_.Name -eq 'Car Crash Simulator.exe' -or $_.Name -eq 'Car Crash Simulator.x86_64' } |
+          Select-Object -First 1
+        if (-not $exe) { throw "No exported binary under $dir — the export presets embed the .pck into the executable." }
+        if ($exe.Length -lt 30mb) { throw "Suspiciously small executable: $($exe.Length) bytes — the embedded .pck is missing." }
         if (-not $IsWindows) {
           chmod +x $exe.FullName
           if ($LASTEXITCODE -ne 0) { throw 'Could not mark the exported binary executable.' }

@@ -221,8 +221,8 @@ export function runProcess(executable, args, { cwd = ROOT, env = process.env, ti
   });
 }
 
-// Root files that are not Godot resources but must travel with the build: a
-// player who unpacks only the .pck has to see the grant the code ships under.
+// Root files that are not Godot resources but must travel with the build: with
+// the .pck embedded into the executable, LICENSE ships inside the binary.
 const STAGE_ROOT_FILES = ['LICENSE'];
 
 export async function stageProject(source, destination) {
@@ -350,7 +350,9 @@ async function main() {
         catch (error) {
           throw new Error(`${error.message} Install Godot ${GODOT_VERSION}.stable export templates via Editor > Manage Export Templates (or the official release .tpz). Local export_presets.cfg is not used.`);
         }
-        for (const file of [filename, 'Car Crash Simulator.pck']) {
+        // The .pck is embedded into the executable (export presets), so the
+        // binary is the only artifact and it must carry the whole game.
+        for (const file of [filename]) {
           const info = await stat(path.join(output, file));
           if (!info.isFile() || info.size === 0) throw new Error(`Export did not produce a nonempty ${file}.`);
         }

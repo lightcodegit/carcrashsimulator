@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
@@ -10,6 +10,10 @@ import { stripVTControlCharacters } from 'node:util';
 export const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const GODOT_VERSION = '4.7.2';
 const COMMANDS = ['import', 'test', 'build', 'run'];
+// Тесты, утверждающие бюджет в миллисекундах (сборка карты, пересборка вмятин):
+// соседние Godot-инстансы делят ядра и раздувют замер до ложного FAIL. Они идут
+// первыми строго по одному, весь остальной набор — пулом (см. ветку test).
+const SERIAL_TESTS = ['d_bigcity_density', 'h_crash', 'h_dents'];
 const EXCLUSIONS = {
   h_embed_guard: 'Requires a live editor-owned host window and --wid; headless cannot test embedding.',
   h_fullscreen: 'Requires a live window to verify fullscreen transitions and restored geometry.',
@@ -28,11 +32,18 @@ export function parseArgs(argv, env = process.env) {
     if (arg === '--help' || arg === '-h') result.help = true;
     else if (arg === '--list') result.list = true;
     else if (arg === '--fail-on-skip') result.failOnSkip = true;
-    else if (['--godot', '--test', '--timeout'].includes(arg)) {
+    else if (['--godot', '--test', '--timeout', '--jobs'].includes(arg)) {
       const value = argv[++i];
       if (!value?.trim() || value.startsWith('-')) throw new Error(`${arg} requires a value.`);
       if (arg === '--godot') result.godot = value;
       if (arg === '--test') result.tests.push(value);
+      if (arg === '--jobs') {
+        const workers = Number(value);
+        if (!Number.isInteger(workers) || workers < 1 || workers > 32) {
+          throw new Error('--jobs must be an integer 1–32.');
+        }
+        result.jobs = workers;
+      }
       if (arg === '--timeout') {
         const seconds = Number(value);
         if (!Number.isFinite(seconds) || seconds < 0.001 || seconds * 1000 > 2147483647) {
@@ -56,8 +67,8 @@ export function parseArgs(argv, env = process.env) {
     }
   }
   if (positional.length) throw new Error(`Unexpected argument: ${positional[0]}`);
-  if (result.command !== 'test' && (result.list || result.failOnSkip || result.tests.length)) {
-    throw new Error('--test, --list and --fail-on-skip are test-only options.');
+  if (result.command !== 'test' && (result.list || result.failOnSkip || result.tests.length || used.has('--jobs'))) {
+    throw new Error('--test, --list, --jobs and --fail-on-skip are test-only options.');
   }
   result.timeoutMs ??= result.command === 'run' ? 3600000 : result.command === 'test' ? 120000 : 300000;
   return result;
@@ -67,7 +78,7 @@ function help(command) {
   const common = '\nOptions: --godot PATH (or GODOT environment variable), --timeout SECONDS, --help\nNode >=22; Godot 4.7.2 standard editor (not .NET). Logs: artifacts/logs/.\n';
   const details = {
     import: 'import  Import resources headlessly and exit. Default wall timeout: 300 seconds.',
-    test: 'test [--test EXACT_NAME ...] [--list] [--fail-on-skip]\nRuns discovered d_*.gd / h_*.tscn headlessly at fixed 60 FPS, each with fresh user storage.\nDefault wall timeout: 120 seconds per test. Import first.\nNOTE is informational; PARTIAL/SKIP means partial coverage; unsupported tests are skipped with reasons.\n--fail-on-skip rejects skipped AND partial results. --list does not launch Godot.',
+    test: 'test [--test EXACT_NAME ...] [--jobs N] [--list] [--fail-on-skip]\nRuns discovered d_*.gd / h_*.tscn headlessly at fixed 60 FPS, each with fresh user storage.\nTests run in parallel: default is half the CPU cores capped at 4; --jobs 1 restores serial order.\nWall-clock budget tests (d_bigcity_density, h_crash, h_dents) always run strictly one at a time, first.\nDefault wall timeout: 120 seconds per test. Import first.\nNOTE is informational; PARTIAL/SKIP means partial coverage; unsupported tests are skipped with reasons.\n--fail-on-skip rejects skipped AND partial results. --list does not launch Godot.',
     build: 'build windows|linux  Import and release-export a temporary staging project.\nRequires matching 4.7.2.stable export templates. Default timeout: 300 seconds per process.\nUses tools/export_presets.cfg, never your local preset. Output: artifacts/build/<platform>/.',
     run: 'run  Launch the game GUI using your normal player settings.\nOnly this command opens a window. Default wall timeout: 3600 seconds; close normally to exit.',
   };
@@ -258,9 +269,12 @@ async function main() {
   const reportDir = await mkdtemp(path.join(logs, `${new Date().toISOString().replace(/[:.]/g, '-')}-${options.command}-`));
   const report = { command: options.command, platform: process.platform, target: options.platform, startedAt: new Date().toISOString(), processes: [], tests: [], exitCode: 1 };
   const executable = resolveExecutable(options.godot, { env: process.env, root: ROOT });
+  // Номер лога выдаётся синхронно до первого await: при параллельном пуле
+  // счётчик report.processes.length гонял бы два теста на одно имя файла.
+  let logCounter = 0;
   async function execute(label, args, overrides = {}) {
+    const log = `${String(logCounter++).padStart(3, '0')}-${label.replace(/[^a-zA-Z0-9_-]/g, '_')}.log`;
     const result = await runProcess(executable, args, { timeoutMs: options.timeoutMs, ...overrides });
-    const log = `${String(report.processes.length).padStart(3, '0')}-${label.replace(/[^a-zA-Z0-9_-]/g, '_')}.log`;
     await writeFile(path.join(reportDir, log), `${JSON.stringify({ executable, args })}\n--- stdout ---\n${result.stdout}\n--- stderr ---\n${result.stderr}\n`);
     const { stdout, stderr, ...metadata } = result;
     report.processes.push({ label, args, log, ...metadata });
@@ -274,7 +288,17 @@ async function main() {
       throw new Error(`Expected Godot ${GODOT_VERSION}.stable; found ${report.godotVersion}. Install the matching standard editor and templates.`);
     }
     if (options.command === 'test') {
-      for (const entry of selected) {
+      // Пул воркеров: каждый тест уже изолирован своим temp-APPDATA и своим
+      // процессом Godot, поэтому параллельность безопасна. Дефолт — половина
+      // ядер, но не больше 4: headless-инстанс ест CPU, а не GPU, и чрезмерный
+      // оверсабскрипт только замедляет замеры времени в p_*-тестах.
+      const jobs = Math.max(1, Math.min(
+        options.jobs ?? Math.max(1, Math.min(4, availableParallelism() >> 1)),
+        selected.length));
+      report.jobs = jobs;
+      const results = new Array(selected.length);
+      const slotOf = new Map(selected.map((entry, i) => [entry.name, i]));
+      const runOne = async entry => {
         let outcome;
         if (entry.skipReason) outcome = { status: 'skipped', reasons: [entry.skipReason] };
         else {
@@ -283,9 +307,25 @@ async function main() {
           args.push(`res://tests/${entry.file}`);
           outcome = await withIsolation(async env => classifyTest(await execute(entry.name, args, { env })));
         }
-        report.tests.push({ name: entry.name, ...outcome });
+        results[slotOf.get(entry.name)] = { name: entry.name, ...outcome };
         console.log(`${outcome.status.toUpperCase()} ${entry.name}${outcome.reasons.length ? `: ${outcome.reasons.join(' | ')}` : ''}`);
-      }
+      };
+      // Сначала последовательная полоса тестов с бюджетами времени, затем пул.
+      // Перед ней короткая пауза: прогон, стартующий сразу за предыдущим полным,
+      // ловил раздутые замеры (1589 мс против заводских 604) на просевших
+      // частотах — это шум среды, а не регресс, но лучше его не создавать вовсе.
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      for (const entry of selected.filter(e => SERIAL_TESTS.includes(e.name))) await runOne(entry);
+      const rest = selected.filter(e => !SERIAL_TESTS.includes(e.name));
+      let next = 0;
+      const worker = async () => {
+        while (next < rest.length) {
+          const i = next++;
+          await runOne(rest[i]);
+        }
+      };
+      await Promise.all(Array.from({ length: jobs }, worker));
+      report.tests = results;
       report.summary = summarize(report.tests, options.failOnSkip);
       report.exitCode = report.summary.exitCode;
       console.log(JSON.stringify(report.summary));

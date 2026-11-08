@@ -33,10 +33,12 @@ workflow refuses to publish a tag that does not match it.
 - Jumps off a ramp at low speed no longer descend like a parachute: the
   hydro-stop engages only against falls harder than 7.5 m/s of natural impact
   speed, and normal jumps fall under real gravity.
-- Landings and light scrapes no longer count as impacts: the detector now also
-  requires a real chunk of speed destroyed (20 km/h over its window) — the
-  suspension absorbing a vertical touchdown or a cone brushing past lost too
-  little to be a crash.
+- Landings and light scrapes no longer count as impacts: the detector now
+  measures the death of speed in the DRIVING plane. A touchdown — even a hard
+  one that bottoms the suspension — kills only the vertical component, and
+  the horizontal speed the crash detector watches survives it; a wall kills
+  the horizontal speed outright. Player log showed phantom impacts at
+  97–238 km/h.
 - The Endless asphalt no longer flickers: the giant floor's visual top sits
   6 cm below the road plane (the physics drive surface is untouched — flat
   road tiles have no colliders of their own and ride on the floor).

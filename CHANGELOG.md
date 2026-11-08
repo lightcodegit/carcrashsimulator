@@ -30,9 +30,11 @@ workflow refuses to publish a tag that does not match it.
 - The Endless map keeps billboards and light poles moving with the road strip,
   so the roadside has scenery along the whole ribbon instead of only the first
   few hundred metres.
-- Jumps off a ramp at low speed no longer descend like a parachute: the
-  hydro-stop engages only against falls harder than 7.5 m/s of natural impact
-  speed, and normal jumps fall under real gravity.
+- Falls no longer descend like a parachute. The hydro-stop now engages only
+  when waiting longer would outrun its braking power (the braking distance to
+  the soft-touch speed grew up to the ground clearance); until that moment
+  every fall is free fall, and the arrest happens in the last decimetres —
+  ramp jumps at any speed and drops off ledges land like real cars.
 - Landings and light scrapes no longer count as impacts: the detector now
   measures the death of speed in the DRIVING plane. A touchdown — even a hard
   one that bottoms the suspension — kills only the vertical component, and

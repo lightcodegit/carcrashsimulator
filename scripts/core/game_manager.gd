@@ -26,6 +26,7 @@ var _start_ms := 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # Esc и «в меню» должны работать и на паузе
+	GameContext.loading_hide()   # сцена собрана: загрузочный экран больше не нужен
 	TimeScale.set_hold(false)     # слоу-мо не должно переезжать в новый заезд
 	_setup_env()
 	var m: Dictionary = MapDB.build(GameContext.map_id)
@@ -483,6 +484,7 @@ func _restart_map() -> void:
 func _to_menu() -> void:
 	get_tree().paused = false
 	_paused = false
+	GameContext.loading_show()
 	# на выходе из заезда молчат все внешние устройства; _exit_tree дублирует
 	# это на случай смены сцены минуя «в меню»
 	if audio != null: audio.stop_all()

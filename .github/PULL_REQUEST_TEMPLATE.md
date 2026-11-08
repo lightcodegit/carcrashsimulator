@@ -18,7 +18,7 @@ directly and describe what you saw: `node tools/project.mjs run` or
 ## Self-check
 
 - [ ] A new check **can fail**: restored the old behavior → got `FAIL` → rolled back. A green `ALL PASS` from a timeout, an un-awaited `await` or "nothing to check" is a defect, not success.
-- [ ] The full headless set did not regress: 66 checks → 54 pass / 8 partial / 4 skipped / 0 failed. `PARTIAL` is printed only when a part is genuinely not verified.
+- [ ] The full headless set did not regress: 68 checks → 56 pass / 8 partial / 4 skipped / 0 failed. `PARTIAL` is printed only when a part is genuinely not verified.
 - [ ] Commit message and code comments in **English**, conventional prefix (`fix(ui): …`, `test: …`), the body explains **why**.
 - [ ] Mixed-alphabet check passes: `grep -rnIP "[\x{4E00}-\x{9FFF}\x{3040}-\x{30FF}]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" scripts tests tools README.md` is empty.
 - [ ] No local junk in the diff: `artifacts/`, `tests/out/`, `tests/tmpappdata/`, `*.tpz`, the root `export_presets.cfg`.

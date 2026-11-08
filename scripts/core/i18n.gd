@@ -300,6 +300,8 @@ const EN := {
 	"КАДР": "FRAME",
 	"МИР": "WORLD",
 	"ЖУРНАЛ": "LOG",
+	"ОБЩЕЕ": "GENERAL",
+	"ЗАГРУЗКА": "LOADING",
 	"◀ ШАГ": "◀ STEP",
 	"ЯЗЫК": "LANGUAGE",
 	"Русский": "Russian",

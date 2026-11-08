@@ -336,8 +336,12 @@ func _sound_page(box: VBoxContainer) -> void:
 	box.add_child(UiTheme.label("ЗВУК И ВИБРАЦИЯ", 30, Color.WHITE, 800))
 	box.add_child(_sep())
 	box.add_child(_spacer(8))
-	box.add_child(_section_head("ЗВУК"))
+	# Язык — не про звук: раньше строка сидела внутри секции ЗВУК и выглядела
+	# случайной. Своя секция сверху чинит смысл, не переезжая между вкладками.
+	box.add_child(_section_head("ОБЩЕЕ"))
 	box.add_child(_language_row())
+	box.add_child(_spacer(14))
+	box.add_child(_section_head("ЗВУК"))
 	box.add_child(_row_for("audio_enabled"))
 	box.add_child(_row_for("audio_volume"))
 	box.add_child(_spacer(14))

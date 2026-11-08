@@ -22,6 +22,9 @@ func _ready() -> void:
 	add_child(gm)
 	for f in 20:
 		await get_tree().physics_frame
+	# loading screen: собранная сцена обязана его погасить (иначе он висит над
+	# игрой навсегда — обратная сторона живого экрана загрузки)
+	check(not GameContext.loading_visible(), "loading screen hidden once the run scene is ready")
 	gm.car.impact.connect(func(_s, _p, _n): _impacts += 1)
 
 	# 1) фантомный удар при респавне: скорость пика должна сбрасываться

@@ -124,6 +124,8 @@ var audio_volume := 0.8
 var vibration_enabled := true
 var vibration_strength := 1.0
 var particles_enabled := true
+var last_car := "sedan"   # последний выбор машины: переживает выход в меню и из игры
+var last_map := "arena"
 var language := "en"
 # как выглядит сам экран настроек
 var tier_extended := false
@@ -243,6 +245,7 @@ func values() -> Dictionary:
 		"audio_enabled": audio_enabled, "audio_volume": audio_volume,
 		"vibration_enabled": vibration_enabled, "vibration_strength": vibration_strength,
 		"particles_enabled": particles_enabled, "language": language,
+		"last_car": last_car, "last_map": last_map,
 		"tier_extended": tier_extended, "preset": preset, "fullscreen": fullscreen,
 	}
 

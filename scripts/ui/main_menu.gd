@@ -55,6 +55,12 @@ var _env: Environment
 var _sun: DirectionalLight3D
 
 func _ready() -> void:
+	# Выбор переживает выход из заезда и из игры: восстанавливаем подсветку
+	# карточек по GameContext до сборки интерфейса, иначе карточки показывали
+	# первые элементы списка при живом другом выборе.
+	GameContext.loading_hide()
+	_car_i = _index_of_id(CARS, GameContext.car_id)
+	_map_i = _index_of_id(MAPS, GameContext.map_id)
 	_build_world()
 	_build_ui()
 	# Меню обязано быть резким: Settings.scaling_3d_scale (0.7 по умолчанию) — это
@@ -200,6 +206,13 @@ func _process(dt: float) -> void:
 		var dir := (aim - eye).normalized()
 		var right := dir.cross(Vector3.UP).normalized()
 		_cam.look_at(aim + right * 2.6, Vector3.UP)
+
+# Индекс карточки по id из GameContext: выбор переживает выход из заезда и
+# из игры; незнакомый id (старая версия файла настроек) откатывается на первый.
+func _index_of_id(items: Array, id: String) -> int:
+	for i in items.size():
+		if String(items[i][1]) == id: return i
+	return 0
 
 func _load_car(i: int) -> void:
 	_car_i = clampi(i, 0, CARS.size() - 1)
@@ -559,6 +572,7 @@ func select_map(i: int) -> void:
 func start_game() -> void:
 	GameContext.select(String(CARS[_car_i][1]), String(MAPS[_map_i][1]))
 	get_tree().paused = false
+	GameContext.loading_show()
 	get_tree().change_scene_to_file("res://scenes/game.tscn")
 
 # ---- мелкие строительные помощники -----------------------------------------

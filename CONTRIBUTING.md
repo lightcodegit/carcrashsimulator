@@ -43,7 +43,7 @@ manual diagnostics — measurements and screenshots. A run prints `ALL PASS` or
 `FAILS <n>` and exits 0 or 1; `PARTIAL` is an honest admission that part of the
 check did not run, `NOTE` is information.
 
-Baseline: **66 checks → 54 pass / 8 partial / 4 skipped / 0 failed**. A
+Baseline: **68 checks → 56 pass / 8 partial / 4 skipped / 0 failed**. A
 regression is any new `failed` or a smaller number of discovered checks.
 
 The main rule: **a test must be able to fail.** Green output from a timeout, a

@@ -79,6 +79,14 @@ func _rows_and_settings() -> void:
 	check(pad_hint == Input.get_connected_joypads().is_empty(),
 		"подсказка про геймпад показывается ровно когда его нет (подключено %d, подсказка %s)" % [
 			Input.get_connected_joypads().size(), pad_hint])
+	# язык — не часть секции ЗВУК: у строки своя секция ОБЩЕЕ на той же вкладке
+	var general_walk: Array[Node] = [menu]
+	var general_head := false
+	while not general_walk.is_empty():
+		var gn: Node = general_walk.pop_back()
+		if gn is Label and (gn as Label).text == I18n.t("ОБЩЕЕ"): general_head = true
+		for c in gn.get_children(): general_walk.append(c)
+	check(general_head, "язык живёт в секции ОБЩЕЕ, а не внутри ЗВУК")
 	var cb := _find_check("audio_enabled")
 	cb.button_pressed = false
 	check(not Settings.audio_enabled, "галка ЗВУК пишет audio_enabled=false")

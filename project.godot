@@ -18,10 +18,10 @@ config/icon="res://assets/ui/logo_emblem.svg"
 
 [autoload]
 
-GameContext="*res://scripts/autoload/GameContext.gd"
 TimeScale="*res://scripts/autoload/TimeScale.gd"
 InputRouter="*res://scripts/autoload/InputRouter.gd"
 Settings="*res://scripts/autoload/Settings.gd"
+GameContext="*res://scripts/autoload/GameContext.gd"
 
 [display]
 

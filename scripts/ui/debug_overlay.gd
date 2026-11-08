@@ -45,7 +45,10 @@ func _ready() -> void:
 	_next_ms = Time.get_ticks_msec() + REFRESH_MS
 
 func _unhandled_input(ev: InputEvent) -> void:
-	if ev.is_action_pressed("debug_section"):
+	# Служебная клавиша уступает игроку: если он назначил F3 своему действию,
+	# нажатие листает его дело, а не секции отладчика. Своё действие исключаем —
+	# иначе «владелец» всегда находится и клавиша мертва.
+	if ev.is_action_pressed("debug_section") and InputRouter.find_owner(ev, "debug_section") == "":
 		_section = (_section + 1) % SECTION_NAMES.size()
 		_redraw()
 		_next_ms = Time.get_ticks_msec()

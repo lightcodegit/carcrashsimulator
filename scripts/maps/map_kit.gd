@@ -182,6 +182,19 @@ static func _collider_faces(m: Mesh, name: String) -> PackedVector3Array:
 				faces.append(v[ix[t]]); faces.append(v[ix[t + 1]]); faces.append(v[ix[t + 2]])
 		else:
 			for q in v: faces.append(q)
+	# У рамп и бугров боковины и ступени — тоже физика: в коллайдер идут только
+	# грани материала «road», и сквозь видимую горку проезжали сбоку (жалоба
+	# игрока). Берём крутые грани меша: вертикальные стенки и ступени профиля;
+	# дно и пологие грани не трогаем — их уже замыкает оболочка, а наезжаемость
+	# низких кромок (h_curbs) сохраняется.
+	if _needs_closure(name):
+		var all := _mesh_faces(m)
+		for t in range(0, all.size() - 2, 3):
+			var a := all[t]; var b := all[t + 1]; var c := all[t + 2]
+			var n := (b - a).cross(c - a)
+			if n.length() < 0.0001: continue
+			if absf(n.y) > 0.5 * n.length(): continue
+			faces.append(a); faces.append(b); faces.append(c)
 	return faces
 
 # SEGMENTY Kenney — это оболочки: у рампы есть ступени и два боковых торца, а дна и

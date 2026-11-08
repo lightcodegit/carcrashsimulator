@@ -33,6 +33,24 @@ workflow refuses to publish a tag that does not match it.
 - Jumps off a ramp at low speed no longer descend like a parachute: the
   hydro-stop engages only against falls harder than 7.5 m/s of natural impact
   speed, and normal jumps fall under real gravity.
+- Landings and light scrapes no longer count as impacts: the detector now also
+  requires a real chunk of speed destroyed (20 km/h over its window) — the
+  suspension absorbing a vertical touchdown or a cone brushing past lost too
+  little to be a crash.
+- The Endless asphalt no longer flickers: the giant floor's visual top sits
+  6 cm below the road plane (the physics drive surface is untouched — flat
+  road tiles have no colliders of their own and ride on the floor).
+- The endless spawn moved off a tile seam, so rays and wheels at the start
+  find the road and not the gap between two colliders.
+- F2/F3 yield to the player's own bindings: a key assigned to a game action
+  no longer toggles the debug overlay or flips its sections. Each handler
+  excludes its own action, otherwise the "owner" is always found and the
+  key is dead.
+- In photo mode the car is fully frozen: its rig inherited always-process
+  from the manager and woke up on pause, so the camera keys (W/A/S/D) turned
+  the wheels of the frozen world.
+- The photo and replay bars fit their buttons: both panels were shorter than
+  the button rows and the buttons hung out of the panel.
 
 ## [v0.1.0] - 2026-11-08
 

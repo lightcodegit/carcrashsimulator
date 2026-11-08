@@ -92,8 +92,15 @@ static func endless() -> Dictionary:
 	# самые задние плиты и отбойники за спину в начало хвоста. Полотно не двигается,
 	# ездок не чувствует шва, и трасса теоретически длиннее, чем сядет терпения.
 	var root := Node3D.new(); root.name = "Endless"
-	MapKit.box(root, Vector3(0, MapDefs.FLOOR_Y - 1.0, 0), Vector3(40000.0, 2.0, 240.0),
+	# Физический пол остаётся поверхностью езды (у плоских плит своих коллайдеров
+	# нет — верх пола и есть полотно). А ВИЗУАЛ пола уходит на 6 см ниже: верх
+	# коробки и асфальт плит разделяли два миллиметра, и на дистанции буфер
+	# глубины их смыкал — асфальт мерцал полосами (жалоба: «мелькает, конфликтует
+	# с чем-то»). Колёса вне полотна садутся на 6 см в траву — читается как рельеф.
+	var floor_body := MapKit.box(root, Vector3(0, MapDefs.FLOOR_Y - 1.0, 0), Vector3(40000.0, 2.0, 240.0),
 		Color(0.34, 0.37, 0.33), Basis.IDENTITY, true)
+	for c in floor_body.get_children():
+		if c is MeshInstance3D: (c as MeshInstance3D).position.y -= 0.06
 	var t := TrackCursor.new()
 	t.root = root
 	t.pos = Vector3(-40.0, 0.0, 0.0)
@@ -137,7 +144,9 @@ static func endless() -> Dictionary:
 	MapProps.loose(root, MapDefs.P + "box.glb", Vector3(200.0, 0, 7.2), MapDefs.PROP, 1.1, 15.0)
 	MapProps.loose(root, MapDefs.P + "debris-bumper.glb", Vector3(260.0, 0, -7.2), MapDefs.PROP, 0.8, 9.0)
 	MapKit.drop_shadows(root)
-	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-20.0, 1.0, 0.0)),
+	# спавн на середине плиты, а не на шве: лучи и колёса на стыке коллайдеров
+	# ловили пол вместо полотна (h_map_props: «под спавном пол»)
+	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-18.0, 1.0, 0.0)),
 		"bounds": AABB(Vector3(-200, -60, -120), Vector3(40000, 120, 240)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true, "endless": true}}
 

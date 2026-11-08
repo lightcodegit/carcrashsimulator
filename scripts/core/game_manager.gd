@@ -308,7 +308,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	# В фотомоде свои клавиши: Esc — выход, F5 прячет интерфейс (ловит PhotoMode),
 	# а действия заезда на него не должны влиять вовсе.
 	if photo != null and photo.active:
-		if event.is_action_pressed("pause") or event.is_action_pressed("respawn"): _exit_photo()
+		if event.is_action_pressed("pause"):
+			# Экран без HUD прячет всё, включая кнопку возврата; F5 при этом может
+			# быть занята биндом игрока. Первый Esc возвращает интерфейс, второй —
+			# выходит из фотомода: тупика «спрятал и не вернуть» больше нет.
+			if photo.hud_off: photo.hide_hud(false)
+			else: _exit_photo()
+		elif event.is_action_pressed("respawn"): _exit_photo()
 		return
 	# На реплее мир стоит, и клавиши заезда на нём не работают вовсе: Esc и R
 	# значит «выйти», а не «пауза» и «рестарт по середине повтора».
@@ -399,6 +405,11 @@ func _open_photo() -> void:
 		hud.set_paused(false)
 		hud.set_photo_ui(true)
 		_release_inputs()
+		# Машина замирает целиком: она наследует ALWAYS у менеджера, и её физика
+		# просыпалась на паузе — клавиши камеры (W/A/S/D) дёргали руль и газ
+		# замороженного мира (жалоба: «в фотомоде можно двигать колёсами»). А
+		# фотомоду от машины нужно только застывшее позой.
+		car.process_mode = Node.PROCESS_MODE_DISABLED
 		_photo_label()
 	else:
 		_set_paused(false)
@@ -408,6 +419,7 @@ func _exit_photo() -> void:
 	photo.end()
 	hud.set_photo_ui(false)
 	hud.set_panels_hidden(false)
+	car.process_mode = Node.PROCESS_MODE_INHERIT
 	_set_paused(false)
 
 func _photo_shot() -> void:

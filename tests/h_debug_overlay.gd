@@ -97,6 +97,19 @@ func _ready() -> void:
 	await get_tree().process_frame
 	check(Settings.debug_mode and _find_overlay(hud) != null, "F2 включил режим обратно")
 
+	# Уступчивость: F2, назначенная действию игрока, отладчик не дёргает. Живой
+	# пайплайн ввода: событие проходит через viewport, как от настоящей клавиши.
+	var f2 := InputEventKey.new()
+	f2.physical_keycode = KEY_F2
+	f2.pressed = true
+	InputRouter.rebind("nitro", f2)
+	var was := Settings.debug_mode
+	get_viewport().push_input(f2)
+	await get_tree().process_frame
+	check(Settings.debug_mode == was, "F2, занятая игроком, не переключает отладчик")
+	InputRouter.reset_keys()
+	await get_tree().process_frame
+
 	# На паузе оверлей обязан жить: именно на паузе удобнее читать цифры. HUD
 	# переводится в ALWAYS, оверлей наследует его — проверяем, а не предполагаем.
 	gm._set_paused(true)

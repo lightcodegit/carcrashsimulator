@@ -410,7 +410,7 @@ func _build_replay(root: Control) -> void:
 	panel.anchor_bottom = 1.0
 	panel.offset_left = -UiTheme.fx(340)
 	panel.offset_right = UiTheme.fx(340)
-	panel.offset_top = -UiTheme.fx(118)
+	panel.offset_top = -UiTheme.fx(130)
 	panel.offset_bottom = -UiTheme.fx(34)
 	panel.visible = false
 	panel.add_theme_stylebox_override("panel", _style(8))
@@ -490,7 +490,7 @@ func _build_photo(root: Control) -> void:
 	panel.anchor_bottom = 1.0
 	panel.offset_left = -UiTheme.fx(300)
 	panel.offset_right = UiTheme.fx(300)
-	panel.offset_top = -UiTheme.fx(104)
+	panel.offset_top = -UiTheme.fx(120)
 	panel.offset_bottom = -UiTheme.fx(34)
 	panel.visible = false
 	panel.add_theme_stylebox_override("panel", _style(8))
@@ -508,7 +508,7 @@ func _build_photo(root: Control) -> void:
 	for i in rows.size():
 		var b := Button.new()
 		I18n.bind(b, rows[i][0] as String)
-		b.position = Vector2(UiTheme.fx(14 + i * 144), UiTheme.fx(44))
+		b.position = Vector2(UiTheme.fx(14 + i * 144), UiTheme.fx(36))
 		b.size = Vector2(UiTheme.fx(136), UiTheme.fx(44))
 		b.focus_mode = Control.FOCUS_ALL
 		b.add_theme_font_size_override("font_size", UiTheme.px(13))
@@ -584,9 +584,14 @@ func _sync_debug() -> void:
 		_debug = null
 
 # F2 обрабатывает HUD, а не оверлей: выключенный оверлей не существует в дереве,
-# и включать себя было бы некому.
+# и включать себя было бы некому. Служебная клавиша уступает игроку: если F2
+# назначена его действию, нажатие не должно дёргать отладчик (та же уступчивость,
+# что у фотомода с F5).
 func _unhandled_input(ev: InputEvent) -> void:
-	if ev.is_action_pressed("debug_toggle"):
+	# Служебная клавиша уступает игроку: если он назначил F2 своему действию,
+	# нажатие не должно дёргать отладчик. Своё действие исключаем — иначе
+	# «владелец» находится всегда и клавиша мертва.
+	if ev.is_action_pressed("debug_toggle") and InputRouter.find_owner(ev, "debug_toggle") == "":
 		Settings.set_value("debug_mode", not Settings.debug_mode)
 		get_viewport().set_input_as_handled()
 

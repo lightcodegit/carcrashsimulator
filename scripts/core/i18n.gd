@@ -34,7 +34,7 @@ const EN := {
 	"SSAO/SSIL, MSAA 4×, тени 260 м": "SSAO/SSIL, MSAA 4×, shadows 260 m",
 	"SSAO: РАДИУС, М": "SSAO: RADIUS, M",
 	"SSAO: СИЛА": "SSAO: STRENGTH",
-	"v0.39 · МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0": "v0.39 · MODELS: KENNEY CAR KIT 3.1 · CC0",
+	"v.%s · МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0": "v.%s · MODELS: KENNEY CAR KIT 3.1 · CC0",
 	"АДАПТИВНАЯ": "ADAPTIVE",
 	"АРЕНА": "ARENA",
 	"АТМОСФЕРА": "ATMOSPHERE",

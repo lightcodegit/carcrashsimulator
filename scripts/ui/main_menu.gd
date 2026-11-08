@@ -346,7 +346,11 @@ func _build_panel(host: Control) -> void:
 	_panel.add_child(holder)
 
 func _build_footer(host: Control) -> void:
-	var v := UiTheme.label("v0.39 · МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0", 13, UiTheme.FAINT, 500, true)
+	# Версия читается из настроек проекта, поэтому бамп в project.godot сам
+	# обновляет надпись — подпись ассетов при этом остаётся требованием CC0.
+	var version: String = ProjectSettings.get_setting("application/config/version")
+	var v := UiTheme.label("v.%s · МОДЕЛИ: KENNEY CAR KIT 3.1 · CC0", 13, UiTheme.FAINT,
+		500, true, [version])
 	# нижний левый угол якорем: на вытянутых по высоте окнах подвал не должен
 	# оставаться на уровне 856 px посередине экрана
 	v.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)

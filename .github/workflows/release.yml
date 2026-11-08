@@ -109,7 +109,7 @@ jobs:
         run: |
           v=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
           if [ "v$v" != "$TAG" ]; then
-            echo "Тег $TAG, а в project.godot config/version=\"$v\": публикация собрала бы не тот релиз." >&2
+            echo "Tag $TAG, but project.godot has config/version=\"$v\": the release would ship the wrong version." >&2
             exit 1
           fi
 
@@ -119,7 +119,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.name }}
         run: |
           NOTES=$(sed -n "/^## \[$TAG\]/,/^## \[/{/^## \[/d;p}" CHANGELOG.md | sed '/^$/d')
-          if [ -z "$NOTES" ]; then NOTES="Сборки $TAG. Подробности — в CHANGELOG.md."; fi
+          if [ -z "$NOTES" ]; then NOTES="Builds of $TAG. See CHANGELOG.md for details."; fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/*.zip --clobber
           else

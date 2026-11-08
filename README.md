@@ -167,3 +167,9 @@ CC0 не требует ничего, но сказать спасибо авт�
 ## Автор
 
 Проект написал **crystaldev** ([@lightcodegit](https://github.com/lightcodegit)).
+
+## Контрибьюторы
+
+На сегодня автор — единственный контрибьютор (151 коммит). Полный список по мере
+появления соавторов ведёт GitHub:
+[граф контрибьюторов](https://github.com/lightcodegit/carcrashsimulator/graphs/contributors).

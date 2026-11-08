@@ -6,10 +6,10 @@ body:
     attributes:
       value: |
         The project is small, and "no" is a normal answer here: v1 has an
-        explicitly drawn boundary (see README, "Out of v1"). Describing the
-        problem helps more than proposing a ready-made solution.
-        **Please write in English** — the repository's issues are kept in
-        English.
+        explicitly drawn boundary (see CONTRIBUTING.md, "What to ask about
+        first"). Describing the problem helps more than proposing a
+        ready-made solution. **Please write in English** — the repository's
+        issues are kept in English.
   - type: textarea
     id: problem
     attributes:

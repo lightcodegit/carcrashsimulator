@@ -15,8 +15,6 @@
   <a href="https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml"><img src="https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/license-MIT-F0795A" alt="license: MIT">
   <a href="https://godotengine.org/download/archive/"><img src="https://img.shields.io/badge/Godot-4.7.2%20stable-F0795A" alt="Godot 4.7.2"></a>
-  <img src="https://img.shields.io/badge/maps-6-F0795A" alt="6 maps">
-  <img src="https://img.shields.io/badge/cars-5-F0795A" alt="5 cars">
 </p>
 
 # Car Crash Simulator

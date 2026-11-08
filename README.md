@@ -175,6 +175,5 @@ The project was written by **crystaldev** ([@lightcodegit](https://github.com/li
 
 ## Contributors
 
-So far the author is the only contributor (151 commits). As co-authors appear,
-GitHub keeps the full list in the
+As co-authors appear, GitHub keeps the full list in the
 [contributors graph](https://github.com/lightcodegit/carcrashsimulator/graphs/contributors).

@@ -1,7 +1,0 @@
-# The "Sponsor this project" button in the repository sidebar.
-# github: activates once the maintainer's GitHub Sponsors profile is live
-# (github.com/sponsors/lightcodegit). To receive via an external platform,
-# uncomment a line below and put the real link in.
-github: lightcodegit
-# ko-fi: lightcodegit
-# custom: ["https://boosty.to/lightcodegit"]

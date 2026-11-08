@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Как сообщить об уязвимости
+  - name: Reporting a vulnerability
     url: https://github.com/lightcodegit/carcrashsimulator/blob/main/SECURITY.md
-    about: Не публикуйте подробности уязвимости в issue; смотрите приватный способ связи в SECURITY.md.
-  - name: Вопросы по сборке и запуску
+    about: Do not publish vulnerability details in an issue; see SECURITY.md for a private channel.
+  - name: Build and launch questions
     url: https://github.com/lightcodegit/carcrashsimulator/issues
-    about: Заведите issue с типом «Баг» и опишите команду, ОС и версию — этого достаточно, чтобы начать.
+    about: Open an issue with the "Bug report" template and describe the command, OS and version — that is enough to start.

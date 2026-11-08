@@ -1,153 +1,170 @@
-# Как помочь
+# How to help
 
-Проект — Godot 4.7.2 (standard, **не** .NET), GL Compatibility, GDScript. Продукт
-и игровые числа описаны в `README.md`, он источник правды; здесь — как устроена
-работа над кодом. Правила из этого файла проверяются CI и тестами, а не на слово.
+The project is Godot 4.7.2 (standard, **not** .NET), GL Compatibility, GDScript.
+The product and the game numbers are described in `README.md`, which is the
+source of truth; this file is how work on the code is organized. The rules here
+are enforced by CI and tests, not taken on faith.
 
-## Окружение
+## Language policy
 
-1. Godot **4.7.2 stable** (стандартная сборка). В PATH как `godot`, либо
-   `export GODOT=<путь>`, либо `--godot <путь>` в каждой команде.
-2. Node.js **>= 22**. npm-зависимостей нет: `tools/project.mjs` работает без
-   `npm install` и не создаёт `node_modules`.
-3. Для экспорта — шаблоны **4.7.2.stable** (Editor → Manage Export Templates).
+**English is the language of the repository.** All new issues, pull requests,
+commit messages, code comments and UI strings are written in English. Existing
+Russian content (old commits, historical docs in `docs/superpowers/`, comments
+in files you are not otherwise touching) stays as it is — history is not
+rewritten for its own sake.
+
+## Environment
+
+1. Godot **4.7.2 stable** (standard build). In PATH as `godot`, or
+   `export GODOT=<path>`, or `--godot <path>` on every command.
+2. Node.js **>= 22**. There are no npm dependencies: `tools/project.mjs` runs
+   without `npm install` and never creates `node_modules`.
+3. For exporting — the **4.7.2.stable** templates (Editor → Manage Export
+   Templates).
 
 ```sh
 node tools/project.mjs --help
-node tools/project.mjs import              # после добавления или переименования .gd/.tscn — обязательно
-node tools/project.mjs test --timeout 400  # весь набор
+node tools/project.mjs import              # required after adding or renaming .gd/.tscn
+node tools/project.mjs test --timeout 400  # the whole set
 node tools/project.mjs test --test h_audio --test d_params
-node tools/project.mjs build windows       # или linux
-node tools/project.mjs run                 # открывает окно
+node tools/project.mjs build windows       # or linux
+node tools/project.mjs run                 # opens a window
 ```
 
-`import` обязателен после появления новых классов и сцен: без них тесты не видят
-файл, и провал выглядит как «не существует функция».
+`import` is mandatory after new classes and scenes appear: without it the tests
+do not see the file, and the failure looks like "this function does not exist".
 
-## Как устроены тесты
+## How the tests are organized
 
-Харнесы лежат в `tests/` и делятся по префиксу имени: `d_` — чистые данные на
-`--script` (автозагрузок там нет, трогать `TimeScale` или `ReplayRecorder`
-нельзя), `h_` — узловые проверки на сценах, `p_` — замеры и кадры для ручного
-сравнения. Запуск печатает `ALL PASS` или `FAILS <n>` и выходит 0 или 1;
-`PARTIAL` — честное признание, что часть не проверена, `NOTE` — информация.
+Harnesses live in `tests/` and are grouped by name prefix: `d_` is pure data on
+`--script` (there are no autoloads there, touching `TimeScale` or
+`ReplayRecorder` is not allowed), `h_` is node-level checks on scenes, `p_` is
+manual diagnostics — measurements and screenshots. A run prints `ALL PASS` or
+`FAILS <n>` and exits 0 or 1; `PARTIAL` is an honest admission that part of the
+check did not run, `NOTE` is information.
 
-База: **66 проверок → 54 pass / 8 partial / 4 skipped / 0 failed**. Регресс — это
-любой новый `failed` или меньшее число найденных проверок.
+Baseline: **66 checks → 54 pass / 8 partial / 4 skipped / 0 failed**. A
+regression is any new `failed` or a smaller number of discovered checks.
 
-Главное правило: **тест обязан уметь падать.** Зелёный вывод из таймаута,
-самоподсчитывающего цикла, невызванного `await` или обхода «пусто ⇒ нечего
-проверять» — дефект теста, а не успех. Подтверждение проверяемости — мутация:
-вернули прежнее поведение → получили `FAIL` → откатили. Откатывайте правкой
-текста, а не копией файла из более ранней стадии работы.
+The main rule: **a test must be able to fail.** Green output from a timeout, a
+self-counting loop, an un-awaited `await` or the "nothing to check" shortcut is
+a defect of the test, not success. Confirmability is proven by mutation: restore
+the old behavior → get `FAIL` → roll back. Roll back by editing the text, not
+by copying a file from an earlier stage of the work.
 
-Второе правило: `PARTIAL` пишется по условию, а не оговоркой. Строка «в headless
-звук не проверить» в живом окне врёт: GPU и WASAPI там есть, и врать в отчёте
-нельзя. Харнесы с джойстиком (`h_vibration`, `h_padflow`, `h_handbrake_devices`)
-в headless всегда partial — `Input.get_connected_joypads()` пуст даже с
-подключённым геймпадом, судить о железе по headless-прогону нельзя.
+Second rule: `PARTIAL` is printed when a condition holds, not as a hedge. A
+line like "sound cannot be checked in headless" lies when run in a live window:
+GPU and WASAPI are there, and lying in the report is not allowed. Harnesses
+with a joystick (`h_vibration`, `h_padflow`, `h_handbrake_devices`) are always
+partial in headless — `Input.get_connected_joypads()` is empty even with a
+gamepad connected, so hardware cannot be judged from a headless run.
 
-### Ловушки headless, проверенные на себе
+### Headless traps, verified the hard way
 
-- вьюпорт `0×0` или квадратный — берите фактический размер, а не 1600×900 из
+- the viewport is `0×0` or square — take the actual size, not the 1600×900 from
   `project.godot`;
-- синтетические клики мышью не маршрутизируются в GUI — кнопки дёргайте сигналом
-  `pressed`;
-- `Performance` по времени физики отдаёт 0;
-- `AudioServer.get_driver_name() == "Dummy"`, и генератор звука в этом случае не
-  создаётся вовсе;
-- тесты пишут в **настоящий** `user://`: раннер изолирует его через `APPDATA`,
-  а ручной запуск `Godot.exe` без `APPDATA=<пустая папка>` правит сохранённый
-  конфиг игрока.
+- synthetic mouse clicks are not routed to the GUI — press buttons via the
+  `pressed` signal;
+- `Performance` reports 0 for physics time;
+- `AudioServer.get_driver_name() == "Dummy"`, and the audio generator is not
+  created at all in that case;
+- tests write to the **real** `user://`: the runner isolates it via `APPDATA`,
+  and running `Godot.exe` manually without `APPDATA=<empty folder>` edits the
+  saved player profile.
 
-## Живая проверка
+## Live verification
 
 ```sh
-APPDATA=<пустая папка> "$GODOT" --path . res://tests/p_live_probe.tscn --fixed-fps 60
+APPDATA=<empty folder> "$GODOT" --path . res://tests/p_live_probe.tscn --fixed-fps 60
 ```
 
-Две-три минуты, открывает окно. Покрывает то, чего headless не может: аудиовывод,
-GPU-кадр, дым и следы резины, окраску витрины пикселем, снимок фотомода, три
-пересборки дерева заезда. Изменения картинки или звука без такой проверки не
-считаются проверенными — скажите в PR, что именно вы видели глазами и ушами.
+Two to three minutes, opens a window. It covers what headless cannot: audio
+output, a GPU frame, smoke and tire marks, the showcase paint measured in
+pixels, a photo-mode shot, three re-assemblies of the run tree. Image or sound
+changes without such a run do not count as verified — say in the PR what
+exactly you saw with your eyes and ears.
 
-## Границы кода
+## Code boundaries
 
-- `scripts/maps/map_db.gd` — только фасад (`ids`/`build`/`recycle`/`debug_counts`);
-  геометрия в `map_kit`, `map_props`, `map_circuit`, `map_<карта>`, числа и
-  палитра в `map_defs`.
-- Частицы — только `CPUParticles3D` (headless должен считать то же, что окно),
-  эммитеры дыма навешиваются на `EffectsDirector`, а не на `VehicleWheel3D`:
-  колесо освобождается вместе с машиной, и активный эммитер на этом освободении
-  обрывал процесс.
-- Аудио: один вывод на процесс, второй плеер на сцену заводить нельзя, хост не
-  освобождается в `_exit_tree` чужим экземпляром.
-- Реплей проигрывает записанное, а не пересимулирует: мир на паузе, поза и
-  скорость из кольца, вмятины пересобираются из событий в локальных координатах
-  меша.
-- Гараж: `brake_decel` обрезан физикой (`CarRig.BRAKE_MAX_G`), из `LIMITS`
-  масштабируется только `accel_max`; окраска трогает ровно ячейку кузова атласа;
-  `user://garage_v1.json` версионирован и пишется атомарно.
-- Бинд — это клавиша вместе с модификаторами; клавиши вне `InputMap` допустимы
-  только служебные и только уступчивые (`PhotoMode` спрашивает
+- `scripts/maps/map_db.gd` is only a facade (`ids`/`build`/`recycle`/
+  `debug_counts`); geometry lives in `map_kit`, `map_props`, `map_circuit`,
+  `map_<map>`, numbers and palette in `map_defs`.
+- Particles are `CPUParticles3D` only (headless must count the same as a
+  window), smoke emitters are attached to `EffectsDirector`, not to
+  `VehicleWheel3D`: the wheel is freed together with the car, and an active
+  emitter on that free used to kill the process.
+- Audio: one output per process, do not add a second player to the scene, do
+  not free the host in someone else's `_exit_tree`.
+- The replay plays back what was recorded, it does not re-simulate: the world
+  is paused, pose and speed come from the ring, dents are rebuilt from events
+  in the mesh's local coordinates.
+- Garage: `brake_decel` is clamped by physics (`CarRig.BRAKE_MAX_G`), only
+  `accel_max` scales from `LIMITS`; paint touches exactly the body cell of the
+  atlas; `user://garage_v1.json` is versioned and written atomically.
+- A binding is a key together with its modifiers; keys outside `InputMap` are
+  allowed only as service keys and only yieldingly (`PhotoMode` asks
   `InputRouter.find_owner`).
-- UI: размеры через `UiTheme.fx()`/`px()`/`step()`, активные состояния через
-  `UiTheme.nav_mark_active`. Пиксельные константы в код интерфейса не вносить —
-  ступенчатый рост их ломает.
+- UI: sizes via `UiTheme.fx()`/`px()`/`step()`, active states via
+  `UiTheme.nav_mark_active`. Do not add pixel constants to UI code — stepped
+  scaling breaks them.
 
-## Стиль
+## Style
 
-Комментарии, строки интерфейса и сообщения коммитов — по-русски. Коммит:
-conventional prefix (`fix(ui): …`, `test: …`, `docs: …`) и тело с объяснением
-**почему**, а не что.
+Commit messages follow conventional prefixes (`fix(ui): …`, `test: …`,
+`docs: …`) and the body explains **why**, not what.
 
-Смесь алфавитов — реальный класс дефектов этого репозитория: случайно прилетевшие
-иероглифы и латинское слово, вклеенное в русскую фразу без пробела. Примеры
-таких склеек здесь не приводятся намеренно: иначе проверка ниже спотыкалась бы о
-собственный текст. Перед коммитом:
+Mixed alphabets are a real defect class in this repository: a stray CJK glyph,
+or a Latin word glued into a Cyrillic phrase without a space (and vice versa —
+this file used to be written in Russian, and leftover glue still hides in old
+code comments). Before committing:
 
 ```sh
 grep -rnIP "[\x{4E00}-\x{9FFF}\x{3040}-\x{30FF}]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" --include="*.yml" scripts tests tools docs README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md .github
-grep -rnPI "[а-я][a-zA-Z]{3,}|[a-zA-Z]{3,}[а-я]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" --include="*.yml" scripts tests tools docs README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md .github
 ```
 
-Флаг `-I` обязателен в обоих: без него скан тонет в бинарных кэшах из
-`tests/tmpappdata/` и скриншотах `tests/out/` и даёт сотни ложных срабатываний.
+The `-I` flag is mandatory: without it the scan drowns in binary caches from
+`tests/tmpappdata/` and screenshots in `tests/out/` and reports hundreds of
+false positives.
 
-## Чего не должно быть в diff
+## What must not be in a diff
 
-`artifacts/`, `tests/out/`, `tests/tmpappdata/`, `*.tpz`, корневой
-`export_presets.cfg` (он локальный и игнорируется; переносимые пресеты живут в
-`tools/export_presets.cfg`), личные пути вида `C:/Users/…` в коде, документации и
-workflow. Логика правки не должна оставлять одноразовые скрипты в репозитории.
+`artifacts/`, `tests/out/`, `tests/tmpappdata/`, `*.tpz`, the root
+`export_presets.cfg` (it is local and ignored; the portable presets live in
+`tools/export_presets.cfg`), personal paths like `C:/Users/…` in code,
+documentation and workflows. The logic of a change must not leave one-off
+scripts in the repository.
 
-## О чём сначала спросить
+## What to ask about first
 
-Менять публичные контракты (`user://`-форматы, имена действий `InputMap`, схему
-экспорта), границы движка (переход на Forward+, другой renderer) и границы v1
-(AI-трафик, сеть, отрыв панелей, фотореализм) — в issue, до кода. Это не
-бюрократия: у каждого из этих пунктов уже есть тесты и документация, которые
-переписываются вместе с ним.
+Changing public contracts (`user://` formats, `InputMap` action names, the
+export scheme), engine boundaries (moving to Forward+, another renderer) and
+the v1 boundary (AI traffic, networking, parts falling off, photorealism) —
+in an issue, before the code. This is not bureaucracy: each of these points
+already has tests and documentation that get rewritten together with it.
 
-## Если вы — агент
+## If you are an agent
 
-Правила ниже взяты из практики публичных репозиториев с AI-контрибьюторами
-(например, `horizon-rust/horizon`) и адаптированы под наш размер.
+The rules below come from the practice of public repositories with AI
+contributors (for example, `horizon-rust/horizon`) and are adapted to our size.
 
-- **Помечайте, что пишет агент.** Тело PR начинается строкой вида
-  `> 🤖 Opened by <login>'s AI agent (<инструмент, модель>), not by <login> personally.`
-  (`<login>` — аккаунт, от которого открыт PR, `gh api user --jq .login`); в issue —
-  «Filed by …», в ревью — «Review by …», каждый комментарий начинается с `🤖 Agent:`.
-  Коммит несёт `Co-Authored-By:` для агента, который его написал. Пишите только от
-  имени человека, за которого работаете.
-- **Смотрите, что уже делают.** Перед началом: `gh pr list --state open --search <область>`
-  и открытые issues; не дублируйте чужую работу. Занятая задача — та, что назначена
-  исполнителю или помечена как взятая в работу.
-- **Малые PR.** Ориентир — до ~500 строк diff: один дефект или одна возможность.
-  Большие изменения сначала обсуждаются в issue, а не приезжают готовым поездом.
-- **Не трогайте релиз.** Метки и теги релиза ставит владелец; агент не пушит теги
-  `v*` и не меняет видимость репозитория.
-- **Изоляция обязательна.** Любой запуск игры или харнеса — со свежей пустой
-  `APPDATA` (Windows) или `XDG_DATA_HOME`/`XDG_CONFIG_HOME` (Linux): тесты пишут в
-  настоящий `user://`, и без изоляции вы правите профиль живого игрока.
-- **Карта репозитория** — в `README.md`; здесь описан процесс участия в проекте.
+- **Mark that an agent writes.** The PR body starts with a line like
+  `> 🤖 Opened by <login>'s AI agent (<tool, model>), not by <login> personally.`
+  (`<login>` is the account that opened the PR, `gh api user --jq .login`); in
+  issues — "Filed by …", in reviews — "Review by …", every comment starts with
+  `🤖 Agent:`. The commit carries `Co-Authored-By:` for the agent that wrote
+  it. Write only on behalf of the person you are working for.
+- **Check what is already being done.** Before starting:
+  `gh pr list --state open --search <area>` and open issues; do not duplicate
+  someone else's work. A taken task is one assigned to someone or marked as in
+  progress.
+- **Small PRs.** The guideline is up to ~500 lines of diff: one defect or one
+  feature. Bigger changes are discussed in an issue first, not shipped as a
+  ready-made train.
+- **Do not touch the release.** Release labels and tags are the owner's call;
+  an agent does not push `v*` tags and does not change repository visibility.
+- **Isolation is mandatory.** Every launch of the game or a harness uses a
+  fresh empty `APPDATA` (Windows) or `XDG_DATA_HOME`/`XDG_CONFIG_HOME` (Linux):
+  tests write to the real `user://`, and without isolation you are editing a
+  live player's profile.
+- **The repository map** is in `README.md`; this file describes the
+  contribution process.

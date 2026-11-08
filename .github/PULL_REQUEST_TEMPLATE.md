@@ -1,9 +1,9 @@
-# Что и почему
+# What and why
 
-<!-- 1–2 абзаца: какой дефект или возможность, и почему решение именно такое.
-Ссылка на issue, если он есть. -->
+<!-- 1–2 paragraphs: which defect or feature, and why the solution is this one.
+Link the issue if there is one. -->
 
-## Как проверить
+## How it was verified
 
 ```sh
 node tools/project.mjs import
@@ -11,17 +11,17 @@ node tools/project.mjs test --timeout 400
 node --test tools/project.test.mjs
 ```
 
-<!-- Если проверка требует живого окна (GPU, аудиовывод, геймпад) — скажите это
-прямо и напишите, что именно видели: `node tools/project.mjs run` или
+<!-- If verification needs a live window (GPU, audio output, gamepad) — say so
+directly and describe what you saw: `node tools/project.mjs run` or
 `p_live_probe`. -->
 
-## Проверьте себя
+## Self-check
 
-- [ ] Новая проверка **умела падать**: вернули прежнее поведение → получили `FAIL` → откатили. Зелёный `ALL PASS` из таймаута, невызванного `await` или «пусто ⇒ нечего проверять» — дефект, а не успех.
-- [ ] Полный headless-набор не ухудшился: 66 проверок → 54 pass / 8 partial / 4 skipped / 0 failed. `PARTIAL` печатается только когда часть действительно не проверена.
-- [ ] Комментарии, строки UI и сообщения коммитов по-русски; conventional prefix (`fix(ui): …`, `test: …`) и в теле — **почему**.
-- [ ] Смесь алфавитов проверена: `grep -rnIP "[\x{4E00}-\x{9FFF}\x{3040}-\x{30FF}]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" scripts tests tools README.md` пусто, склеек вида `[а-я][a-zA-Z]` тоже нет.
-- [ ] В diff нет локального мусора: `artifacts/`, `tests/out/`, `tests/tmpappdata/`, `*.tpz`, корневой `export_presets.cfg`.
-- [ ] Команды и пути переносимы: без `C:/Users/…` в коде, документации и workflow.
-- [ ] Если изменилось поведение игрока — обновлены `README.md` и `CHANGELOG.md`.
-- [ ] Границы кода не нарушены: `map_db.gd` остаётся фасадом, частицы — `CPUParticles3D`, реплей проигрывает записанное и не пересимулирует физику, аудиовывод один на процесс.
+- [ ] A new check **can fail**: restored the old behavior → got `FAIL` → rolled back. A green `ALL PASS` from a timeout, an un-awaited `await` or "nothing to check" is a defect, not success.
+- [ ] The full headless set did not regress: 66 checks → 54 pass / 8 partial / 4 skipped / 0 failed. `PARTIAL` is printed only when a part is genuinely not verified.
+- [ ] Commit message and code comments in **English**, conventional prefix (`fix(ui): …`, `test: …`), the body explains **why**.
+- [ ] Mixed-alphabet check passes: `grep -rnIP "[\x{4E00}-\x{9FFF}\x{3040}-\x{30FF}]" --include="*.gd" --include="*.tscn" --include="*.md" --include="*.mjs" scripts tests tools README.md` is empty.
+- [ ] No local junk in the diff: `artifacts/`, `tests/out/`, `tests/tmpappdata/`, `*.tpz`, the root `export_presets.cfg`.
+- [ ] Commands and paths are portable: no `C:/Users/…` in code, docs and workflows.
+- [ ] If player-visible behavior changed — `README.md` and `CHANGELOG.md` updated.
+- [ ] Code boundaries respected: `map_db.gd` stays a facade, particles are `CPUParticles3D`, the replay plays back what was recorded and does not re-simulate physics, audio output is one per process.

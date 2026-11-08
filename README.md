@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="docs/images/crumple.jpg" alt="Car Crash Simulator: кузов смят в точке удара, слева — телеметрия, снизу — полоса фотомода" width="100%">
+  <img src="docs/images/crumple.jpg" alt="Car Crash Simulator: the body crumpled at the impact point, telemetry on the left, photo mode bar at the bottom" width="100%">
 </p>
 
 <p align="center">
-  <a href="#что-в-игре"><b>Возможности</b></a> ·
-  <a href="#управление"><b>Управление</b></a> ·
-  <a href="#скачать"><b>Скачать</b></a> ·
-  <a href="#сборка-из-исходников"><b>Сборка</b></a> ·
-  <a href="#тесты"><b>Тесты</b></a> ·
+  <a href="#what-is-in-the-game"><b>Features</b></a> ·
+  <a href="#controls"><b>Controls</b></a> ·
+  <a href="#download"><b>Download</b></a> ·
+  <a href="#building-from-source"><b>Building</b></a> ·
+  <a href="#tests"><b>Tests</b></a> ·
   <a href="CONTRIBUTING.md"><b>Contributing</b></a>
 </p>
 
@@ -15,161 +15,165 @@
   <a href="https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml"><img src="https://github.com/lightcodegit/carcrashsimulator/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/license-MIT-F0795A" alt="license: MIT">
   <a href="https://godotengine.org/download/archive/"><img src="https://img.shields.io/badge/Godot-4.7.2%20stable-F0795A" alt="Godot 4.7.2"></a>
-  <img src="https://img.shields.io/badge/карт-6-F0795A" alt="6 карт">
-  <img src="https://img.shields.io/badge/машин-5-F0795A" alt="5 машин">
+  <img src="https://img.shields.io/badge/maps-6-F0795A" alt="6 maps">
+  <img src="https://img.shields.io/badge/cars-5-F0795A" alt="5 cars">
 </p>
 
 # Car Crash Simulator
 
-**3D-краш-песочница на Godot 4.7.** Разгоняйся, бейся и смотри, как кузов мнётся
-вмятинами ровно в точке удара: телеметрия заезда, реплей последних десяти секунд,
-фотомод со свободной камерой, гараж с тюнингом и окраской. Бесплатно, исходники
-открыты (MIT), ассеты — CC0.
+**A 3D crash sandbox built on Godot 4.7.** Speed up, crash and watch the car body
+crumple right at the point of impact: in-run telemetry, a replay of the last ten
+seconds, photo mode with a free camera, a garage with tuning and paint. Free,
+open source (MIT), CC0 assets.
 
-## Что уже в игре
+## What is in the game
 
-Всё перечисленное — в текущем релизе.
+Everything listed below ships in the current release.
 
-- **Деформация.** Вершины кузова смещаются вдоль вектора потери скорости:
-  лобовой, боковой и кормовой удары мнут свой борт; вмятины накапливаются
-  и сбрасываются рестартом.
-- **5 машин.** От тяжёлого пикапа до «Машины бесконечности» без потолка скорости;
-  у каждой паспортные vmax, масса, разгон и нитро с баком и пламенем.
-- **6 карт.** Испытательная арена, городок с припаркованными машинами, трасса
-  с финишной стеной, кольцевая гонка на километр, бесконечная лента плит
-  и большой город с районами.
-- **Реплей удара и фотомод.** Повтор последних 10 секунд с шагом и скоростью
-  проигрывания; свободная камера с зумом и снимками в PNG.
-- **Гараж.** Жёсткость подвески, демпферы, тяга, тормоз, сцепление, бак нитро
-  и окраска кузова в любой цвет; профиль хранится на каждую машину.
-- **Звук и вибрация.** Мотор, визг резины, удар и нитро синтезируются DSP-микшером;
-  геймпад вибрирует на ударе и заносе.
-- **Настройки и два языка.** Пресеты картинки, вся графика по пунктам, слоу-мо
-  и камера; интерфейс на русском и английском, переключается на ходу. Любое
-  действие переназначается на клавишу, кнопку или ось — клавиатура и геймпад
-  хранятся раздельно, модификаторы — часть назначения.
+- **Deformation.** Body vertices shift along the velocity-loss vector: head-on,
+  side and rear impacts crumple their own panel; dents accumulate and are
+  cleared by a restart.
+- **5 cars.** From a heavy pickup to the Endless car with no speed cap; each has
+  its own top speed, mass, acceleration and nitro with a tank and exhaust flame.
+- **6 maps.** A test arena, a town with parked cars, a drag strip with a finish
+  wall, a kilometre race loop, an endless strip of tiles and a big city with
+  districts.
+- **Impact replay and photo mode.** Replay of the last 10 seconds with stepping
+  and playback speed; a free camera with zoom and PNG screenshots.
+- **Garage.** Suspension stiffness, dampers, thrust, brakes, grip, the nitro
+  tank and body paint in any color; a profile is stored per car.
+- **Sound and vibration.** Engine, tire squeal, impact and nitro are synthesized
+  by a DSP mixer; the gamepad vibrates on impact and slides.
+- **Settings and two languages.** Image presets, every graphics option
+  individually, slow-mo and camera; the interface is English and Russian,
+  switchable on the fly. Every action can be rebound to a key, button or axis —
+  keyboard and gamepad are stored separately, modifiers are part of the binding.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/garage.jpg" alt="Гараж: зелёный седан в живом мире и панель тюнинга с окраской"></td>
-    <td width="50%"><img src="docs/images/skid.jpg" alt="Занос на арене: след резины остаётся на асфальте"></td>
+    <td width="50%"><img src="docs/images/garage.jpg" alt="Garage: a green sedan in a live world and the tuning panel with paint"></td>
+    <td width="50%"><img src="docs/images/skid.jpg" alt="A slide on the arena: a tire mark stays on the asphalt"></td>
   </tr>
 </table>
 
-## Производительность
+## Performance
 
-Симуляция стоит ≈1 мс на физический тик (6–7% бюджета шага 16.67 мс) — кадр
-упирается в рисование, поэтому рендер — GL Compatibility, а пресеты картинки
-собраны по замерам цены кадра. Замеры `tools/project.mjs test` (`p_perf`, живой
-рендер) на Intel HD 630 при 1600×900:
+The simulation costs ≈1 ms per physics tick (6–7% of the 16.67 ms step budget) —
+the frame is bounded by rendering, which is why the renderer is GL Compatibility
+and the image presets are priced from measured frame costs. Measured by
+`tools/project.mjs test` (`p_perf`, live rendering) on Intel HD 630 at 1600×900:
 
-| Конфигурация кадра (Compatibility) | Цена кадра |
+| Frame configuration (Compatibility) | Frame cost |
 | --- | --- |
-| только геометрия, без теней и пост-эффектов, масштаб 70% | **6.7 мс** |
-| дымка и свечение, тени 120 м (дефолт) | **13.7 мс** |
-| всё включено: SSAO/SSIL, MSAA 4×, тени 260 м | 29.4 мс |
-| мягкие тени 420 м, bloom, экспозиция 1.15 (кино) | 29.2 мс |
+| geometry only, no shadows or post effects, 70% scale | **6.7 ms** |
+| haze and glow, shadows 120 m (default) | **13.7 ms** |
+| everything on: SSAO/SSIL, MSAA 4×, shadows 260 m | 29.4 ms |
+| soft shadows 420 m, bloom, exposure 1.15 (film) | 29.2 ms |
 
-Дефолт влезает в 60 Гц на встроенной графике; пресеты «ВЫСОКОЕ» и «КИНО» —
-для дискретных GPU.
+The default fits a 60 Hz refresh on integrated graphics; the HIGH and FILM
+presets are for discrete GPUs.
 
-## Скачать
+## Download
 
-Готовые сборки публикуются на [странице релизов](https://github.com/lightcodegit/carcrashsimulator/releases):
-workflow `Release` собирает их автоматически по тегу `v*`, и номер тега сверяется
-с версией в `project.godot` и записью в `CHANGELOG.md`. Пока тега нет — собирайте
-из исходников (ниже) или скачивайте CI-артефакты со вкладки Actions.
+Ready builds are published on the
+[releases page](https://github.com/lightcodegit/carcrashsimulator/releases):
+the `Release` workflow assembles them automatically on a `v*` tag, and the tag
+number is checked against the version in `project.godot` and the `CHANGELOG.md`
+entry. Until the first tag, build from source (below) or grab CI artifacts from
+the Actions tab.
 
-| Платформа | Файл | Нужно |
+| Platform | File | Needs |
 | --- | --- | --- |
-| Windows x86_64 | `Car Crash Simulator.exe` + `.pck` | Windows 10/11, GPU с OpenGL 3.3 |
-| Linux x86_64 | `Car Crash Simulator.x86_64` + `.pck` | glibc-дистрибутив, X11 или Wayland |
+| Windows x86_64 | `Car Crash Simulator.exe` + `.pck` | Windows 10/11, a GPU with OpenGL 3.3 |
+| Linux x86_64 | `Car Crash Simulator.x86_64` + `.pck` | a glibc distribution, X11 or Wayland |
 
-После скачивания Linux-версии может понадобиться `chmod +x "Car Crash Simulator.x86_64"`.
+## Controls
 
-## Управление
-
-| Действие | Клавиатура | Геймпад |
+| Action | Keyboard | Gamepad |
 | --- | --- | --- |
-| Газ / тормоз | W / S | RT / LT |
-| Руль | A/D, ←/→ | левый стик |
-| Ручник / стояночный | Space | A (крестик) **или** L1 |
-| Нитро (удержание) | Shift | R1 |
-| Слоу-мо (удержание) | Ctrl | B |
-| Камера (погоня → капот → орбита) | C | X |
-| Рестарт | R | Y |
-| Пауза | Esc | Start |
+| Throttle / brake | W / S | RT / LT |
+| Steering | A/D, ←/→ | left stick |
+| Handbrake / parking brake | Space | A (cross) **or** L1 |
+| Nitro (hold) | Shift | R1 |
+| Slow-mo (hold) | Ctrl | B |
+| Camera (chase → hood → orbit) | C | X |
+| Restart | R | Y |
+| Pause | Esc | Start |
 
-Таблица — раскладка по умолчанию. Всё переопределяется в
-**НАСТРОЙКИ → УПРАВЛЕНИЕ** (из главного меню и из паузы): на клавишу, кнопку
-или ось геймпада; `Ctrl+F` и `F` — две разные клавиши, и в файле настроек они
-хранятся с модификаторами.
+The table is the default layout. Everything is rebound in
+**SETTINGS → CONTROLS** (from the main menu and from pause): to a key, button or
+gamepad axis; `Ctrl+F` and `F` are two different keys, and the settings file
+stores them with their modifiers.
 
-## Сборка из исходников
+## Building from source
 
-Нужны **Godot 4.7.2 stable** (не .NET) и **Node.js >=22** (без npm-зависимостей).
-Для экспорта — шаблоны **4.7.2.stable** через **Editor → Manage Export Templates**
-или из [официального релиза](https://github.com/godotengine/godot-builds/releases/tag/4.7.2-stable);
-CI скачивает этот же редактор и шаблоны, проверяя SHA-256.
+You need **Godot 4.7.2 stable** (not .NET) and **Node.js >=22** (no npm
+dependencies). For exporting, install the **4.7.2.stable** templates via
+**Editor → Manage Export Templates** or from the
+[official release](https://github.com/godotengine/godot-builds/releases/tag/4.7.2-stable);
+CI downloads the same editor and templates and verifies SHA-256.
 
 ```sh
 git clone https://github.com/lightcodegit/carcrashsimulator.git
 cd carcrashsimulator
-node tools/project.mjs import          # импорт ресурсов и классов
-node tools/project.mjs run             # запуск игры из исходников
-node tools/project.mjs build windows   # релиз в artifacts/build/windows/
+node tools/project.mjs import          # import resources and classes
+node tools/project.mjs run             # run the game from sources
+node tools/project.mjs build windows   # release into artifacts/build/windows/
 node tools/project.mjs build linux
 ```
 
-Godot ищется в PATH как `godot`; можно задать переменную `GODOT` или добавить
-`--godot "C:/path with spaces/Godot.exe"` к любой команде. `help <команда>` и
-`<команда> --help` описывают опции; import, test и build окон не открывают.
-Можно и без раннера: открыть `project.godot` в редакторе и нажать F5.
+Godot is looked up in PATH as `godot`; set the `GODOT` variable or pass
+`--godot "C:/path with spaces/Godot.exe"` to any command. `help <command>` and
+`<command> --help` describe the options; import, test and build open no windows.
+Alternatively, open `project.godot` in the editor and press F5.
 
-## Тесты
+## Tests
 
 ```sh
-node --test tools/project.test.mjs          # тесты самого раннера, Godot не нужен
+node --test tools/project.test.mjs          # tests of the runner itself, no Godot needed
+node tools/project.mjs import              # import resources and classes first
 node tools/project.mjs test --list
 node tools/project.mjs test --test d_assets --test h_crash --timeout 180
-node tools/project.mjs test                # весь набор, параллельно (--jobs N)
-node tools/project.mjs test --fail-on-skip # строгий режим: partial/skip тоже ошибка
+node tools/project.mjs test                # the whole set, in parallel (--jobs N)
+node tools/project.mjs test --fail-on-skip # strict mode: partial/skip is an error too
 ```
 
-Раннер находит `tests/**/d_*.gd` и `tests/**/h_*.tscn`; `--test` принимает
-точные имена из `--list`. Каждый тест получает изолированные `APPDATA`/`HOME`/
-`XDG_*` в системном temp — настройки игрока и результаты соседних тестов не
-подменяют дефолты. Успех требует строки `ALL PASS`, кода 0 и отсутствия
-`SCRIPT ERROR`/`FAIL`; `PARTIAL`/`SKIP` считаются отдельно и не равны pass.
-Тесты, которым нужен живой GPU, окно или геймпад, в headless честно сообщают
-partial либо помечены skipped; полное их покрытие — ручной прогон `p_live_probe`
-с живым окном (звук, дым, окраска, реплей и фотомод — пикселем и настоящим
-аудиовыводом). CI гоняет обе ОС и **обязательно запускает собранный билд**
-headless на несколько кадров: «экспортировалось» без «запустилось» сборкой
-не считается.
+The runner discovers `tests/**/d_*.gd` and `tests/**/h_*.tscn`; `--test` takes
+exact names from `--list`. Every test gets isolated `APPDATA`/`HOME`/`XDG_*`
+directories in the system temp — player settings and other tests' results never
+leak into defaults. Success requires an `ALL PASS` line, exit code 0 and no
+`SCRIPT ERROR`/`FAIL`; `PARTIAL`/`SKIP` are counted separately and do not count
+as a pass. Tests that need a live GPU, window or gamepad honestly report partial
+in headless or are marked skipped; their full coverage is a manual `p_live_probe`
+run with a live window (audio, smoke, paint, replay and photo mode — measured in
+pixels and with real audio output). CI runs both OSes and **always launches the
+exported build** headless for a few frames: "it exported" without "it runs"
+does not count as a build here.
 
 ## Contributing
 
-Процесс и очереди — в [CONTRIBUTING.md](CONTRIBUTING.md); если работу делает
-AI-агент, там же раздел «Если вы — агент».
+The process and the queues are in [CONTRIBUTING.md](CONTRIBUTING.md). **English
+is the language of the repository: new issues, commits and pull requests are
+written in English.** If the work is done by an AI agent, that file also has an
+"If you are an agent" section.
 
-## Лицензия
+## License
 
-Код, сцены и тесты — под **MIT** (`LICENSE`). Ассеты — не наши: `assets/` это
-CC0-наборы Kenney Car Kit и Racing Kit, их тексты лицензий лежат рядом с файлами
-и входят в сборку, а проверка `d_assets` следит, чтобы не потерялись. Имена
-«Godot» и «Kenney» — товарные знаки соответствующих владельцев, упомянуты только
-чтобы объяснить, на чём сделано.
+The code, scenes and tests are **MIT** (`LICENSE`). The assets are not ours:
+`assets/` holds the CC0 Kenney Car Kit and Racing Kit, their license texts sit
+next to the files and ship inside the build, and the `d_assets` test keeps track
+of them. "Godot" and "Kenney" are trademarks of their respective owners,
+mentioned only to explain what this is built with.
 
-Если берёте проект к себе: MIT требует сохранить уведомление об авторстве,
-CC0 не требует ничего, но сказать спасибо авторам наборов — хороший тон.
+If you take the project for yourself: MIT requires keeping the copyright
+notice, CC0 requires nothing, but thanking the kit authors is good manners.
 
-## Автор
+## Author
 
-Проект написал **crystaldev** ([@lightcodegit](https://github.com/lightcodegit)).
+The project was written by **crystaldev** ([@lightcodegit](https://github.com/lightcodegit)).
 
-## Контрибьюторы
+## Contributors
 
-На сегодня автор — единственный контрибьютор (151 коммит). Полный список по мере
-появления соавторов ведёт GitHub:
-[граф контрибьюторов](https://github.com/lightcodegit/carcrashsimulator/graphs/contributors).
+So far the author is the only contributor (151 commits). As co-authors appear,
+GitHub keeps the full list in the
+[contributors graph](https://github.com/lightcodegit/carcrashsimulator/graphs/contributors).

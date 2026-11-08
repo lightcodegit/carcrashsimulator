@@ -1,48 +1,35 @@
-name: Предложение
-description: Новая возможность или изменение поведения
+name: Feature request
+description: A new capability or a change in behavior
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Проект маленький, и «нет» здесь — нормальный ответ: у v1 есть явно
-        очерченная граница (см. README, раздел «Вне v1»). Помогает описание
-        проблемы, а не готовое решение.
+        The project is small, and "no" is a normal answer here: v1 has an
+        explicitly drawn boundary (see README, "Out of v1"). Describing the
+        problem helps more than proposing a ready-made solution.
+        **Please write in English** — the repository's issues are kept in
+        English.
   - type: textarea
     id: problem
     attributes:
-      label: Какая проблема за этим стоит
-      description: Что вы не можете сделать сегодня и чем это обходится.
-      placeholder: После долгой сессии вмятины накапливаются, и кузов выглядит одинаково — хочется сравнивать состояния.
+      label: What problem is behind this
+      description: What you cannot do today, and what it costs you.
+      placeholder: There is no way to compare two cars' braking distance without driving them by hand.
     validations:
       required: true
   - type: textarea
-    id: proposal
+    id: wish
     attributes:
-      label: Что предлагаете
-      description: Поведение со стороны игрока, а не имена функций.
+      label: What you would like to see
+      description: The behavior, not the implementation. How would you measure that the wish came true?
     validations:
       required: true
-  - type: textarea
-    id: alternatives
+  - type: checkboxes
+    id: boundary
     attributes:
-      label: Какие альтернативы рассматривали
-  - type: textarea
-    id: done
-    attributes:
-      label: По чему видно, что получилось
-      description: Проверяемое утверждение. Идеально — строка теста, которая могла бы падать до правки.
-      placeholder: Снимок фотомода после «БЕЗ HUD» не содержит панели интерфейса.
-    validations:
-      required: true
-  - type: dropdown
-    id: scope
-    attributes:
-      label: Как относится к границе v1
-      description: AI-трафик, сеть, манекены, отрыв панелей и фотореализм — вне v1 осознанно и лицензионно.
+      label: v1 boundary
+      description: These are explicitly outside v1 — the issue will likely be declined.
       options:
-        - внутри v1
-        - расширение уже сделанного
-        - похоже, вне v1 — хочу обсудить
-    validations:
-      required: true
+        - label: I understand networking, AI traffic, falling-off parts and photorealism are out of v1
+          required: true

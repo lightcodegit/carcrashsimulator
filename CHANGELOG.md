@@ -1,13 +1,13 @@
-# Журнал изменений
+# Changelog
 
-Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии —
-[семантическое версионирование](https://semver.org/lang/ru/). Номер версии живёт
-в `project.godot` (`application/config/version`), и релизный workflow отказывается
-публиковать тег, который ему не равен.
+The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+versions follow [semantic versioning](https://semver.org/). The version number
+lives in `project.godot` (`application/config/version`), and the release
+workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
-### Добавлено
+### Added
 
-- Переключение языка интерфейса между русским и английским в настройках; выбор
-  сохраняется между запусками.
+- Interface language switching between Russian and English in the settings;
+  the choice persists across launches.

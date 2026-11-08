@@ -1,92 +1,51 @@
-name: Баг
-description: Что-то работает не так — падение, графика, физика, звук, интерфейс
+name: Bug report
+description: Something does not work as expected — a crash, graphics, physics, sound, interface
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Спасибо. Ниже — минимум, при котором дефект можно воспроизвести без
-        переписки. Если чего-то не знаете, так и напишите: честное «не проверил»
-        полезнее догадки.
+        Thank you. Below is the minimum needed to reproduce the defect without
+        a follow-up conversation. If you are missing some detail, say so
+        directly: an honest "I did not check" is more useful than a guess.
+        **Please write in English** — the repository's issues are kept in
+        English.
   - type: textarea
     id: what
     attributes:
-      label: Что произошло
-      description: Факт, а не вывод. «Кузов почернел после окраски в metallic=0», а не «материалы сломаны».
-      placeholder: Машина на крыше после удара не предлагает рестарт, подсказка не появляется.
+      label: What happened
+      description: A fact, not a conclusion. "The body turned black after painting with metallic=0", not "materials are broken".
+      placeholder: The car stayed on its roof after a crash and no restart hint appears.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Шаги воспроизведения
-      description: Машина → карта → действия. Скорость и угол, если важны.
-      value: |
-        1. 
-        2. 
-        3. 
-    validations:
-      required: true
-  - type: dropdown
-    id: build
-    attributes:
-      label: Откуда играли
-      options:
-        - готовая сборка из Releases (Windows)
-        - готовая сборка из Releases (Linux)
-        - из исходников (Godot, F5)
-        - headless-тест (`node tools/project.mjs test`)
-    validations:
-      required: true
-  - type: input
-    id: version
-    attributes:
-      label: Версия игры
-      description: Номер тега сборки, либо вывод `git describe --tags` из исходников.
-      placeholder: git describe --tags
-    validations:
-      required: true
-  - type: textarea
-    id: env
-    attributes:
-      label: ОС, видеокарта, версия движка
-      description: >
-        Godot 4.7.2 stable — стандартный (не .NET). GPU и драйвер важны: часть
-        проверок зависит от железа.
+      label: Steps to reproduce
+      description: Numbered steps from launching the game to the failure, with the map and car named.
       placeholder: |
-        Windows 11 24H2, Intel UHD 730 (драйвер 31.0.101.6327), Godot 4.7.2.stable
-        Размер окна: 1600×900, масштаб интерфейса: 0.7
+        1. Start simulation on the Arena with the sedan
+        2. Accelerate into the wall
+        3. ...
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Что ожидалось
+      label: What was expected
+      description: What the game should have done instead.
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Version and platform
+      description: A release tag (v*) or `git describe --tags`, the OS and the GPU. From the Help menu of the export, or from the console output of `node tools/project.mjs run`.
+      placeholder: v0.1.0, Windows 11, Intel UHD 730
     validations:
       required: true
   - type: textarea
-    id: evidence
+    id: context
     attributes:
-      label: Доказательства
-      description: >
-        Скриншот или короткий видео-гиф. Если есть — последние строки лога: в
-        собранной игре это `Car Crash Simulator.log` в каталоге пользовательских
-        данных (`%APPDATA%\Godot\app_userdata\Car Crash Simulator` на Windows,
-        `~/.local/share/godot/app_userdata/Car Crash Simulator` на Linux); при
-        прогоне из исходников — `artifacts/logs/<затом>/<тест>/*.log`.
-      placeholder: "SCRIPT ERROR: ... в dent_body.gd, или кадр с чёрным кузовом"
-  - type: checkboxes
-    id: checks
-    attributes:
-      label: Что уже проверено
-      options:
-        - label: Искал такой баг в открытых и закрытых issues
-          required: true
-        - label: Проверил на чистой папке настроек (`APPDATA=<пустая папка>` на Windows) — не помогло
-          required: false
-        - label: Прогнал `node tools/project.mjs test` из исходников — тесты зелёные, но дефект есть
-          required: false
-  - type: markdown
-    attributes:
-      value: |
-        Про безопасность — не сюда: см. [SECURITY.md](https://github.com/lightcodegit/carcrashsimulator/blob/main/SECURITY.md).
+      label: Anything else
+      description: Screenshots, recordings, the settings.cfg contents (without personal data). Attach images by dragging them here.

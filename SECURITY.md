@@ -1,59 +1,67 @@
-# Безопасность
+# Security
 
-## Модель угроз в двух абзацах
+## The threat model in two paragraphs
 
-Игра работает офлайн: сети, аккаунтов, серверов и телеметрии в ней нет. Значит
-удалённая атака возможна только через данные, которые игрок сам принёс в свой
-профиль, или через сборку, которую он скачал. Проблемы в коде игры исправляет
-проект, а безопасность сторонних сборок зависит от их источника.
+The game runs offline: there is no networking, accounts, servers or telemetry
+in it. So a remote attack is only possible through data the player brought into
+their own profile, or through a build the player downloaded. Problems in the
+game's code are fixed by the project; the security of third-party builds
+depends on their source.
 
-Профиль игрока лежит в `user://` (`settings.cfg`, `garage_v1.json`, снимки
-фотомода в `photos/`). Всё это читается из GDScript и не попадает в SQL, shell
-или eval; пути в коде константные, склейки из внешнего ввода в путях нет.
-Отсюда реальный класс дефектов — не «эксплойт», а порча состояния: зависание при
-загрузке, потеря настроек, NaN в физике, чёрный кузов. Такие вещи мы лечим и
-считаем багом, а не уязвимостью.
+The player profile lives in `user://` (`settings.cfg`, `garage_v1.json`, photo
+mode shots in `photos/`). All of it is read from GDScript and never reaches
+SQL, shell or eval; paths in the code are constant, and no external input is
+concatenated into paths. So the real defect class here is not an "exploit" but
+state corruption: a hang on load, lost settings, NaN in physics, a black body.
+We fix those and count them as bugs, not vulnerabilities.
 
-## Что закрыто и чем это проверено
+## What is covered, and how it is verified
 
-- **Враждебные файлы профиля.** Битый JSON, массив вместо словаря, ключ чужой
-  версии, файл больше 1 МиБ, нечисловые и бесконечные значения тюнинга, чужие
-  поля, отсутствующая машина — всё это откатывается к заводским настройкам, а
-  остальная часть файла продолжает читаться. Проверено тестами `d_garage_profiles`,
-  `h_settings_robust`, `h_wrap`.
-- **Атомарная запись.** Гараж пишется через `.tmp` и переименование: сбой посреди
-  записи не оставляет полфайла. Проверено (`failed save preserves old file`).
-- **Назначения клавиш.** Токены из `settings.cfg` проверяются на формат и границы
-  (`k70+CS`, `b3@1`, `a0_50`): мусорное число не превращается в бинд, который
-  нельзя выжать, и не вытесняет настоящий. Проверено в `h_settings_robust`.
-- **CI и supply chain.** Официальные Godot и шаблоны экспорта скачиваются по
-  имени и сверяются по SHA-256 **до** распаковки; действия закреплены коммитами,
-  а не тегами; у дефолтного workflow `permissions: contents: read`,
-  `persist-credentials: false`, нет `pull_request_target` и нет подстановки
-  `github.event.*` в команды. Права на запись есть только у релижного workflow,
-  и он запускается по тегу из этого репозитория, а не из чужого PR.
+- **Hostile profile files.** Broken JSON, an array instead of a dictionary, a
+  key from a foreign version, a file over 1 MiB, non-numeric and infinite
+  tuning values, foreign fields, a missing car — all of it rolls back to
+  factory settings while the rest of the file keeps loading. Verified by the
+  `d_garage_profiles`, `h_settings_robust` and `h_wrap` tests.
+- **Atomic writes.** The garage is written through a `.tmp` file and a rename:
+  a crash mid-write leaves no half-file. Verified (`failed save preserves old
+  file`).
+- **Key bindings.** Tokens from `settings.cfg` are checked for format and
+  bounds (`k70+CS`, `b3@1`, `a0_50`): a garbage number does not become an
+  unpressable binding and does not displace a real one. Verified in
+  `h_settings_robust`.
+- **CI and the supply chain.** The official Godot and export templates are
+  downloaded by name and verified by SHA-256 **before** unpacking; actions are
+  pinned by commits, not tags; the default workflow has
+  `permissions: contents: read`, `persist-credentials: false`, no
+  `pull_request_target` and no `github.event.*` interpolation into shell
+  commands. Only the release workflow has write permissions, and it runs on a
+  tag from this repository, not from a foreign PR.
 
-## Что не считается уязвимость
+## What is not a vulnerability
 
-- Вредоносный `.pck` или чужая сборка: движок выполняет код пакета по своей
-  модели доверия. Доверяйте источнику сборки — официальные лежат в Releases.
-- Порча собственного профиля игроком: файлы его, и ломать их он вправе.
-- Деструктивные действия с производительностью (задержать fps огромным числом
-  предметов) — это баг баланса, если он мешает играть; заведите issue.
+- A malicious `.pck` or a foreign build: the engine executes package code under
+  its own trust model. Trust the source of the build — official ones live in
+  Releases.
+- A player corrupting their own profile: the files are theirs, they may break
+  them.
+- Destructive performance actions (stalling the fps with a huge number of
+  props) — that is a balance bug if it makes the game unplayable; open an issue.
 
-## Как сообщить
+## How to report
 
-Если в разделе **Security** репозитория доступна кнопка **Report a vulnerability**,
-отправьте отчёт через неё. Если кнопки нет, используйте контактные данные,
-опубликованные владельцем проекта в [профиле GitHub](https://github.com/lightcodegit),
-и попросите приватный канал для передачи деталей. Не заводите публичный issue
-с описанием уязвимости.
+If the repository's **Security** tab has a **Report a vulnerability** button,
+send the report through it. If there is no button, use the contact details
+published by the project owner on their
+[GitHub profile](https://github.com/lightcodegit) and ask for a private channel
+to hand over the details. Do not open a public issue describing a
+vulnerability.
 
-Полезно указать: версию (`v*` или `git describe --tags`), ОС и GPU, минимальный
-шаг воспроизведения, содержимое проблемного файла профиля (если оно через него),
-и что именно сломалось — вылет, порча данных или утечка.
+Useful things to include: the version (`v*` or `git describe --tags`), the OS
+and GPU, minimal reproduction steps, the contents of the offending profile file
+(if it goes through one), and what exactly broke — a crash, data corruption or
+a leak.
 
-Поддерживает проект один человек, поэтому сроки честные: подтверждение в течение
-~7 дней, фикс — по мере возможности, без гарантий. Публичного вознаграждения нет.
-Отчёты по классам «что закрыто» выше уже имеют тесты — если вы нашли способ их
-обойти, это как раз то, что интересно.
+The project is maintained by one person, so the terms are honest:
+confirmation within ~7 days, a fix as time allows, no guarantees. There is no
+public bounty. Reports in the "what is covered" classes above already have
+tests — if you found a way around them, that is exactly what is interesting.

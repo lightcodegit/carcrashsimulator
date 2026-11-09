@@ -80,24 +80,25 @@
             </div>
             <div class="bar" id="b-bar">
               <i class="fill" id="b-fill"></i>
-              <u class="budget"></u>
-              <input type="range" id="b-scale" min="50" max="100" step="1" value="70"
-                     aria-label="Render scale, percent">
+              <u class="budget" id="b-budget"></u>
+              <input type="range" id="b-scale" min="11" max="20" step="0.05" value="13.7"
+                     aria-label="Frame cost, milliseconds">
             </div>
+            <p class="scale-readout" id="b-scale-readout">render scale 70%</p>
           </div>
           <div class="brow">
             <div class="brow-head">
               <span class="brow-label">60 Hz budget</span>
               <span class="readout"><span>16.7</span><small>ms</small></span>
             </div>
-            <div class="bar dim"><i class="fill" style="width:50%"></i><u class="budget"></u></div>
+            <div class="bar dim"><i class="fill" style="width:50%"></i></div>
           </div>
           <div class="brow">
             <div class="brow-head">
               <span class="brow-label">Resulting frame rate</span>
               <span class="readout"><span id="b-fps">73</span><small>fps</small></span>
             </div>
-            <div class="bar dim"><i class="fill" id="b-fpsfill"></i><u class="budget"></u></div>
+            <div class="bar dim"><i class="fill" id="b-fpsfill"></i></div>
           </div>
         </div>
 

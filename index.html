@@ -12,6 +12,7 @@
   <meta property="og:image" content="assets/crumple.jpg">
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
   <link rel="stylesheet" href="style.css">
+  <script src="bench.js" defer></script>
 </head>
 <body>
   <header class="nav">
@@ -58,31 +59,50 @@
 
   <section class="section frames" id="frames">
     <div class="wrap">
-      <h2 class="reveal">A full frame<br>in 6.7 milliseconds.</h2>
-      <p class="lede reveal">Measured live on Intel UHD 730 at 1600×900 — GL Compatibility,
-      every effect from the game's own presets. Drag the preset and watch what fits
-      into a 60 Hz frame budget of 16.7 ms.</p>
       <div class="bench reveal">
-        <div class="bench-display">
-          <div class="bench-ms"><span id="bench-ms">13.7</span><small>ms / frame</small></div>
-          <div class="bench-verdict" id="bench-verdict">fits 60 Hz</div>
+        <p class="bench-label">Benchmarks</p>
+        <h2 class="bench-title"><span class="accent" id="b-name">MEDIUM</span> composition.</h2>
+        <p class="bench-lede">The measured frame cost of this preset composition, live rendering
+        at 1600×900. Drag the render scale bar to try your own frame budget.</p>
+
+        <div class="rows">
+          <div class="brow">
+            <div class="brow-head">
+              <span class="brow-label"><img src="assets/logo.svg" alt="" width="16" height="16">Rendered frame</span>
+              <span class="readout strong"><span id="b-ms">13.7</span><small>ms</small></span>
+            </div>
+            <div class="bar" id="b-bar">
+              <i class="fill" id="b-fill"></i>
+              <u class="budget"></u>
+              <input type="range" id="b-scale" min="50" max="100" step="1" value="70"
+                     aria-label="Render scale, percent">
+            </div>
+          </div>
+          <div class="brow">
+            <div class="brow-head">
+              <span class="brow-label">60 Hz budget</span>
+              <span class="readout"><span>16.7</span><small>ms</small></span>
+            </div>
+            <div class="bar dim"><i class="fill" style="width:50%"></i><u class="budget"></u></div>
+          </div>
+          <div class="brow">
+            <div class="brow-head">
+              <span class="brow-label">Resulting frame rate</span>
+              <span class="readout"><span id="b-fps">73</span><small>fps</small></span>
+            </div>
+            <div class="bar dim"><i class="fill" id="b-fpsfill"></i><u class="budget"></u></div>
+          </div>
         </div>
-        <input type="range" id="bench-range" min="0" max="3" value="1" step="1"
-               aria-label="Graphics preset">
-        <div class="bench-presets" id="bench-presets">
-          <button data-i="0">LOW</button><button data-i="1" class="on">MEDIUM</button><button data-i="2">HIGH</button><button data-i="3">FILM</button>
+
+        <p class="bench-verdict" id="b-verdict">fits 60 Hz (default preset)</p>
+
+        <div class="presets" id="b-presets">
+          <button data-q="0">LOW</button><button data-q="1" class="on">MEDIUM</button><button data-q="2">HIGH</button><button data-q="3">FILM</button>
         </div>
-        <div class="bench-bar"><i id="bench-fill"></i><u></u></div>
-        <p class="bench-note">Preset composition measured by the game's own test runner
-        (<code>p_perf</code>, live rendering). The budget line marks 16.7 ms — one 60 Hz frame.</p>
+        <p class="bench-note">Drag the top bar: the render scale moves the pixel-dependent
+        share of the frame (the game ships at 70%). The preset buttons set the effect
+        composition measured by <code>p_perf</code>, live rendering.</p>
       </div>
-      <table class="tbl reveal">
-        <tr><th>Frame configuration (GL Compatibility)</th><th>Cost</th><th>60 Hz</th></tr>
-        <tr><td>LOW — geometry, 70% scale</td><td>6.7 ms</td><td class="ok">fits</td></tr>
-        <tr><td>MEDIUM — haze, glow, shadows 120 m (default)</td><td>13.7 ms</td><td class="ok">fits</td></tr>
-        <tr><td>HIGH — SSAO/SSIL, MSAA 4×, shadows 260 m</td><td>29.4 ms</td><td class="mid">discrete GPU</td></tr>
-        <tr><td>FILM — soft shadows 420 m, bloom</td><td>29.2 ms</td><td class="mid">discrete GPU</td></tr>
-      </table>
     </div>
   </section>
 

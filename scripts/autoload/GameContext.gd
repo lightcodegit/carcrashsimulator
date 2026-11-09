@@ -19,6 +19,9 @@ func _ready() -> void:
 	select(Settings.last_car, Settings.last_map)
 	_build_loading()
 	set_process(false)   # анимация крутится только пока экран загрузки виден
+	# Версия в заголовке окна ОС: видно, какой билд запущен, не заглядывая в меню.
+	var ver: String = ProjectSettings.get_setting("application/config/version")
+	DisplayServer.window_set_title("Car Crash Simulator v" + ver)
 
 func select(c: String, m: String) -> void:
 	if c in VehicleDB.ids(): car_id = c

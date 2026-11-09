@@ -190,6 +190,22 @@ func _ready() -> void:
 	var menu_texts := _texts(get_tree().current_scene)
 	check("ГАЗ:" not in menu_texts and "РУЧНИК:" not in menu_texts,
 		"в меню нет строки с раскладкой (%s)" % menu_texts.left(120))
+
+	# 6) на паузе ввод не жгёт машину: рулёжка наследует ALWAYS от менеджера,
+	# и зажатые газ+нитро на паузе утягивали бак, пока машина стояла
+	Input.action_press("throttle")
+	Input.action_press("nitro")
+	gm.car.nitro = gm.car.params.nitro_capacity
+	gm._set_paused(true)
+	for f in 120:
+		await get_tree().physics_frame
+	Input.action_release("throttle")
+	Input.action_release("nitro")
+	gm._set_paused(false)
+	for f in 10:
+		await get_tree().physics_frame
+	check(gm.car.nitro >= gm.car.params.nitro_capacity - 0.5,
+		"нитро не утекает на паузе (%.1f из %.1f)" % [gm.car.nitro, gm.car.params.nitro_capacity])
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 

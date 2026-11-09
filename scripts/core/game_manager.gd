@@ -106,6 +106,9 @@ func _ready() -> void:
 	hud.replay_step_requested.connect(func(d: int) -> void: replay_player.scrub(d))
 	hud.replay_play_requested.connect(func() -> void: replay_player.toggle_play())
 	hud.replay_rate_requested.connect(func(d: int) -> void: replay_player.bump_rate(d))
+	hud.replay_shot_requested.connect(_replay_shot)
+	hud.replay_load_requested.connect(_replay_load_tape)
+	Input.joy_connection_changed.connect(_on_joy_changed)
 	replay_player.cursor_changed.connect(_on_replay_cursor)
 	replay_player.stopped.connect(_on_replay_stopped)
 	photo = PhotoMode.new()
@@ -362,6 +365,44 @@ func _respawn_now() -> void:
 # ── реплей удара ────────────────────────────────────────────────────────────
 # Мир ставится на ту же паузу, что и меню: физика не считает ни шага, а плеер
 # только перекладывает записанные кадры. Поэтому «повтор» — не пересимуляция.
+func _replay_load_tape() -> void:
+	if replay == null or not replay.adopt_tape(ReplayRecorder.tape_at(ReplayRecorder.replay_path(GameContext.map_id))):
+		return
+	replay_player.seek(replay.window_start())
+	hud.show_tip(I18n.fmt("РЕПЛЕЙ ПРОШЛОГО ЗАЕЗДА: кадров %d", [replay.count()]))
+
+# Кадр из повтора на диск: тот же вьюпорт, что видит игрок. Отдельная серия
+# файлов — фотомодные снимки не должны перезаписываться повторами.
+var _replay_shot_i := -1
+
+func _replay_shot() -> void:
+	var vp := get_viewport()
+	if vp == null: return
+	var tex := vp.get_texture()
+	if tex == null: return
+	var img := tex.get_image()
+	if img == null or img.get_width() <= 0:
+		hud.show_tip(I18n.t("СНИМОК НЕ ПОЛУЧИЛСЯ: НЕТ ЖИВОГО КАДРА"))
+		return
+	if _replay_shot_i < 0:
+		_replay_shot_i = 0
+		var d := DirAccess.open("user://photos")
+		if d != null:
+			for f in d.get_files():
+				if f.begins_with("replay_") and f.ends_with(".png"):
+					_replay_shot_i = maxi(_replay_shot_i, int(f.trim_prefix("replay_").trim_suffix(".png")))
+	_replay_shot_i += 1
+	var path := "user://photos/replay_%04d.png" % _replay_shot_i
+	if img.save_png(path) != OK:
+		hud.show_tip(I18n.t("СНИМОК НЕ ПОЛУЧИЛСЯ: НЕТ ПРАВА ЗАПИСИ"))
+		return
+	hud.show_tip(I18n.fmt("СНИМОК РЕПЛЕЯ: %s", [path.replace("user://", "")]))
+
+func _on_joy_changed(connected: bool, _index: int, _name: String) -> void:
+	if hud == null: return
+	hud.show_tip(I18n.t("ГЕЙМПАД ПОДКЛЮЧЁН: ВИБРАЦИЯ И БИНДЫ АКТИВНЫ") if connected
+		else I18n.t("ГАДЖЕТ ОТКЛЮЧЁН"))
+
 func _open_replay() -> void:
 	_set_paused(true)
 	if replay_player.begin_default():
@@ -369,12 +410,17 @@ func _open_replay() -> void:
 		hud.set_replay_ui(true)
 		_release_inputs()
 		_on_replay_cursor(replay_player.cursor, replay.window_end())
+		hud.set_replay_tape_available(ReplayRecorder.has_tape(GameContext.map_id))
 	else:
 		hud.show_tip("окно реплея пусто — разгонитесь и ударьтесь")
 		_set_paused(false)
 
 func _exit_replay() -> void:
 	if replay_player == null or not replay_player.active: return
+	# Лента уходит на диск ДО выхода: на выходе кольцо ещё полное, а после
+	# сброса интерполяции его уже не восстановить.
+	if replay.save_to(ReplayRecorder.replay_path(GameContext.map_id)):
+		hud.show_tip(I18n.fmt("РЕПЛЕЙ СОХРАНЁН: %s", [ReplayRecorder.replay_path(GameContext.map_id).replace("user://", "")]))
 	replay_player.end()
 	hud.set_replay_ui(false)
 	_set_paused(false)

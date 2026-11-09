@@ -13,6 +13,8 @@ signal replay_requested
 signal replay_step_requested(dir: int)
 signal replay_play_requested
 signal replay_rate_requested(dir: int)
+signal replay_shot_requested
+signal replay_load_requested
 signal replay_exit_requested
 signal photo_requested
 signal photo_shot_requested
@@ -131,6 +133,7 @@ var _replay_panel: Control
 var _replay_title: Label
 var _replay_info: Label
 var _replay_fill: ColorRect
+var _replay_load_btn: Button   # «ПРОШЛЫЙ»: виден, когда сохранённый повтор этой карты лежит на диске
 var _replay_buttons: Array[Button] = []
 var _photo_panel: Control
 var _photo_info: Label
@@ -408,8 +411,8 @@ func _build_replay(root: Control) -> void:
 	panel.anchor_right = 0.5
 	panel.anchor_top = 1.0
 	panel.anchor_bottom = 1.0
-	panel.offset_left = -UiTheme.fx(340)
-	panel.offset_right = UiTheme.fx(340)
+	panel.offset_left = -UiTheme.fx(434)
+	panel.offset_right = UiTheme.fx(434)
 	panel.offset_top = -UiTheme.fx(130)
 	panel.offset_bottom = -UiTheme.fx(34)
 	panel.visible = false
@@ -426,7 +429,7 @@ func _build_replay(root: Control) -> void:
 	bg.color = Color(1, 1, 1, 0.10)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.position = Vector2(UiTheme.fx(14), UiTheme.fx(30))
-	bg.size = Vector2(UiTheme.fx(652), UiTheme.fx(4))
+	bg.size = Vector2(UiTheme.fx(840), UiTheme.fx(4))
 	panel.add_child(bg)
 	_replay_fill = ColorRect.new()
 	_replay_fill.color = ACCENT
@@ -440,24 +443,38 @@ func _build_replay(root: Control) -> void:
 		["ШАГ ▶", func() -> void: replay_step_requested.emit(1)],
 		["МЕДЛЕННЕЕ", func() -> void: replay_rate_requested.emit(-1)],
 		["БЫСТРЕЕ", func() -> void: replay_rate_requested.emit(1)],
+		["СНИМОК", func() -> void: replay_shot_requested.emit()],
+		["ПРОШЛЫЙ", func() -> void: replay_load_requested.emit()],
 		["ВЫХОД", _replay_exit_cb],
 	]
 	for i in rows.size():
 		var b := Button.new()
 		I18n.bind(b, rows[i][0] as String)
-		b.position = Vector2(UiTheme.fx(14 + i * 110), UiTheme.fx(42))
-		b.size = Vector2(UiTheme.fx(102), UiTheme.fx(44))
+		b.position = Vector2(UiTheme.fx(14 + i * 106), UiTheme.fx(42))
+		b.size = Vector2(UiTheme.fx(96), UiTheme.fx(44))
 		b.focus_mode = Control.FOCUS_ALL
 		b.add_theme_font_size_override("font_size", UiTheme.px(13))
 		(b.pressed as Signal).connect(rows[i][1] as Callable)
 		panel.add_child(b)
 		_replay_buttons.append(b)
+		# «ПРОШЛЫЙ» виден только когда на диске лежит сохранённый повтор этой карты:
+		# кнопка есть всегда, чтобы порядок биндов и фокуса не переезжал
+		if String(rows[i][0]) == "ПРОШЛЫЙ": _replay_load_btn = b
 
 func set_replay_ui(v: bool) -> void:
 	if _replay_panel == null: return
 	_replay_panel.visible = v
+	if _replay_load_btn != null: _replay_load_btn.visible = v and _replay_tape_available
 	if v and not _replay_buttons.is_empty():
 		_replay_buttons[1].grab_focus()     # фокус на «ПАУЗА/ПУСК»: стрелками дальше шаг и скорость
+
+var _replay_tape_available := false
+
+# Панель рисуется при сборке HUD, когда файл ещё не проверишь — доступность
+# «ПРОШЛОГО» приходит отдельно, при открытии повторов.
+func set_replay_tape_available(v: bool) -> void:
+	_replay_tape_available = v
+	if _replay_load_btn != null: _replay_load_btn.visible = v and _replay_panel != null and _replay_panel.visible
 
 func set_replay_info(t: float, total: float, rate: float, playing: bool, dents: int) -> void:
 	if _replay_info == null: return

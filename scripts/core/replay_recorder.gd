@@ -169,6 +169,50 @@ func clear() -> void:
 	dents.clear()
 	_acc = 0.0
 
+# ---- сохранение и загрузка ленты на диск ------------------------------------
+# Лента самодостаточна: id карты и машины нужны, чтобы повтор принимался только
+# той же картой (предметы в кадре — индексы в её же раскладке), а машина — чтобы
+# отображение скорости и нитро совпадало с записью.
+
+static func replay_path(map_id: String) -> String:
+	return "user://replays/last_%s.replay" % map_id
+
+static func has_tape(map_id: String) -> bool:
+	return FileAccess.file_exists(replay_path(map_id))
+
+static func tape_at(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null: return {}
+	var v: Variant = f.get_var()
+	if v is Dictionary and v.has("frames") and v.has("dents"): return v
+	return {}
+
+func save_to(path: String) -> bool:
+	if frames.is_empty(): return false
+	var d := DirAccess.open("user://")
+	if d != null and not d.dir_exists("replays") and d.make_dir("replays") != OK: return false
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null: return false
+	f.store_var({
+		"version": 1, "car": GameContext.car_id, "map": GameContext.map_id,
+		"frames": frames, "dents": dents, "sim_t": sim_t,
+	})
+	var ok := f.get_error() == OK
+	f.close()   # не дожидаясь сборщика: файл мог понадобиться сразу после записи
+	return ok
+
+# Принимает сохранённую ленту В ЖИВОЙ рекордер той же карты: окно и вмятины
+# замещаются, счётчики откатываются. Плеер после этого обязан перемотаться на
+# начало — _apply_dents пересоберёт кузов с нуля.
+func adopt_tape(tape: Dictionary) -> bool:
+	if tape.get("map", "") != GameContext.map_id: return false
+	if not (tape.get("frames", []) is Array) or (tape["frames"] as Array).is_empty(): return false
+	frames = (tape["frames"] as Array).duplicate()
+	dents = (tape.get("dents", []) as Array).duplicate()
+	sim_t = float(tape.get("sim_t", 0.0))
+	_acc = 0.0
+	return true
+
 # Память кольца: кадр — ~30 float на машину плюс предметы. Считается честной,
 # если в буфере хотя бы один кадр.
 func bytes_used() -> int:

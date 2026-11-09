@@ -36,6 +36,8 @@
 
   <section class="hero" id="top">
     <div class="wrap">
+      <div class="hero-grid">
+      <div class="hero-copy">
       <p class="kicker reveal">Godot 4.7 · Written in GDScript · Free, MIT + CC0</p>
       <h1 class="reveal">Car Crash Simulator:<br>the sandbox where every dent is real.</h1>
       <p class="lede reveal">Speed up, hit anything and the car body crumples right at the point
@@ -49,6 +51,11 @@
         <span>Windows</span><i>·</i><span>Linux</span><i>·</i>
         <span>v0.1.1</span><i>·</i><span>one file per platform</span>
       </p>
+      </div>
+      <div class="hero-emblem">
+        <img src="assets/logo.svg" alt="The game emblem: an amber gauge ring, a dark disc and a car with a crumpled nose inside an eight-point impact star" width="260" height="260">
+      </div>
+      </div>
     </div>
     <div class="wrap">
       <figure class="hero-shot reveal">
@@ -244,31 +251,6 @@
   </footer>
 
   <script>
-    // Пресет -> цена кадра: интерактивный бенчмарк.
-    const PRESETS = [
-      { ms: 6.7,  name: "LOW",    verdict: "fits 60 Hz with room to spare" },
-      { ms: 13.7, name: "MEDIUM", verdict: "fits 60 Hz (default preset)" },
-      { ms: 29.4, name: "HIGH",   verdict: "needs a discrete GPU at 60 Hz" },
-      { ms: 29.2, name: "FILM",   verdict: "needs a discrete GPU at 60 Hz" }
-    ];
-    const msEl = document.getElementById("bench-ms");
-    const verdictEl = document.getElementById("bench-verdict");
-    const fillEl = document.getElementById("bench-fill");
-    const rangeEl = document.getElementById("bench-range");
-    const buttons = document.querySelectorAll("#bench-presets button");
-    function show(i) {
-      const p = PRESETS[i];
-      msEl.textContent = p.ms.toFixed(1);
-      verdictEl.textContent = p.verdict;
-      verdictEl.className = "bench-verdict " + (p.ms <= 16.7 ? "ok" : "warn");
-      fillEl.style.width = Math.min(100, p.ms / 33.4 * 100) + "%";
-      fillEl.style.background = p.ms <= 16.7 ? "var(--amber)" : "var(--hot)";
-      rangeEl.value = i;
-      buttons.forEach((b, j) => b.classList.toggle("on", j === i));
-    }
-    rangeEl.addEventListener("input", () => show(+rangeEl.value));
-    buttons.forEach((b, j) => b.addEventListener("click", () => show(j)));
-    show(1);
     // Появление секций по скроллу.
     const obs = new IntersectionObserver(entries => {
       for (const e of entries) if (e.isIntersecting) { e.target.classList.add("visible"); obs.unobserve(e.target); }

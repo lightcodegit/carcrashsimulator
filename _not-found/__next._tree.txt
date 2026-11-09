@@ -1,5 +1,0 @@
-:HL["/carcrashsimulator/_next/static/chunks/0cmi-dilglr5h.css","style"]
-:HL["/carcrashsimulator/media/logo.svg","image"]
-2:[["children",{"s":"__PAGE__","h":160}]]
-1:[["children",{"s":"/_not-found","h":64,"c":"$Q2"}]]
-0:{"b":"MyBJSAZVrnUjiUSkpfg_E","t":{"t":{"s":"","h":16,"c":"$Q1"}}}

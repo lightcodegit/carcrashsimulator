@@ -320,6 +320,14 @@ static func fmt(key: String, args: Array) -> String:
 # языка. Аргументы формата запоминаются, чтобы при переключении пересчитать строку.
 static func bind(node: Node, key: String, args: Array = []) -> void:
 	_apply(node, key, args)
+	# Реестр чистится лениво: слабые ссылки мёртвых узлов копятся на каждой
+	# пересборке разделов меню (а это десятки надписей за раз) и выкалываются
+	# только на смене языка — длинная сессия в меню текла памятью.
+	if _bindings.size() >= 256 and _bindings.size() % 64 == 0:
+		var live: Array = []
+		for b in _bindings:
+			if b[0].get_ref() != null: live.append(b)
+		_bindings = live
 	_bindings.append([weakref(node), key, args])
 
 # Производные длинного ключа: каталог хранит описание целиком (с переводом

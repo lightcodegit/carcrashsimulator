@@ -96,11 +96,16 @@ jobs:
 
       - name: Resolve the tag
         id: tag
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG_IN: ${{ inputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          # Значения — через env, а не интерполяцией в команду: тег из dispatch —
+          # произвольная строка, и в shell она не должна попадать до кавычки.
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "name=$TAG_IN" >> "$GITHUB_OUTPUT"
           else
-            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "name=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Tag must match the project version

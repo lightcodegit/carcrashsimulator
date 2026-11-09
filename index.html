@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Crash Simulator — a 3D crash sandbox on Godot</title>
+  <meta name="description" content="A free, open-source 3D crash sandbox on Godot 4.7: watch the car body crumple at the point of impact, with telemetry, impact replay, photo mode and a garage with tuning and paint.">
+  <meta property="og:title" content="Car Crash Simulator">
+  <meta property="og:description" content="A free, open-source 3D crash sandbox on Godot 4.7. Dents at the point of impact, impact replay, photo mode, a garage with tuning and paint.">
+  <meta property="og:image" content="assets/crumple.jpg">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap">
+      <a class="brand" href="#top">
+        <img src="assets/favicon.svg" alt="" width="28" height="28">
+        <span>Car&nbsp;Crash&nbsp;Simulator</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#screens">Screens</a>
+        <a href="#download">Download</a>
+        <a href="#requirements">Requirements</a>
+        <a href="https://github.com/lightcodegit/carcrashsimulator" class="ext">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="wrap">
+      <p class="kicker">Free · open source (MIT) · built on Godot 4.7</p>
+      <h1>Crash. Watch the metal<br>remember where it happened.</h1>
+      <p class="lede">A 3D crash sandbox: speed up, hit anything and the car body crumples
+      right at the point of impact. Telemetry, a 10-second impact replay,
+      photo mode, a garage with tuning and paint — and a gamepad that
+      rumbles on every slide.</p>
+      <p class="cta">
+        <a class="btn primary" href="#download">Download v0.1.1</a>
+        <a class="btn ghost" href="https://github.com/lightcodegit/carcrashsimulator">Source on GitHub</a>
+      </p>
+      <figure>
+        <img src="assets/crumple.jpg" alt="A crumpled sedan at a concrete wall, telemetry on the left and the photo-mode bar at the bottom">
+        <figcaption>The crumple zone is a real deformation: the vertices move along the impact vector.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="features" class="wrap section">
+    <h2>What is in the game</h2>
+    <div class="grid">
+      <article>
+        <h3>Deformation without simulation</h3>
+        <p>Vertices shift along the velocity-loss vector: head-on, side and
+        rear impacts crumple their own panel. Dents accumulate and are
+        cleared by a restart.</p>
+      </article>
+      <article>
+        <h3>5 cars, 6 maps</h3>
+        <p>From a heavy pickup to the Endless car with no speed cap. A test
+        arena, a town, a drag strip with a finish wall, a race loop, an
+        endless strip and a big city.</p>
+      </article>
+      <article>
+        <h3>Impact replay</h3>
+        <p>The last 10 seconds are always recorded. Step through them, slow
+        them down, and watch the dents rebuild from the recorded events —
+        not re-simulated.</p>
+      </article>
+      <article>
+        <h3>Photo mode</h3>
+        <p>A free camera with zoom, WASD flight and PNG screenshots. Hide the
+        interface and frame the wreck like a studio shoot.</p>
+      </article>
+      <article>
+        <h3>Garage</h3>
+        <p>Suspension, dampers, thrust, brakes, grip, a nitro tank and full
+        body paint — one saved profile per car.</p>
+      </article>
+      <article>
+        <h3>Sound and rumble</h3>
+        <p>The engine, tire squeal, nitro and impacts are synthesized live by
+        a DSP mixer. The gamepad vibrates on impacts and slides.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="screens" class="wrap section">
+    <h2>Screens</h2>
+    <div class="shots">
+      <figure>
+        <img src="assets/garage.jpg" alt="The garage: a green sedan in a live world and the tuning panel with paint">
+        <figcaption>Tune the suspension, thrust and brakes — then repaint the body.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/skid.jpg" alt="A slide on the arena: a tire mark stays on the asphalt">
+        <figcaption>Tire marks age on the asphalt and fade out.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="download" class="wrap section">
+    <h2>Download</h2>
+    <p>Every build ships as a single file: the game data is embedded into the
+    executable, so there is nothing to keep next to it. Releases are published
+    automatically from tagged builds.</p>
+    <div class="dl">
+      <a class="card-dl" href="https://github.com/lightcodegit/carcrashsimulator/releases">
+        <b>Windows</b>
+        <span>x86_64 · Windows 10/11 · OpenGL 3.3</span>
+      </a>
+      <a class="card-dl" href="https://github.com/lightcodegit/carcrashsimulator/releases">
+        <b>Linux</b>
+        <span>x86_64 · glibc · X11 or Wayland</span>
+      </a>
+    </div>
+    <p class="note">Grab the archive from the latest release. Prefer building from
+    source? The repository has a one-command runner
+    (<code>node tools/project.mjs build windows</code>).</p>
+  </section>
+
+  <section id="requirements" class="wrap section">
+    <h2>Requirements</h2>
+    <ul class="req">
+      <li>Windows 10/11 or a glibc Linux distribution</li>
+      <li>A GPU with OpenGL 3.3 — integrated graphics is fine</li>
+      <li>A gamepad is optional: vibration and rebinding are supported</li>
+    </ul>
+  </section>
+
+  <footer class="footer">
+    <div class="wrap">
+      <p>
+        Written by <a href="https://github.com/lightcodegit">crystaldev (@lightcodegit)</a>.
+        Code under <a href="https://github.com/lightcodegit/carcrashsimulator/blob/main/LICENSE">MIT</a>;
+        assets are CC0 <a href="https://kenney.nl">Kenney</a> Car Kit and Racing Kit.
+      </p>
+      <p class="tiny">Godot is a trademark of the Godot Foundation; Kenney of Kenney.nl — mentioned only to say what this is built with.</p>
+    </div>
+  </footer>
+</body>
+</html>

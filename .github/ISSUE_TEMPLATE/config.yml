@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Reporting a vulnerability
-    url: https://github.com/lightcodegit/carcrashsimulator/blob/main/SECURITY.md
-    about: Do not publish vulnerability details in an issue; see SECURITY.md for a private channel.
-  - name: Build and launch questions
-    url: https://github.com/lightcodegit/carcrashsimulator/issues
-    about: Open an issue with the "Bug report" template and describe the command, OS and version — that is enough to start.

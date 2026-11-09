@@ -60,6 +60,9 @@ func setup(car: CarRig) -> void:
 # CarRig стоит в дереве раньше, поэтому к своему тиковому вызову скольжение уже посчитано.
 func _physics_process(dt: float) -> void:
 	if _car == null or _car.chassis == null: return
+	# Пауза и реплей замирают мир: и возраст следа тоже — иначе полосы старели
+	# под стоящей машиной и выцветали, пока игрок смотрит повтор.
+	if get_tree().paused: return
 	_t += dt
 	_expire()
 	var levels := _car.skid_levels()

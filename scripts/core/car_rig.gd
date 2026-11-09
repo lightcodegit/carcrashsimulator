@@ -309,6 +309,15 @@ func forward_speed_ms() -> float:
 
 func _physics_process(dt: float) -> void:
 	if chassis == null or _wheels.is_empty(): return
+	if replaying:
+		# На проигрывании физика заморожена, ввод не читаем (газ с Shift на
+		# реплее утягивал бак), а позы колёс пишет плеер из кольца — здесь
+		# свой writer только перебивал бы его позу.
+		return
+	if get_tree().paused:
+		# На паузе ввод не читаем: нитро утекала при зажатом газе, педали копили
+		# давление, а колёса крутились по замёрзшему rpm под стоящей машиной.
+		return
 	_update_heading()
 	_drive(dt)
 	_pose_wheels(dt)

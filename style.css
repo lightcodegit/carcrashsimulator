@@ -1,13 +1,14 @@
-/* Car Crash Simulator — landing. Dark body, amber gauge accent. */
+/* Car Crash Simulator — лендинг. Тёмный корпус, янтарный акцент спидометра. */
 :root {
   --bg: #0b0d10;
   --panel: #12151a;
   --line: #23262c;
   --text: #e8ebef;
   --dim: #9aa1ab;
-  --amber: #f0a030;
-  --amber-hot: #f0795a;
+  --amber: #f59e21;
+  --hot: #f0795a;
   --radius: 14px;
+  --wrap: 1060px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,79 +21,129 @@ body {
   font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
-.wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
-.section { padding: 56px 0 8px; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+.section { padding: 60px 0 10px; }
 
 h1, h2, h3 { line-height: 1.15; letter-spacing: -0.01em; }
-h1 { font-size: clamp(34px, 6vw, 58px); font-weight: 800; margin: 12px 0 16px; }
-h2 { font-size: 28px; font-weight: 750; margin-bottom: 22px; }
-h3 { font-size: 18px; margin-bottom: 8px; color: var(--amber); }
+h1 { font-size: clamp(34px, 5.4vw, 54px); font-weight: 800; margin: 14px 0 18px; }
+h2 {
+  font-size: 28px; font-weight: 750; margin-bottom: 26px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+h3 { font-size: 17.5px; margin-bottom: 8px; color: var(--amber); }
 
 a { color: var(--amber); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* --- навигация --- */
+/* --- появление: герой последовательно, секции по скроллу --- */
+.reveal { opacity: 0; transform: translateY(18px); }
+.reveal.visible, .hero .reveal {
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.hero .d1 { animation-delay: 0.05s; }
+.hero .d2 { animation-delay: 0.18s; }
+.hero .d3 { animation-delay: 0.32s; }
+.hero .d4 { animation-delay: 0.45s; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --- навигация: одна линия, ровные отступы --- */
 .nav {
   position: sticky; top: 0; z-index: 10;
-  background: rgba(11, 13, 16, 0.88);
-  backdrop-filter: blur(8px);
+  background: rgba(11, 13, 16, 0.9);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 58px; }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 750; }
-.brand img { border-radius: 6px; }
-.nav nav { display: flex; gap: 22px; }
-.nav nav a { color: var(--dim); font-size: 14.5px; }
-.nav nav a:hover { color: var(--amber); text-decoration: none; }
-.nav nav a.ext { color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; }
+.nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 11px; color: var(--text); font-weight: 750; font-size: 15.5px; }
+.brand-emblem { border-radius: 7px; box-shadow: 0 0 0 1px var(--line); }
+.menu { display: flex; align-items: center; gap: 26px; }
+.menu a { color: var(--dim); font-size: 14.5px; position: relative; padding: 6px 0; }
+.menu a::after {
+  content: ""; position: absolute; left: 0; bottom: 0;
+  width: 100%; height: 2px; background: var(--amber);
+  transform: scaleX(0); transition: transform 0.22s ease;
+}
+.menu a:hover { color: var(--text); text-decoration: none; }
+.menu a:hover::after { transform: scaleX(1); }
+.menu a.ext {
+  color: var(--text); border: 1px solid var(--line);
+  border-radius: 9px; padding: 7px 14px;
+}
+.menu a.ext::after { display: none; }
+.menu a.ext:hover { border-color: var(--amber); }
 
-/* --- герой --- */
-.hero { padding: 52px 0 8px; }
-.kicker { color: var(--amber); font-size: 14px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; }
-.lede { color: var(--dim); max-width: 640px; font-size: 18px; margin-bottom: 26px; }
-.cta { display: flex; gap: 14px; margin-bottom: 30px; flex-wrap: wrap; }
+/* --- герой: текст и эмблема в две колонки --- */
+.hero-grid {
+  display: grid; grid-template-columns: 1.5fr 0.9fr;
+  gap: 40px; align-items: center;
+}
+.hero-emblem img {
+  width: 100%; max-width: 300px; display: block; margin: 0 auto;
+  animation: sway 7s ease-in-out infinite;
+}
+@keyframes sway {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50%      { transform: rotate(2.5deg); }
+}
+.kicker {
+  color: var(--amber); font-size: 13.5px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.lede { color: var(--dim); max-width: 560px; font-size: 17.5px; margin: 0 0 24px; }
+.cta { display: flex; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
 .btn {
-  display: inline-block; padding: 12px 26px; border-radius: 10px;
-  font-weight: 700; font-size: 16px; border: 1px solid var(--line);
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0 28px; border-radius: 11px;
+  font-weight: 700; font-size: 15.5px; border: 1px solid var(--line);
 }
 .btn.primary { background: var(--amber); color: #141008; border-color: transparent; }
-.btn.primary:hover { background: var(--amber-hot); text-decoration: none; }
+.btn.primary:hover { background: var(--hot); text-decoration: none; }
 .btn.ghost { color: var(--text); }
 .btn.ghost:hover { border-color: var(--amber); text-decoration: none; }
+.ticks { list-style: none; color: var(--dim); font-size: 14px; }
+.ticks li { padding-left: 18px; position: relative; margin-bottom: 3px; }
+.ticks li::before { content: "◆"; position: absolute; left: 0; color: var(--amber); font-size: 9px; top: 4px; }
 
 figure { margin: 0; }
 figure img, .shots img {
   width: 100%; display: block; border-radius: var(--radius);
   border: 1px solid var(--line);
 }
-figcaption { color: var(--dim); font-size: 13.5px; padding: 8px 2px 0; }
+figcaption { color: var(--dim); font-size: 13.5px; padding: 9px 2px 0; }
+.hero-shot { margin: 26px 0 0; }
 
 /* --- фичи --- */
 .grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-  gap: 14px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
 }
 .grid article {
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 18px 20px;
+  border-radius: var(--radius); padding: 20px 22px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
+.grid article:hover { transform: translateY(-4px); border-color: var(--amber); }
 .grid p { color: var(--dim); font-size: 15px; }
 
 /* --- скриншоты --- */
-.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 20px; }
 
 /* --- загрузка --- */
-.dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 18px 0; }
+.dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; margin: 20px 0 14px; }
 .card-dl {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 18px 20px; display: block; color: var(--text);
+  padding: 20px 22px; display: block; color: var(--text);
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
-.card-dl:hover { border-color: var(--amber); text-decoration: none; }
+.card-dl:hover { border-color: var(--amber); text-decoration: none; transform: translateY(-4px); }
 .card-dl b { display: block; font-size: 17px; margin-bottom: 4px; }
 .card-dl span { color: var(--dim); font-size: 14px; }
 .note, .req li { color: var(--dim); }
-.req { margin: 8px 0 0 22px; }
-.req li { margin-bottom: 4px; }
+.req { margin: 10px 0 0 22px; }
+.req li { margin-bottom: 5px; }
 code {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 6px; padding: 1px 7px; font-size: 14px;
@@ -101,14 +152,25 @@ code {
 
 /* --- футер --- */
 .footer {
-  margin-top: 64px; padding: 26px 0 40px;
+  margin-top: 70px; padding: 28px 0 42px;
   border-top: 1px solid var(--line);
   color: var(--dim); font-size: 14px;
 }
 .footer a { color: var(--text); }
 .tiny { font-size: 12.5px; margin-top: 6px; }
 
+@media (max-width: 900px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 26px; }
+  .hero-emblem { order: -1; }
+  .hero-emblem img { max-width: 200px; }
+}
 @media (max-width: 640px) {
-  .nav nav { display: none; }
+  .menu { gap: 16px; }
+  .menu a:not(.ext) { display: none; }   /* на узком экране остаются якорь-кнопки герой-секции и GitHub */
   .lede { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .hero .reveal { animation: none; opacity: 1; transform: none; }
+  .hero-emblem img { animation: none; }
 }

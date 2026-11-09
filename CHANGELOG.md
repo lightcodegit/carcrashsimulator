@@ -7,6 +7,8 @@ workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-11-09
+
 ### Added
 
 - Loading screen with the animated game emblem on scene switches: starting a
@@ -55,6 +57,17 @@ workflow refuses to publish a tag that does not match it.
   the wheels of the frozen world.
 - The photo and replay bars fit their buttons: both panels were shorter than
   the button rows and the buttons hung out of the panel.
+
+### Added (post-release feature batch)
+
+- A gamepad connect/disconnect toast in the HUD: vibration and bindings
+  going live are visible to the player.
+- The OS window title carries the version from project.godot.
+- SHOT on the replay bar: the current replay frame is saved into
+  `user://photos/replay_NNNN.png` with its own numbering series.
+- The replay tape is saved to disk on replay exit
+  (`user://replays/last_<map>.replay`) and can be loaded back from the
+  replay bar (LAST RUN) — same map only, fully validated on load.
 
 ## [v0.1.0] - 2026-11-08
 

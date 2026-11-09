@@ -138,6 +138,7 @@ var preset := 1
 var fullscreen := false
 var _win_rect := Rect2i(0, 0, 1600, 900)
 var _win_max := false
+var _first_launch := false   # settings.cfg не содержит window/x — первое открытие игры
 var _win_save_at := 0
 
 # Заводские значения снимаются до чтения файла: _init гарантированно раньше _ready,
@@ -200,6 +201,14 @@ static func _onscreen(pos: Vector2i, size: Vector2i) -> Vector2i:
 func restore_window_geometry() -> void:
 	if not owns_window(): return
 	if fullscreen: return
+	# Первый запуск: Godot ставит окно в (0, 0) — панель задач сверху перекрывает
+	# заголовок (issue #6). Центрируем окно в свободной области экрана.
+	if _first_launch:
+		var scr := DisplayServer.screen_get_usable_rect(0)
+		var w := DisplayServer.window_get_size()
+		var off := (scr.size - w) / 2
+		DisplayServer.window_set_position(scr.position + Vector2i(maxi(off.x, 0), maxi(off.y, 0)))
+		return
 	var r := _win_rect
 	if not _win_ok(r):
 		# Ноль мог остаться в файле от прошлой версии. Если и живое окно сжалось
@@ -487,6 +496,7 @@ func load_values() -> void:
 			d[key] = raw
 	for key in d:
 		set_value(key, d[key], false)
+	_first_launch = not cf.has_section(WIN_SECTION)
 	if cf.has_section(WIN_SECTION):
 		var x := int(_as_num(cf.get_value(WIN_SECTION, "x", _win_rect.position.x), 0.0))
 		var y := int(_as_num(cf.get_value(WIN_SECTION, "y", _win_rect.position.y), 0.0))

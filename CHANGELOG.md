@@ -7,6 +7,14 @@ workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
+### Changed
+
+- The endless strip keeps 6 km of road in play (was 1.8 km): the ribbon
+  stretches 5.9 km ahead of the car, so the horizon reads as an endless road
+  even at 671 km/h — 31 seconds of road ahead. Billboards and light poles
+  now line the whole first stretch. The simulation cost stays at 1.4 ms per
+  tick and the node count is flat.
+
 ### Fixed
 
 - The endless grass floor follows the car (issue #5): driving off the strip

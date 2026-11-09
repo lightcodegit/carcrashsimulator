@@ -291,6 +291,7 @@ func _physics_process(dt: float) -> void:
 		# ничего не стоит, а телепорты размазываются по кадрам вместо пакета
 		# раз в полсекунды — лента не успевает отстать от машины
 		MapDB.recycle(_map_root, car.chassis.global_position.x, 20.0)
+		MapDB.floor_follow(_map_root, car.chassis.global_position.x)
 	TimeScale.set_hold(Input.is_action_pressed("slowmo"))
 	var pos := car.chassis.global_position
 	# Верхнюю границу не проверяем: над картой ничего не держит, и прыгнуть высоко —

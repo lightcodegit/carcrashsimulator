@@ -7,6 +7,13 @@ workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
+### Fixed
+
+- The endless grass floor follows the car (issue #5): driving off the strip
+  onto the grass no longer reaches the edge of the 40 km slab, where the road
+  strip hung over the void and the car fell through. The world boundary grew
+  to 400 km to match.
+
 ## [v0.1.1] - 2026-11-09
 
 ### Added

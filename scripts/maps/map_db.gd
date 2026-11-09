@@ -23,6 +23,9 @@ static func build(id: String) -> Dictionary:
 static func recycle(root: Node3D, car_x: float, spacing: float) -> int:
 	return MapCircuit.recycle(root, car_x, spacing)
 
+static func floor_follow(root: Node3D, car_x: float) -> void:
+	MapCircuit.floor_follow(root, car_x)
+
 # Статистика сцены для отладочного оверлея. Обход итеративный (в дереве Большого
 # Города ~8 тыс. узлов) и считается не чаще 4 раз в секунду: сам замер не должен
 # становиться заметной частью измеряемого кадра.

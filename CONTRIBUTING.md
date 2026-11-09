@@ -134,6 +134,18 @@ false positives.
 documentation and workflows. The logic of a change must not leave one-off
 scripts in the repository.
 
+## Working on an issue
+
+- **Claim it first**: self-assign the issue (or comment "taking this") before
+  writing code — someone else might be working on it already.
+- **Fix it on a branch, not on main**: the branch is what CI checks; main is
+  only merged into through pull requests.
+- **Open a pull request that references the issue** (`fixes #N` in the body —
+  it closes the issue when the PR merges), and link the PR back into the
+  issue as a comment so the reporter can see it.
+- The PR runs the full suite on both platforms. Merge it yourself once
+  every check passes — no promises about future releases needed.
+
 ## What to ask about first
 
 Changing public contracts (`user://` formats, `InputMap` action names, the

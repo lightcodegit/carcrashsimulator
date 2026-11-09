@@ -1,7 +1,8 @@
 # What and why
 
 <!-- 1–2 paragraphs: which defect or feature, and why the solution is this one.
-Link the issue if there is one. -->
+Link the issue if there is one: fixes #N. A PR without an issue — explain why
+in the body. -->
 
 ## How it was verified
 

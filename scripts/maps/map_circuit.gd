@@ -138,7 +138,24 @@ static func endless() -> Dictionary:
 	# иначе впереди, за туманом, обочина пустая, и карта выглядит непрогруженной.
 	for k in 60:
 		MapKit.kit(root, "lightRed", Vector3(-30.0 + k * 40.0, 0, 6.5), 0, true, false)
-		MapKit.kit(root, "billboard", Vector3(10.0 + k * 60.0, 0, -17.0), 180, true, false)
+		var bb := MapKit.kit(root, "billboard", Vector3(10.0 + k * 60.0, 0, -17.0), 180, true, false)
+		# Логотип игры: QuadMesh с текстурой logo.svg поверх панели билборда.
+		# UV родной панели растягивают текстуру непредсказуемо — отдельный квад
+		# с известными размерами гарантирует ровный центрированный логотип.
+		if bb != null:
+			var logo := MeshInstance3D.new()
+			logo.name = "brand_logo"
+			var qm := QuadMesh.new()
+			qm.size = Vector2(3.0, 3.0)
+			qm.orientation = PlaneMesh.FACE_Z
+			logo.mesh = qm
+			var lm := StandardMaterial3D.new()
+			lm.albedo_texture = load("res://public/media/billboard_logo.png")
+			lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			lm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			logo.material_override = lm
+			logo.position = Vector3(5.0, 2.5, 0.05)
+			bb.add_child(logo)
 	# сносимый хлам у обочин: предметам известно только плоское полотно, поэтому они
 	# стоят на месте, а лента плит уходит вперёд — на «бесконечности» их сбивают один раз
 	for k in 6:

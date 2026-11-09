@@ -138,7 +138,7 @@ static func endless() -> Dictionary:
 	# иначе впереди, за туманом, обочина пустая, и карта выглядит непрогруженной.
 	for k in 60:
 		MapKit.kit(root, "lightRed", Vector3(-30.0 + k * 40.0, 0, 6.5), 0, true, false)
-		MapKit.kit(root, "billboard", Vector3(10.0 + k * 60.0, 0, -17.0), 0, true, false)
+		MapKit.kit(root, "billboard", Vector3(10.0 + k * 60.0, 0, -17.0), 180, true, false)
 	# сносимый хлам у обочин: предметам известно только плоское полотно, поэтому они
 	# стоят на месте, а лента плит уходит вперёд — на «бесконечности» их сбивают один раз
 	for k in 6:

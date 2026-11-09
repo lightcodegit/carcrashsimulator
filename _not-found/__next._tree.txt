@@ -1,5 +1,5 @@
-:HL["/_next/static/chunks/3afxxfe7o0vpg.css","style"]
-:HL["/media/logo.svg","image"]
+:HL["/carcrashsimulator/_next/static/chunks/3afxxfe7o0vpg.css","style"]
+:HL["/carcrashsimulator/media/logo.svg","image"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"/_not-found","h":64,"c":"$Q2"}]]
-0:{"b":"Yb1pSl5OngQfltaa3FonL","t":{"t":{"s":"","h":16,"c":"$Q1"}}}
+0:{"b":"TD31ui5JH7NKMMNXZ7Gtz","t":{"t":{"s":"","h":16,"c":"$Q1"}}}

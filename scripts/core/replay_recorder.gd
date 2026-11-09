@@ -184,8 +184,33 @@ static func tape_at(path: String) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null: return {}
 	var v: Variant = f.get_var()
-	if v is Dictionary and v.has("frames") and v.has("dents"): return v
-	return {}
+	# get_var без allow_objects не создаёт произвольные объекты, но файл — это
+	# всё ещё структура из сети недоверенных дисков: мусорные размеры падали бы
+	# позже, в _blend. Проверяем и размер, и каждый кадр.
+	if not (v is Dictionary) or int(v.get("version", 0)) != 1: return {}
+	if not (v.get("frames", []) is Array) or not (v.get("dents", []) is Array): return {}
+	if (v["frames"] as Array).size() > MAX_SAVED_FRAMES: return {}
+	if not _frames_valid(v["frames"]): return {}
+	for d in v["dents"]:
+		if not (d is Dictionary) or not d.has("t") or not d.has("lp") or not d.has("ld") or not d.has("kmh"): return {}
+	return v
+
+# Лента валидна, если каждый кадр несёт правильные размеры массивов: транспорт
+# дальше читает a.p/b/w напрямую, и короткий массив — script error посреди реплея.
+static func _frames_valid(list: Array) -> bool:
+	for f in list:
+		if not (f is Dictionary): return false
+		if not f.has("t") or not f.has("kmh") or not f.has("slip"): return false
+		if not (f.get("p", []) is PackedFloat32Array) or (f["p"] as PackedFloat32Array).size() != 3: return false
+		if not (f.get("b", []) is PackedFloat32Array) or (f["b"] as PackedFloat32Array).size() != 9: return false
+		if not (f.get("w", []) is PackedFloat32Array) or (f["w"] as PackedFloat32Array).size() % 4 != 0: return false
+		if not (f.get("pr", []) is PackedFloat32Array) or (f["pr"] as PackedFloat32Array).size() % 13 != 0: return false
+		if not (f.get("hot", 0.0) is float) or not (f["kmh"] is float) or not (f["t"] is float): return false
+	return true
+
+# Потолок сохранённой ленты: вдвое больше игрового окна (20 Гц × 10 с). Куски
+# больше — либо мусор, либо попытка выесть память загрузкой гигабайт массивов.
+const MAX_SAVED_FRAMES := 400
 
 func save_to(path: String) -> bool:
 	if frames.is_empty(): return false
@@ -205,8 +230,13 @@ func save_to(path: String) -> bool:
 # замещаются, счётчики откатываются. Плеер после этого обязан перемотаться на
 # начало — _apply_dents пересоберёт кузов с нуля.
 func adopt_tape(tape: Dictionary) -> bool:
+	if int(tape.get("version", 0)) != 1: return false
 	if tape.get("map", "") != GameContext.map_id: return false
 	if not (tape.get("frames", []) is Array) or (tape["frames"] as Array).is_empty(): return false
+	if not _frames_valid(tape["frames"]): return false
+	if not (tape.get("dents", []) is Array): return false
+	for d in tape["dents"]:
+		if not (d is Dictionary) or not d.has("t") or not d.has("lp") or not d.has("ld") or not d.has("kmh"): return false
 	frames = (tape["frames"] as Array).duplicate()
 	dents = (tape.get("dents", []) as Array).duplicate()
 	sim_t = float(tape.get("sim_t", 0.0))

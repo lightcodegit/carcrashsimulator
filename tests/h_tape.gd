@@ -31,8 +31,19 @@ func _ready() -> void:
 	var gm2: GameManager = load("res://scenes/game.tscn").instantiate()
 	gm2.name = "GM2"
 	add_child(gm2)
-	var wrong := tape.duplicate(); wrong["map"] = "town"
+	var wrong := tape.duplicate(true); wrong["map"] = "town"
 	check(not gm2.replay.adopt_tape(wrong), "лента другой карты не принимается")
+
+	# мусорная лента не принимается: битые размеры падали бы позже в _blend
+	var bad_ver := tape.duplicate(true); bad_ver["version"] = 7
+	check(not gm2.replay.adopt_tape(bad_ver), "лента с чужой версией не принимается")
+	var bad_key := tape.duplicate(true); (bad_key["frames"] as Array)[0].erase("b")
+	check(not gm2.replay.adopt_tape(bad_key), "кадр без базиса не принимается")
+	var bad_len := tape.duplicate(true)
+	(bad_len["frames"] as Array)[0]["b"] = PackedFloat32Array([1, 0, 0, 0, 1, 0, 0, 0])
+	check(not gm2.replay.adopt_tape(bad_len), "короткий базис не принимается")
+	var bad_dent := tape.duplicate(true); bad_dent["dents"] = [{"t": 1.0}]
+	check(not gm2.replay.adopt_tape(bad_dent), "вмятина без lp/ld не принимается")
 
 	# та же карта: приём и проигрывание с вмятинами
 	check(gm2.replay.adopt_tape(tape), "лента той же карты принята")

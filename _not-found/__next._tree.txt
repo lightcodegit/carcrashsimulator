@@ -2,4 +2,4 @@
 :HL["/carcrashsimulator/media/logo.svg","image"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"/_not-found","h":64,"c":"$Q2"}]]
-0:{"b":"XZECkz5IUVC5Z2PMhYcKv","t":{"t":{"s":"","h":16,"c":"$Q1"}}}
+0:{"b":"ZPPwCuAp_nRl-7BPHivZr","t":{"t":{"s":"","h":16,"c":"$Q1"}}}

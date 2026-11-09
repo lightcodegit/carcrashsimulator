@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Car Crash Simulator — a 3D crash sandbox on Godot</title>
-  <meta name="description" content="A free, open-source 3D crash sandbox on Godot 4.7: watch the car body crumple at the point of impact, with telemetry, impact replay, photo mode and a garage with tuning and paint.">
-  <meta property="og:title" content="Car Crash Simulator">
+  <title>Car Crash Simulator: the sandbox where every dent is real</title>
+  <meta name="description" content="A free, open-source 3D crash sandbox on Godot 4.7. Dents at the point of impact, a 10-second impact replay, photo mode, a garage with tuning and paint. Windows and Linux, one file per platform.">
+  <meta name="theme-color" content="#0a0b0e">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:title" content="Car Crash Simulator: the sandbox where every dent is real">
   <meta property="og:description" content="A free, open-source 3D crash sandbox on Godot 4.7. Dents at the point of impact, impact replay, photo mode, a garage with tuning and paint.">
   <meta property="og:image" content="assets/crumple.jpg">
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
@@ -15,147 +17,242 @@
   <header class="nav">
     <div class="wrap">
       <a class="brand" href="#top">
-        <img src="assets/logo.svg" alt="" width="30" height="30" class="brand-emblem">
-        <span>Car&nbsp;Crash&nbsp;Simulator</span>
+        <img src="assets/logo.svg" alt="" width="30" height="30">
+        <span>Car Crash <b>Simulator</b></span>
       </a>
       <nav class="menu">
-        <a href="#features">Features</a>
+        <a href="#frames">Benchmarks</a>
+        <a href="#what">About</a>
         <a href="#screens">Screens</a>
-        <a href="#download">Download</a>
-        <a href="#requirements">Requirements</a>
-        <a href="https://github.com/lightcodegit/carcrashsimulator" class="ext" target="_blank" rel="noopener">GitHub</a>
+        <a href="#open">Source</a>
+        <a href="https://github.com/lightcodegit/carcrashsimulator" class="gh" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.73 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+        <a href="#download" class="cta">Download</a>
       </nav>
     </div>
   </header>
 
   <section class="hero" id="top">
     <div class="wrap">
-      <div class="hero-grid">
-        <div class="hero-copy">
-          <p class="kicker reveal">Free · open source (MIT) · built on Godot 4.7</p>
-          <h1 class="reveal d1">Crash. Watch the metal<br>remember where it happened.</h1>
-          <p class="lede reveal d2">A 3D crash sandbox: speed up, hit anything and the car body
-          crumples right at the point of impact. Telemetry, a 10-second impact
-          replay, photo mode, a garage with tuning and paint.</p>
-          <p class="cta reveal d3">
-            <a class="btn primary" href="#download">Download v0.1.1</a>
-            <a class="btn ghost" href="https://github.com/lightcodegit/carcrashsimulator" target="_blank" rel="noopener">Source on GitHub</a>
-          </p>
-          <ul class="ticks reveal d4">
-            <li>Real vertex deformation</li>
-            <li>Impact replay from a recorded ring</li>
-            <li>Gamepad with rumble, keyboard and mouse</li>
-          </ul>
+      <p class="kicker reveal">Godot 4.7 · Written in GDScript · Free, MIT + CC0</p>
+      <h1 class="reveal">Car Crash Simulator:<br>the sandbox where every dent is real.</h1>
+      <p class="lede reveal">Speed up, hit anything and the car body crumples right at the point
+      of impact. Telemetry, a 10-second impact replay, photo mode and a garage
+      with tuning and paint — one file per platform, no launcher.</p>
+      <p class="cta reveal">
+        <a class="btn primary" href="#download">Download v0.1.1</a>
+        <a class="btn ghost" href="https://github.com/lightcodegit/carcrashsimulator" target="_blank" rel="noopener">View on GitHub</a>
+      </p>
+      <p class="meta reveal">
+        <span>Windows</span><i>·</i><span>Linux</span><i>·</i>
+        <span>v0.1.1</span><i>·</i><span>one file per platform</span>
+      </p>
+    </div>
+    <div class="wrap">
+      <figure class="hero-shot reveal">
+        <img src="assets/crumple.jpg" alt="A crumpled sedan at a concrete wall, telemetry on the left and the photo-mode bar at the bottom">
+      </figure>
+    </div>
+  </section>
+
+  <section class="section frames" id="frames">
+    <div class="wrap">
+      <h2 class="reveal">A full frame<br>in 6.7 milliseconds.</h2>
+      <p class="lede reveal">Measured live on Intel UHD 730 at 1600×900 — GL Compatibility,
+      every effect from the game's own presets. Drag the preset and watch what fits
+      into a 60 Hz frame budget of 16.7 ms.</p>
+      <div class="bench reveal">
+        <div class="bench-display">
+          <div class="bench-ms"><span id="bench-ms">13.7</span><small>ms / frame</small></div>
+          <div class="bench-verdict" id="bench-verdict">fits 60 Hz</div>
         </div>
-        <div class="hero-emblem reveal d2">
-          <img src="assets/logo.svg" alt="The game emblem: an amber gauge ring, a dark disc and a car with a crumpled nose inside an eight-point impact star" width="240" height="240">
+        <input type="range" id="bench-range" min="0" max="3" value="1" step="1"
+               aria-label="Graphics preset">
+        <div class="bench-presets" id="bench-presets">
+          <button data-i="0">LOW</button><button data-i="1" class="on">MEDIUM</button><button data-i="2">HIGH</button><button data-i="3">FILM</button>
+        </div>
+        <div class="bench-bar"><i id="bench-fill"></i><u></u></div>
+        <p class="bench-note">Preset composition measured by the game's own test runner
+        (<code>p_perf</code>, live rendering). The budget line marks 16.7 ms — one 60 Hz frame.</p>
+      </div>
+      <table class="tbl reveal">
+        <tr><th>Frame configuration (GL Compatibility)</th><th>Cost</th><th>60 Hz</th></tr>
+        <tr><td>LOW — geometry, 70% scale</td><td>6.7 ms</td><td class="ok">fits</td></tr>
+        <tr><td>MEDIUM — haze, glow, shadows 120 m (default)</td><td>13.7 ms</td><td class="ok">fits</td></tr>
+        <tr><td>HIGH — SSAO/SSIL, MSAA 4×, shadows 260 m</td><td>29.4 ms</td><td class="mid">discrete GPU</td></tr>
+        <tr><td>FILM — soft shadows 420 m, bloom</td><td>29.2 ms</td><td class="mid">discrete GPU</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="what">
+    <div class="wrap">
+      <h2 class="reveal">The crash you caused,<br>recorded and replayed.</h2>
+      <p class="lede reveal">The game keeps a rolling ring of the last 10 seconds of the
+      simulation — 20 snapshots per second. Open the impact replay and the world freezes:
+      step through the crash frame by frame and watch the dents rebuild from the recorded
+      events. Nothing is re-simulated; what you see is exactly what the physics computed.</p>
+      <div class="trio">
+        <div class="trio-card reveal">
+          <h3>Recorded, not re-simulated</h3>
+          <p>The replay plays back the recorded ring. Rewinding rebuilds the dents from
+          the event list — the same events the recorder wrote at the moment of the crash.</p>
+        </div>
+        <div class="trio-card reveal">
+          <h3>Photo mode</h3>
+          <p>A free camera with WASD flight, zoom and PNG screenshots. Hide the whole
+          interface and frame the wreck like a studio shoot.</p>
+        </div>
+        <div class="trio-card reveal">
+          <h3>Telemetry while you drive</h3>
+          <p>Speed, peak g-force, dent count and depth, an impact log and an on-screen
+          fps counter — four panels, a corner of the frame, nothing in the way.</p>
         </div>
       </div>
-      <figure class="hero-shot reveal d3">
-        <img src="assets/crumple.jpg" alt="A crumpled sedan at a concrete wall, telemetry on the left and the photo-mode bar at the bottom">
-        <figcaption>The crumple zone is a real deformation: the vertices move along the impact vector.</figcaption>
-      </figure>
     </div>
   </section>
 
-  <section id="features" class="wrap section">
-    <h2 class="reveal">What is in the game</h2>
-    <div class="grid">
-      <article class="reveal">
-        <h3>Deformation without simulation</h3>
-        <p>Vertices shift along the velocity-loss vector: head-on, side and
-        rear impacts crumple their own panel. Dents accumulate and are
-        cleared by a restart.</p>
-      </article>
-      <article class="reveal">
-        <h3>5 cars, 6 maps</h3>
-        <p>From a heavy pickup to the Endless car with no speed cap. A test
-        arena, a town, a drag strip with a finish wall, a race loop, an
-        endless strip and a big city.</p>
-      </article>
-      <article class="reveal">
-        <h3>Impact replay</h3>
-        <p>The last 10 seconds are always recorded. Step through them, slow
-        them down, and watch the dents rebuild from the recorded events —
-        not re-simulated.</p>
-      </article>
-      <article class="reveal">
-        <h3>Photo mode</h3>
-        <p>A free camera with zoom, WASD flight and PNG screenshots. Hide the
-        interface and frame the wreck like a studio shoot.</p>
-      </article>
-      <article class="reveal">
-        <h3>Garage</h3>
-        <p>Suspension, dampers, thrust, brakes, grip, a nitro tank and full
-        body paint — one saved profile per car.</p>
-      </article>
-      <article class="reveal">
-        <h3>Sound and rumble</h3>
-        <p>The engine, tire squeal, nitro and impacts are synthesized live by
-        a DSP mixer. The gamepad vibrates on impacts and slides.</p>
-      </article>
+  <section class="section" id="screens">
+    <div class="wrap">
+      <h2 class="reveal">Screens</h2>
+      <div class="shots">
+        <figure class="reveal">
+          <img src="assets/garage.jpg" alt="The garage: a green sedan in a live world and the tuning panel with paint">
+          <figcaption>Thrust, brakes, suspension — and full body paint, saved per car.</figcaption>
+        </figure>
+        <figure class="reveal">
+          <img src="assets/skid.jpg" alt="A slide on the arena: a tire mark stays on the asphalt">
+          <figcaption>Tire marks age on the asphalt and fade out on their own.</figcaption>
+        </figure>
+      </div>
     </div>
   </section>
 
-  <section id="screens" class="wrap section">
-    <h2 class="reveal">Screens</h2>
-    <div class="shots">
-      <figure class="reveal">
-        <img src="assets/garage.jpg" alt="The garage: a green sedan in a live world and the tuning panel with paint">
-        <figcaption>Tune the suspension, thrust and brakes — then repaint the body.</figcaption>
-      </figure>
-      <figure class="reveal">
-        <img src="assets/skid.jpg" alt="A slide on the arena: a tire mark stays on the asphalt">
-        <figcaption>Tire marks age on the asphalt and fade out.</figcaption>
-      </figure>
+  <section class="section" id="features">
+    <div class="wrap">
+      <h2 class="reveal">Five cars. Six maps.<br>One file per platform.</h2>
+      <div class="grid">
+        <article class="reveal">
+          <h3>Deformation without simulation</h3>
+          <p>Vertices shift along the velocity-loss vector: head-on, side and rear
+          impacts crumple their own panel. Dents accumulate, capped at 30% of the
+          body height, and clear on a restart.</p>
+        </article>
+        <article class="reveal">
+          <h3>Impact replay</h3>
+          <p>The ring records 20 snapshots a second — chassis, wheels, nearby props
+          and every dent as an event list the player replays verbatim.</p>
+        </article>
+        <article class="reveal">
+          <h3>Garage with paint</h3>
+          <p>Suspension, dampers, thrust, brakes, grip and the nitro tank — one saved
+          profile per car, written atomically. Paint touches exactly the body cell
+          of the texture atlas.</p>
+        </article>
+        <article class="reveal">
+          <h3>Sound and rumble</h3>
+          <p>Engine, tire squeal, nitro and impacts are synthesized live by a DSP
+          mixer — no samples. The gamepad vibrates on impacts and slides.</p>
+        </article>
+        <article class="reveal">
+          <h3>Photo mode</h3>
+          <p>A free camera with zoom and WASD flight. Hide the whole interface with
+          one key and shoot the wreck as a PNG.</p>
+        </article>
+        <article class="reveal">
+          <h3>Two languages</h3>
+          <p>English and Russian, switchable on the fly — every string in the
+          interface, including the debug overlay, is localized.</p>
+        </article>
+      </div>
     </div>
   </section>
 
-  <section id="download" class="wrap section">
-    <h2 class="reveal">Download</h2>
-    <p class="reveal">Every build ships as a single file: the game data is embedded into the
-    executable, so there is nothing to keep next to it. Releases are published
-    automatically from tagged builds.</p>
-    <div class="dl">
-      <a class="card-dl reveal" href="https://github.com/lightcodegit/carcrashsimulator/releases" target="_blank" rel="noopener">
-        <b>Windows</b>
-        <span>x86_64 · Windows 10/11 · OpenGL 3.3</span>
-      </a>
-      <a class="card-dl reveal" href="https://github.com/lightcodegit/carcrashsimulator/releases" target="_blank" rel="noopener">
-        <b>Linux</b>
-        <span>x86_64 · glibc · X11 or Wayland</span>
-      </a>
+  <section class="section dark" id="open">
+    <div class="wrap">
+      <h2 class="reveal">Built in the open.</h2>
+      <p class="lede reveal">Every line of the game is on GitHub under MIT, with CC0
+      assets. The test runner discovers the harnesses on its own, runs them with
+      isolated player profiles and refuses a build that does not boot.</p>
+      <div class="stats">
+        <div class="stat reveal"><b>68</b><span>automated checks</span></div>
+        <div class="stat reveal"><b>148</b><span>fps measured, full pipeline</span></div>
+        <div class="stat reveal"><b>2</b><span>platforms shipped by CI</span></div>
+        <div class="stat reveal"><b>1</b><span>file per platform</span></div>
+      </div>
     </div>
-    <p class="note reveal">Grab the archive from the latest release. Prefer building from
-    source? The repository has a one-command runner
-    (<code>node tools/project.mjs build windows</code>).</p>
   </section>
 
-  <section id="requirements" class="wrap section">
-    <h2 class="reveal">Requirements</h2>
-    <ul class="req">
-      <li>Windows 10/11 or a glibc Linux distribution</li>
-      <li>A GPU with OpenGL 3.3 — integrated graphics is fine</li>
-      <li>A gamepad is optional: vibration and rebinding are supported</li>
-    </ul>
+  <section class="section" id="download">
+    <div class="wrap">
+      <h2 class="reveal">Download v0.1.1</h2>
+      <div class="dl">
+        <a class="card-dl reveal" href="https://github.com/lightcodegit/carcrashsimulator/releases" target="_blank" rel="noopener">
+          <b>Windows</b><span>x86_64 · Windows 10/11 · OpenGL 3.3 · 38 MB zip</span>
+        </a>
+        <a class="card-dl reveal" href="https://github.com/lightcodegit/carcrashsimulator/releases" target="_blank" rel="noopener">
+          <b>Linux</b><span>x86_64 · glibc · X11 or Wayland · 29 MB zip</span>
+        </a>
+      </div>
+      <p class="note reveal">Grab the archive from the latest release — the game data is
+      embedded into the executable, there is nothing to keep next to it. Building
+      from source: <code>node tools/project.mjs build windows</code>.</p>
+    </div>
+  </section>
+
+  <section class="section" id="requirements">
+    <div class="wrap">
+      <h2 class="reveal">Requirements</h2>
+      <ul class="req">
+        <li>Windows 10/11 or a glibc Linux distribution</li>
+        <li>A GPU with OpenGL 3.3 — integrated graphics is fine at the default preset</li>
+        <li>A gamepad is optional: vibration and rebinding are supported</li>
+        <li>~110 MB of disk — the game is one self-contained file</li>
+      </ul>
+    </div>
   </section>
 
   <footer class="footer">
     <div class="wrap">
-      <p>
-        Written by <a href="https://github.com/lightcodegit">crystaldev (@lightcodegit)</a>.
-        Code under <a href="https://github.com/lightcodegit/carcrashsimulator/blob/main/LICENSE">MIT</a>;
-        assets are CC0 <a href="https://kenney.nl">Kenney</a> Car Kit and Racing Kit.
-      </p>
-      <p class="tiny">Godot is a trademark of the Godot Foundation; Kenney of Kenney.nl — mentioned only to say what this is built with.</p>
+      <p>Written by <a href="https://github.com/lightcodegit">crystaldev (@lightcodegit)</a>.
+      Code under <a href="https://github.com/lightcodegit/carcrashsimulator/blob/main/LICENSE">MIT</a>;
+      assets are CC0 <a href="https://kenney.nl">Kenney</a> Car Kit and Racing Kit.</p>
+      <p class="tiny">Godot is a trademark of the Godot Foundation; Kenney of Kenney.nl —
+      mentioned only to say what this is built with.</p>
     </div>
   </footer>
 
   <script>
-    // Появление секций по скроллу: reveal -> visible.
+    // Пресет -> цена кадра: интерактивный бенчмарк.
+    const PRESETS = [
+      { ms: 6.7,  name: "LOW",    verdict: "fits 60 Hz with room to spare" },
+      { ms: 13.7, name: "MEDIUM", verdict: "fits 60 Hz (default preset)" },
+      { ms: 29.4, name: "HIGH",   verdict: "needs a discrete GPU at 60 Hz" },
+      { ms: 29.2, name: "FILM",   verdict: "needs a discrete GPU at 60 Hz" }
+    ];
+    const msEl = document.getElementById("bench-ms");
+    const verdictEl = document.getElementById("bench-verdict");
+    const fillEl = document.getElementById("bench-fill");
+    const rangeEl = document.getElementById("bench-range");
+    const buttons = document.querySelectorAll("#bench-presets button");
+    function show(i) {
+      const p = PRESETS[i];
+      msEl.textContent = p.ms.toFixed(1);
+      verdictEl.textContent = p.verdict;
+      verdictEl.className = "bench-verdict " + (p.ms <= 16.7 ? "ok" : "warn");
+      fillEl.style.width = Math.min(100, p.ms / 33.4 * 100) + "%";
+      fillEl.style.background = p.ms <= 16.7 ? "var(--amber)" : "var(--hot)";
+      rangeEl.value = i;
+      buttons.forEach((b, j) => b.classList.toggle("on", j === i));
+    }
+    rangeEl.addEventListener("input", () => show(+rangeEl.value));
+    buttons.forEach((b, j) => b.addEventListener("click", () => show(j)));
+    show(1);
+    // Появление секций по скроллу.
     const obs = new IntersectionObserver(entries => {
       for (const e of entries) if (e.isIntersecting) { e.target.classList.add("visible"); obs.unobserve(e.target); }
-    }, { threshold: 0.12 });
+    }, { threshold: 0.1 });
     document.querySelectorAll(".reveal").forEach(el => obs.observe(el));
   </script>
 </body>

@@ -12,6 +12,14 @@ const PRESETS = [
 const BUDGET = 16.7;
 const OVERLOAD_MS = 33.4;
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const NAMES = {
+  en: ["LOW", "MEDIUM", "HIGH", "FILM"],
+  ru: ["НИЗКИЙ", "СРЕДНИЙ", "ВЫСОКИЙ", "КИНО"],
+};
+const VERDICT = {
+  en: { fit: m => "fits 60 Hz — " + m + " fps", drop: m => "drops to 30 Hz — " + m + " fps", gpu: "needs a discrete GPU" },
+  ru: { fit: m => "укладывается в 60 Гц — " + m + " fps", drop: m => "падает до 30 Гц — " + m + " fps", gpu: "нужна дискретная видеокарта" },
+};
 
 const el = id => document.getElementById(id);
 const msEl = el("b-ms"), fpsEl = el("b-fps"), nameEl = el("b-name"),
@@ -53,14 +61,15 @@ function tick() {
   fpsBarEl.querySelector(".fill").style.width =
     (clamp(1000 / targetMs, 0, 120) / 120 * 100) + "%";
 
+  const v = VERDICT[window.CCS_LANG || "en"];
   if (targetMs <= BUDGET) {
-    verdictEl.textContent = "fits 60 Hz — " + Math.round(targetFps) + " fps";
+    verdictEl.textContent = v.fit(Math.round(targetFps));
     verdictEl.classList.remove("warn");
   } else if (targetMs <= OVERLOAD_MS) {
-    verdictEl.textContent = "drops to 30 Hz — " + Math.round(targetFps) + " fps";
+    verdictEl.textContent = v.drop(Math.round(targetFps));
     verdictEl.classList.add("warn");
   } else {
-    verdictEl.textContent = "needs a discrete GPU";
+    verdictEl.textContent = v.gpu;
     verdictEl.classList.add("warn");
   }
   requestAnimationFrame(tick);
@@ -70,17 +79,18 @@ requestAnimationFrame(tick);
 function setPreset(i) {
   q = i;
   s = clamp(s, 0.5, 1);
-  nameEl.textContent = PRESETS[i].name;
+  nameEl.textContent = NAMES[window.CCS_LANG || "en"][i];
   qBtns.forEach((b, j) => b.classList.toggle("on", j === i));
   qEl.value = String(q * 100);
   sEl.value = String(s * 100);
 }
 function syncName() {
   const i = clamp(Math.round(q), 0, 3);
-  nameEl.textContent = PRESETS[i].name;
+  nameEl.textContent = NAMES[window.CCS_LANG || "en"][i];
   qBtns.forEach((b, j) => b.classList.toggle("on", j === i));
 }
 qEl.addEventListener("input", () => { q = +qEl.value / 100; syncName(); });
 sEl.addEventListener("input", () => { s = +sEl.value / 100; });
 qBtns.forEach((b, j) => b.addEventListener("click", () => setPreset(j)));
+window.ccsRefreshBench = () => { nameEl.textContent = NAMES[window.CCS_LANG || "en"][Math.round(q)]; };
 setPreset(1);

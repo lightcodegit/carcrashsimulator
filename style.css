@@ -61,6 +61,12 @@ code {
   padding: 9px 18px; border-radius: 10px;
 }
 .menu a.cta:hover { background: var(--hot); color: #140a08; }
+.lang-btn {
+  color: var(--dim); background: transparent; border: 1px solid var(--line);
+  border-radius: 9px; padding: 6px 12px; font-size: 13px; font-weight: 650;
+  cursor: pointer; font-family: inherit;
+}
+.lang-btn:hover { color: var(--text); border-color: var(--amber); }
 
 /* --- герой --- */
 .hero { padding: 90px 0 40px; text-align: left; }
@@ -100,7 +106,7 @@ code {
 .bench-label { color: var(--dim); font-size: 13.5px; font-weight: 600; }
 .bench-title { font-size: clamp(26px, 3vw, 34px); margin: 14px 0 10px; }
 .bench-title .accent { color: var(--amber); }
-.bench-lede { color: var(--dim); font-size: 15px; max-width: 480px; }
+.bench-lede, .bench-lede[data-i18n] { color: var(--dim); font-size: 15px; max-width: 560px; }
 .rows { margin-top: 32px; display: grid; gap: 30px; }
 .brow-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .brow-label { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14.5px; }

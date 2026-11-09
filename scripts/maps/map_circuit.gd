@@ -99,6 +99,7 @@ static func endless() -> Dictionary:
 	# с чем-то»). Колёса вне полотна садутся на 6 см в траву — читается как рельеф.
 	var floor_body := MapKit.box(root, Vector3(0, MapDefs.FLOOR_Y - 1.0, 0), Vector3(40000.0, 2.0, 240.0),
 		Color(0.34, 0.37, 0.33), Basis.IDENTITY, true)
+	floor_body.name = "endless_floor"
 	for c in floor_body.get_children():
 		if c is MeshInstance3D: (c as MeshInstance3D).position.y -= 0.06
 	var t := TrackCursor.new()
@@ -147,7 +148,7 @@ static func endless() -> Dictionary:
 	# спавн на середине плиты, а не на шве: лучи и колёса на стыке коллайдеров
 	# ловили пол вместо полотна (h_map_props: «под спавном пол»)
 	return {"root": root, "spawn": Transform3D(Basis.IDENTITY, Vector3(-18.0, 1.0, 0.0)),
-		"bounds": AABB(Vector3(-200, -60, -120), Vector3(40000, 120, 240)),
+		"bounds": AABB(Vector3(-200, -60, -120), Vector3(400000, 120, 240)),
 		"info": {"colliders": root.get_child_count(), "has_ramp": true, "endless": true}}
 
 # Переставка плит «бесконечности»: то, что осталось за спиной, уезжает за голову
@@ -163,6 +164,18 @@ static func endless() -> Dictionary:
 static var _rc_root: Node3D = null
 static var _rc_count := -1
 static var rc_lines: Array = []
+
+# Пол «бесконечности» следует за машиной квантами 2 км: без этого травяное
+# полотно заканчивалось на 20-м километре, и съехавший с дороги игрок видел
+# пустоту и край ленты, висящей над ним (issue #5). Трипланарный шум текстуры
+# лежит в мировых координатах — сдвиг коробки не «плавит» рисунок.
+static func floor_follow(root: Node3D, car_x: float) -> void:
+	var body := root.get_node_or_null("endless_floor") as StaticBody3D
+	if body == null: return
+	var want := roundf(car_x / 2000.0) * 2000.0
+	var dx := want - body.position.x
+	if absf(dx) < 0.5: return
+	body.position.x += dx
 
 static func recycle(root: Node3D, car_x: float, spacing: float) -> int:
 	if not rc_lines_fresh(root):

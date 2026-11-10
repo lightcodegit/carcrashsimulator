@@ -43,6 +43,10 @@ workflow refuses to publish a tag that does not match it.
   frame and immediately re-lit the boost (a limit cycle), so the car kept
   accelerating "as if with nitro" forever. The tank now recharges only when the
   boost is not being demanded (key released or off the throttle).
+- The speedometer and nitro gauge labels ("KM/H", "NITRO") now translate. They
+  were drawn straight onto the gauge with a raw Russian literal, so the language
+  switch never repainted them and they stayed Cyrillic in English mode. `h_i18n`
+  gains a source scan so custom-drawn UI text cannot bypass the catalog again.
 
 ## [v0.1.1] - 2026-11-09
 

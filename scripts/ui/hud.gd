@@ -87,9 +87,9 @@ class Gauge extends Control:
 			# ложилась ровно на стрелку и на сам круг.
 			draw_string(font, c + Vector2(-70, r * 0.22), "%d" % int(speed),
 				HORIZONTAL_ALIGNMENT_CENTER, 140, 44, Color(1, 1, 1, 0.95))
-			draw_string(font, c + Vector2(-70, r * 0.22 + 46), "КМ/Ч",
+			draw_string(font, c + Vector2(-70, r * 0.22 + 46), I18n.t("КМ/Ч"),
 				HORIZONTAL_ALIGNMENT_CENTER, 140, 12, DIM)
-			draw_string(font, c + Vector2(-70, r * 1.14), "НИТРО",
+			draw_string(font, c + Vector2(-70, r * 1.14), I18n.t("НИТРО"),
 				HORIZONTAL_ALIGNMENT_CENTER, 140, 11, Color(1, 1, 1, 0.35))
 
 var _car: CarRig

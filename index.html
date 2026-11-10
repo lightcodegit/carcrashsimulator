@@ -19,6 +19,7 @@
   <script src="dossier.js" defer></script>
 </head>
 <body>
+  <span class="progress" id="progress" aria-hidden="true"></span>
   <header class="topbar" id="topbar">
     <div class="bar-in">
       <a class="brand" href="#top" aria-label="Car Crash Simulator — to the top">
@@ -169,7 +170,7 @@
           <div class="presets mono" id="b-presets">
             <button type="button" data-q="0">LOW</button><button type="button" data-q="1" class="on">MEDIUM</button><button type="button" data-q="2">HIGH</button><button type="button" data-q="3">FILM</button>
           </div>
-          <p class="note mono" data-i18n-html="bench_note">Measured by <code>p_perf</code>, live rendering ·
+          <p class="note" data-i18n="bench_note">Live render at 1600×900 on Intel HD 630 integrated graphics ·
           the game ships at 70% render scale.</p>
         </div>
       </div>

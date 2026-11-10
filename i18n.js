@@ -1,5 +1,6 @@
 const I18N = {
-  en: {
+  en:
+
     nav_features: "Features", nav_screens: "Screens", nav_bench: "Benchmarks",
     nav_about: "About", nav_source: "Source", nav_download: "Download",
     kicker: "Godot 4.7 · Written in GDScript · Free, MIT + CC0",
@@ -49,7 +50,7 @@ const I18N = {
     foot_by: "Written by ", foot_code: "Code under ", foot_assets: "assets are CC0 Kenney Car Kit and Racing Kit.",
     foot_by_link: "crystaldev (@lightcodegit)", foot_code_link: "MIT",
     foot_assets_link: "Kenney",
-    foot_tiny: "Godot is a trademark of the Godot Foundation; Kenney of Kenney.nl — mentioned only to say what this is built with.",
+    foot_tiny: "Godot is a trademark of the Godot Foundation; Kenney of Kenney.nl — mentioned only to say what this is built with.",	"bench_60": "60 Hz budget",	"bench_comp": "Effect composition",	"dl_linux_sub": "x86_64 · glibc · X11 or Wayland · 29 MB zip",	"dl_win_sub": "x86_64 · Windows 10/11 · OpenGL 3.3 · 38 MB zip",	"h1_2": "every dent is real.",	"nav_bench": "Benchmarks",	"nav_download": "Download",	"nav_screens": "Screens",	"s1l": "automated checks",	"s2": "148",	"s2l": "fps measured, full pipeline",	"s3l": "platforms shipped by CI",	"s4": "s4",	"s4l": "file per platform",	"source": "View on GitHub",
   },
   ru: {
     nav_features: "Возможности", nav_screens: "Скриншоты", nav_bench: "Бенчмарк",

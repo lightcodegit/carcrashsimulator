@@ -42,6 +42,7 @@ const EN := {
 	"БЕЗ HUD": "NO HUD",
 	"БЕЗ ПОТОЛКА": "NO LIMIT",
 	"БЕСКОНЕЧНОСТЬ": "ENDLESS",
+	"ПУСТОТА": "VOID",
 	"БОЛЬШОЙ ГОРОД": "BIG CITY",
 	"БЫСТРЕЕ": "FASTER",
 	"В ГЛАВНОЕ МЕНЮ": "MAIN MENU",

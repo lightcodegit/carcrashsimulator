@@ -172,13 +172,22 @@ static var rc_lines: Array = []
 # полотно заканчивалось на 20-м километре, и съехавший с дороги игрок видел
 # пустоту и край ленты, висящей над ним (issue #5). Трипланарный шум текстуры
 # лежит в мировых координатах — сдвиг коробки не «плавит» рисунок.
-static func floor_follow(root: Node3D, car_x: float) -> void:
+static func floor_follow(root: Node3D, car_x: float, car_z: float = 0.0) -> void:
 	var body := root.get_node_or_null("endless_floor") as StaticBody3D
-	if body == null: return
-	var want := roundf(car_x / 2000.0) * 2000.0
-	var dx := want - body.position.x
-	if absf(dx) < 0.5: return
-	body.position.x += dx
+	if body != null:
+		var want := roundf(car_x / 2000.0) * 2000.0
+		var dx := want - body.position.x
+		if absf(dx) >= 0.5:
+			body.position.x += dx
+		return
+	var void_body := root.get_node_or_null("void_floor") as StaticBody3D
+	if void_body == null: return
+	var want_x := roundf(car_x / 2000.0) * 2000.0
+	var want_z := roundf(car_z / 2000.0) * 2000.0
+	var dx := want_x - void_body.position.x
+	var dz := want_z - void_body.position.z
+	if absf(dx) >= 0.5: void_body.position.x += dx
+	if absf(dz) >= 0.5: void_body.position.z += dz
 
 static func recycle(root: Node3D, car_x: float, spacing: float) -> int:
 	if not rc_lines_fresh(root):

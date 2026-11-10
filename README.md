@@ -78,7 +78,7 @@ Measured by `tools/project.mjs test` (`p_perf`, live rendering) on **Intel HD 63
 
 Ready builds are published on the [**Releases**](https://github.com/lightcodegit/carcrashsimulator/releases) page. The `Release` workflow assembles them automatically on a `v*` tag and checks the tag number against the version in `project.godot` and the `CHANGELOG.md` entry.
 
-Until the first tag, build from source (below) or grab CI artifacts from the **Actions** tab.
+If a build for your platform or version is not available there, you can [build from source](#building-from-source) or grab CI artifacts from the [Actions](https://github.com/lightcodegit/carcrashsimulator/actions) tab.
 
 | Platform | File | Requirements |
 | --- | --- | --- |

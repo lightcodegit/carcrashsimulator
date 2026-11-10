@@ -142,32 +142,40 @@ static func street_lamp(root: Node3D, pos: Vector3, side: float) -> void:
 static func bench(root: Node3D, x: float, z: float, rot_deg: float) -> void:
 	var y := MapKit.surface_y(x, z)
 	var b := Basis(Vector3.UP, deg_to_rad(rot_deg))
-	MapKit.box(root, Vector3(x, y + 0.45, z), Vector3(1.8, 0.08, 0.55), MapDefs.WOOD_COL, b, true)
-	MapKit.box(root, Vector3(x, y + 0.75, z) + b * Vector3(0, 0, -0.24),
+	var seat := MapKit.box(root, Vector3(x, y + 0.45, z), Vector3(1.8, 0.08, 0.55), MapDefs.WOOD_COL, b, true)
+	var back := MapKit.box(root, Vector3(x, y + 0.75, z) + b * Vector3(0, 0, -0.24),
 		Vector3(1.8, 0.5, 0.07), MapDefs.WOOD_COL, b, true)
+	MapKit.far(seat, 220.0)
+	MapKit.far(back, 220.0)
 	for s in [-0.7, 0.7]:
 		var leg := MapKit.box_vis(root, Vector3(x, y + 0.22, z) + b * Vector3(s, 0, 0),
 			Vector3(0.09, 0.44, 0.5), MapDefs.METAL_COL, b)
 		leg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		MapKit.far(leg, 220.0)
 
 static func bin(root: Node3D, x: float, z: float) -> void:
 	var y := MapKit.surface_y(x, z)
-	MapKit.box(root, Vector3(x, y + 0.42, z), Vector3(0.55, 0.84, 0.55), MapDefs.METAL_COL,
+	var body := MapKit.box(root, Vector3(x, y + 0.42, z), Vector3(0.55, 0.84, 0.55), MapDefs.METAL_COL,
 		Basis.IDENTITY, true)
 	var lid := MapKit.box_vis(root, Vector3(x, y + 0.87, z), Vector3(0.66, 0.06, 0.66), MapDefs.STONE_COL)
 	lid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	MapKit.far(body, 220.0)
+	MapKit.far(lid, 220.0)
 
 static func picnic(root: Node3D, x: float, z: float, rot_deg: float) -> void:
 	var y := MapKit.surface_y(x, z)
 	var b := Basis(Vector3.UP, deg_to_rad(rot_deg))
-	MapKit.box(root, Vector3(x, y + 0.72, z), Vector3(1.7, 0.08, 0.95), MapDefs.WOOD_COL, b, true)
+	var top := MapKit.box(root, Vector3(x, y + 0.72, z), Vector3(1.7, 0.08, 0.95), MapDefs.WOOD_COL, b, true)
+	MapKit.far(top, 220.0)
 	for s in [-0.62, 0.62]:
-		MapKit.box(root, Vector3(x, y + 0.42, z) + b * Vector3(0, 0, s),
+		var seat := MapKit.box(root, Vector3(x, y + 0.42, z) + b * Vector3(0, 0, s),
 			Vector3(1.7, 0.07, 0.3), MapDefs.WOOD_COL, b, true)
+		MapKit.far(seat, 220.0)
 	for s in [-0.6, 0.6]:
 		var leg := MapKit.box_vis(root, Vector3(x, y + 0.36, z) + b * Vector3(s, 0, 0),
 			Vector3(0.1, 0.72, 0.9), MapDefs.METAL_COL, b)
 		leg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		MapKit.far(leg, 220.0)
 
 # Сбиваемый предмет из процедурных ящиков: сборка становится ОДНИМ RigidBody с
 # коробкой по общему габариту. Россыпью куски летали бы по-разному и цепляли машину
@@ -232,10 +240,17 @@ static func fountain(root: Node3D, x: float, z: float) -> void:
 	var y := MapKit.surface_y(x, z)
 	for k in 8:
 		var a := k * TAU / 8.0
-		MapKit.box(root, Vector3(x + cos(a) * 3.0, y + 0.3, z + sin(a) * 3.0),
-			Vector3(2.6, 0.6, 0.55), MapDefs.STONE_COL, Basis(Vector3.UP, -a))
-	MapKit.box_vis(root, Vector3(x, y + 0.12, z), Vector3(5.4, 0.1, 5.4), MapDefs.WATER_COL)
-	MapKit.box(root, Vector3(x, y + 1.0, z), Vector3(0.7, 2.0, 0.7), MapDefs.STONE_COL)
+		var rim := MapKit.box(root, Vector3(x + cos(a) * 3.0, y + 0.3, z + sin(a) * 3.0),
+			Vector3(2.6, 0.6, 0.55), MapDefs.STONE_COL, Basis(Vector3.UP, -a), true)
+		MapKit.far(rim, 280.0)
+	var water := MapKit.box_vis(root, Vector3(x, y + 0.12, z), Vector3(5.4, 0.1, 5.4), MapDefs.WATER_COL)
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	MapKit.far(water, 280.0)
+	var col := MapKit.box(root, Vector3(x, y + 1.0, z), Vector3(0.7, 2.0, 0.7), MapDefs.STONE_COL,
+		Basis.IDENTITY, true)
+	MapKit.far(col, 280.0)
 
 static func planter(root: Node3D, pos: Vector3, rot_deg: float) -> void:
-	MapKit.no_shadow(prop(root, MapDefs.A + "planter.glb", pos, 1.7 if rot_deg > 80.0 else 1.6, rot_deg, true))
+	var p := prop(root, MapDefs.A + "planter.glb", pos, 1.7 if rot_deg > 80.0 else 1.6, rot_deg, true)
+	MapKit.no_shadow(p)
+	MapKit.far(p, 240.0)

@@ -42,8 +42,11 @@ func _initialize() -> void:
 		print("%-9s bodies %d, sunk %d, worst %.3f m; ring benches %d, not facing fountain %d" % [
 			id, total, sunk, worst, rings, wrong])
 		# an empty walk looks like "all clean": a map must have bodies
-		if total < 5:
+		if id != "void" and total < 5:
 			print("FAIL: %s: %d dynamic bodies, nothing to check" % [id, total])
+			fails += 1
+		if id == "void" and total != 0:
+			print("FAIL: void: %d dynamic bodies, expected 0" % total)
 			fails += 1
 		if sunk > 0 or wrong > 0: fails += 1
 		# bench rings exist only in Big City: 4 parks × 6 benches

@@ -42,7 +42,10 @@ func _ready() -> void:
 		var n := 0
 		for c in root_map.get_children():
 			if c is RigidBody3D: n += 1
-		check(n >= 5, "%s: map has something to knock down (%d dynamic bodies)" % [id, n])
+		if id != "void":
+			check(n >= 5, "%s: map has something to knock down (%d dynamic bodies)" % [id, n])
+		else:
+			check(n == 0, "void: no dynamic bodies (%d)" % n)
 		root_map.free()
 	_next()
 

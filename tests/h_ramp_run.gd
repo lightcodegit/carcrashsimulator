@@ -98,6 +98,9 @@ func _sweep(id: String) -> void:
 		# by h_map_props, h_prop_knock and h_restart_props, which iterate all maps.
 		print("NOTE: %s — same hills as on the ring; the plate belt moves, see h_newmaps" % id)
 		return
+	if id == "void":
+		print("NOTE: void — no hills to check")
+		return
 	_map = id
 	GameContext.select("sport", id)
 	gm = load("res://scenes/game.tscn").instantiate()
@@ -121,6 +124,7 @@ func _sweep(id: String) -> void:
 		hazards = picked
 	if hazards.is_empty():
 		print("NOTE: no hills on %s — nothing to check" % id)
+		return
 	_found += hazards.size()
 	for hz in hazards:
 		_hill_bodies = hz["bodies"]

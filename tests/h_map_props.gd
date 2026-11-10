@@ -91,18 +91,22 @@ func _ready() -> void:
 		var spawn: Transform3D = m.spawn
 		var info: Dictionary = m.info
 		add_child(root_map)
-		check(info.colliders > 10, "%s has colliders (%d)" % [id, m.info.colliders])
+		check(info.colliders > 10 or id == "void", "%s has colliders (%d)" % [id, m.info.colliders])
 		# A ramp with a long flight only where there is room to fly: on the closed
 		# circuit and in the town the jump used to end in a wall (measurements in h_ramp_run).
-		var flies := id != "arena" and id != "town"
+		# Void is an intentionally empty infinite plane with no ramps or props.
+		var flies := id != "arena" and id != "town" and id != "void"
 		check(info.has_ramp == flies, "%s: hill present as expected (%s)" % [id, str(info.has_ramp)])
 		var ov := _road_overlaps(root_map)
 		check(ov.is_empty(), "%s: road plates do not lie on top of each other (%s)" % [id, str(ov)])
 		await get_tree().physics_frame
 		var seat: Array = _seated(root_map)
 		var sunk: Array = seat[0]
-		check(seat[1] > 8, "%s: seating checked for %d objects (otherwise the check is empty)" % [id, seat[1]])
-		check(sunk.is_empty(), "%s: decorations stand on the surface (%s)" % [id, str(sunk.slice(0, 4))])
+		if id != "void":
+			check(seat[1] > 8, "%s: seating checked for %d objects (otherwise the check is empty)" % [id, seat[1]])
+			check(sunk.is_empty(), "%s: decorations stand on the surface (%s)" % [id, str(sunk.slice(0, 4))])
+		else:
+			check(seat[1] == 0, "void: intentionally empty (%d seated objects)" % [seat[1]])
 		await get_tree().physics_frame
 		var space := get_world_3d().direct_space_state
 		var from := spawn.origin + Vector3(0, 2.0, 0)

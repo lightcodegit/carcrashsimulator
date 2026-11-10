@@ -112,9 +112,12 @@ func _ready() -> void:
 			if lo > MapDefs.FLOOR_Y + 0.0005 and lo < MapDefs.FLOOR_Y + 0.010: lifted += 1
 			for g in _horiz(p.mesh, p.global_transform, "grey"):
 				if g - lo > 0.05 and g - lo < 0.30: proud += 1
-		check(plates > 5, "%s: road segments %d" % [id, plates])
-		check(lifted == plates, "%s: every plate's surface is lifted above the floor (%d of %d)" % [id, lifted, plates])
-		check(proud > 10, "%s: the white marking is above its own asphalt (%d faces)" % [id, proud])
+		if id != "void":
+			check(plates > 5, "%s: road segments %d" % [id, plates])
+			check(lifted == plates, "%s: every plate's surface is lifted above the floor (%d of %d)" % [id, lifted, plates])
+			check(proud > 10, "%s: the white marking is above its own asphalt (%d faces)" % [id, proud])
+		else:
+			check(plates == 0, "void: no road segments (%d)" % plates)
 		var arches := 0
 		var seen := 0
 		for mi in kits:

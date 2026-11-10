@@ -69,9 +69,12 @@ func _ready() -> void:
 	# other on the floor, and the solver ejects it at the start of the run.
 	for id in MapDB.ids():
 		var seats := await _seating(id)
-		check(seats[2] > 4, "%s: found %d props to check" % [id, int(seats[2])])
-		check(seats[0] == 0, "%s: no prop is sunk into the surface (%d)" % [id, int(seats[0])])
-		check(seats[1] < 0.60, "%s: props do not bounce at the start of the run (vy=%.2f)" % [id, seats[1]])
+		if id != "void":
+			check(seats[2] > 4, "%s: found %d props to check" % [id, int(seats[2])])
+			check(seats[0] == 0, "%s: no prop is sunk into the surface (%d)" % [id, int(seats[0])])
+			check(seats[1] < 0.60, "%s: props do not bounce at the start of the run (vy=%.2f)" % [id, seats[1]])
+		else:
+			check(seats[2] == 0, "void: no props to check (%d)" % int(seats[2]))
 	GameContext.select("sedan", "arena")
 	gm = load("res://scenes/game.tscn").instantiate()
 	add_child(gm)

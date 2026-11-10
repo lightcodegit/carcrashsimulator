@@ -393,6 +393,12 @@ func _replay_shot() -> void:
 				if f.begins_with("replay_") and f.ends_with(".png"):
 					_replay_shot_i = maxi(_replay_shot_i, int(f.trim_prefix("replay_").trim_suffix(".png")))
 	_replay_shot_i += 1
+	# save_png не создаёт родительскую папку: на свежем профиле, где фотомод ещё
+	# не заходил, user://photos отсутствует, и снимок реплея падал бы как «нет
+	# права записи». Создаём её здесь, как это делает photo_mode.capture().
+	var droot := DirAccess.open("user://")
+	if droot != null and not droot.dir_exists("photos"):
+		droot.make_dir("photos")
 	var path := "user://photos/replay_%04d.png" % _replay_shot_i
 	if img.save_png(path) != OK:
 		hud.show_tip(I18n.t("СНИМОК НЕ ПОЛУЧИЛСЯ: НЕТ ПРАВА ЗАПИСИ"))

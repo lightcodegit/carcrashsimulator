@@ -61,6 +61,28 @@ func _ready() -> void:
 	add_child(player)
 	player.setup(rec, car, null)
 	rec.player = player
+	_guard_validation()
+
+# Регресс на дыру валидации ленты (#2) и падение frame_at на пустом кольце (#3).
+# Проверяем на реальном пустом рекордере до начала живых стадий.
+func _mkframe(with_nitro: bool, with_hot: bool) -> Dictionary:
+	var b := PackedFloat32Array(); b.resize(9)
+	for i in 9: b[i] = float(i)
+	var f := {"t": 0.0, "kmh": 0.0, "slip": 0.0, "p": PackedFloat32Array([0.0, 0.0, 0.0]),
+		"b": b, "w": PackedFloat32Array(), "pr": PackedFloat32Array()}
+	if with_nitro: f["nitro"] = 0.0
+	if with_hot: f["hot"] = 0.0
+	return f
+
+func _guard_validation() -> void:
+	check(ReplayRecorder._frames_valid([_mkframe(true, true)]),
+		"полный кадр с nitro и hot принимается")
+	check(not ReplayRecorder._frames_valid([_mkframe(false, true)]),
+		"кадр без nitro отклоняется: иначе _apply читает a.nitro и падает в реплее")
+	check(not ReplayRecorder._frames_valid([_mkframe(true, false)]),
+		"кадр без hot отклоняется: иначе _apply читает a.hot и падает в реплее")
+	check(rec.frame_at(0.0) == {},
+		"frame_at на пустом кольце отдаёт {}, а не индексирует frames[0]")
 
 func _physics_process(_dt: float) -> void:
 	_ticks += 1

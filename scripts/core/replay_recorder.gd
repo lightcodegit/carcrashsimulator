@@ -162,7 +162,8 @@ func index_at(t: float) -> int:
 	return lo
 
 func frame_at(t: float) -> Dictionary:
-	return frames[clampi(index_at(t), 0, maxi(frames.size() - 1, 0))]
+	if frames.is_empty(): return {}
+	return frames[clampi(index_at(t), 0, frames.size() - 1)]
 
 func clear() -> void:
 	frames.clear()
@@ -200,12 +201,12 @@ static func tape_at(path: String) -> Dictionary:
 static func _frames_valid(list: Array) -> bool:
 	for f in list:
 		if not (f is Dictionary): return false
-		if not f.has("t") or not f.has("kmh") or not f.has("slip"): return false
+		if not f.has("t") or not f.has("kmh") or not f.has("slip") or not f.has("nitro") or not f.has("hot"): return false
 		if not (f.get("p", []) is PackedFloat32Array) or (f["p"] as PackedFloat32Array).size() != 3: return false
 		if not (f.get("b", []) is PackedFloat32Array) or (f["b"] as PackedFloat32Array).size() != 9: return false
 		if not (f.get("w", []) is PackedFloat32Array) or (f["w"] as PackedFloat32Array).size() % 4 != 0: return false
 		if not (f.get("pr", []) is PackedFloat32Array) or (f["pr"] as PackedFloat32Array).size() % 13 != 0: return false
-		if not (f.get("hot", 0.0) is float) or not (f["kmh"] is float) or not (f["t"] is float): return false
+		if not (f["hot"] is float) or not (f["nitro"] is float) or not (f["kmh"] is float) or not (f["t"] is float): return false
 	return true
 
 # Потолок сохранённой ленты: вдвое больше игрового окна (20 Гц × 10 с). Куски
@@ -241,6 +242,12 @@ func adopt_tape(tape: Dictionary) -> bool:
 	dents = (tape.get("dents", []) as Array).duplicate()
 	sim_t = float(tape.get("sim_t", 0.0))
 	_acc = 0.0
+	# sim_t откатан к началу ленты, а _near_at остался от живого заезда: шлюз
+	# обновления окрестности (sim_t - _near_at >= NEAR_REFRESH_S) закрылся бы, и
+	# первые кадры после «ПРОШЛЫЙ» писали бы старый набор предметов вокруг машины.
+	# Сбрасываем кэш, как это делает _sync_props.
+	_near.clear()
+	_near_at = -1.0
 	return true
 
 # Память кольца: кадр — ~30 float на машину плюс предметы. Считается честной,

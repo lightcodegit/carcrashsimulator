@@ -16,14 +16,48 @@ const obs = new IntersectionObserver(entries => {
 
 document.querySelectorAll(".reveal").forEach(node => obs.observe(node));
 
-/* ---------- sticky header ---------- */
+/* ---------- sticky header + reading progress ---------- */
 
 const topbar = document.getElementById("topbar");
+const progress = document.getElementById("progress");
 function onScroll() {
   topbar.classList.toggle("scrolled", window.scrollY > 24);
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const p = max > 0 ? window.scrollY / max : 0;
+  if (progress) progress.style.width = (p * 100).toFixed(2) + "%";
 }
 window.addEventListener("scroll", onScroll, { passive: true });
+window.addEventListener("resize", onScroll, { passive: true });
 onScroll();
+
+/* ---------- stat numbers count up when they enter the viewport ---------- */
+
+const statObs = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (e.isIntersecting) { statObs.unobserve(e.target); countUp(e.target); }
+  }
+}, { threshold: 0.5 });
+
+document.querySelectorAll(".stat b").forEach(node => statObs.observe(node));
+
+function countUp(node) {
+  // Animate every digit-only text node; the "5/7" stat keeps its styled slash.
+  const parts = [...node.childNodes].filter(n =>
+    n.nodeType === 3 && n.textContent.trim() !== "").map(n => ({
+      n,
+      to: parseInt(n.textContent, 10),
+      ok: /^\s*\d+\s*$/.test(n.textContent),
+    }));
+  if (!parts.length || !parts.every(p => p.ok) || REDUCED) return;
+  const DUR = 1200;
+  const t0 = performance.now();
+  requestAnimationFrame(function step(t) {
+    const k = Math.min(1, (t - t0) / DUR);
+    const e = 1 - Math.pow(1 - k, 3);
+    for (const p of parts) p.n.textContent = String(Math.round(p.to * e));
+    if (k < 1) requestAnimationFrame(step);
+  });
+}
 
 /* ---------- ticker tape: duplicate the tokens once for a seamless loop ---------- */
 

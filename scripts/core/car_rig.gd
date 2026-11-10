@@ -335,8 +335,12 @@ func _drive(dt: float) -> void:
 	# форсаж ровно там, где он и нужен — на вершине диапазона. Бак тратится только с
 	# нажатым газом и только вперёд: «нитро на нейтрали» ничего не разгоняет, а
 	# расходовать его задом нелогично.
-	nitro_active = Input.is_action_pressed("nitro") and throttle > 0.0 and vf >= -0.5 \
-		and nitro > 0.0
+	# «Требование форсажа» — удерживаемое нитро с газом вперёд. Пока игрок требует
+	# форсаж, бак НЕ копится: иначе на пустом баке долив за один кадр снова открывал
+	# форсаж, и машина продолжала разгоняться «как с нитро», хотя бак кончился
+	# (жалоба). Копится, только когда форсаж не требуют: кнопка отпущена либо газа нет.
+	var nitro_wanted := Input.is_action_pressed("nitro") and throttle > 0.0 and vf >= -0.5
+	nitro_active = nitro_wanted and nitro > 0.0
 	if nitro_active != _nitro_was:
 		_nitro_was = nitro_active
 		nitro_changed.emit(nitro_active)
@@ -348,7 +352,7 @@ func _drive(dt: float) -> void:
 	if nitro_active:
 		drive += throttle * params.mass * params.nitro_accel
 		nitro = maxf(nitro - params.nitro_drain * dt, 0.0)
-	else:
+	elif not nitro_wanted:
 		nitro = minf(nitro + params.nitro_refill * dt, params.nitro_capacity)
 	# S — тормоз, пока машина катится вперёд. На остановке педаль сначала ДЕРЖИТ
 	# машину, и только после REVERSE_LAG удержания включается задний ход: прежняя

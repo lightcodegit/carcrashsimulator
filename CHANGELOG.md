@@ -38,6 +38,11 @@ workflow refuses to publish a tag that does not match it.
   near-prop cache stale: `adopt_tape` resets it, so the first frames after
   resuming record the props actually around the car, not the previous
   surroundings (the refresh gate compares against the rewound time).
+- Nitro no longer keeps pushing after the tank runs out. While the player held
+  the nitro key with the throttle open, an empty tank recharged a hair every
+  frame and immediately re-lit the boost (a limit cycle), so the car kept
+  accelerating "as if with nitro" forever. The tank now recharges only when the
+  boost is not being demanded (key released or off the throttle).
 
 ## [v0.1.1] - 2026-11-09
 

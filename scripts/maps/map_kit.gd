@@ -380,6 +380,8 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 	if solid and _needs_closure(name): close = _closure(m)
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
+	if name.begins_with("billboard"):
+		_blank_billboard_panel(mi)
 	var drawn := false
 	for e in close:
 		if bool(e["show"]): drawn = true
@@ -441,6 +443,25 @@ static func kit(root: Node3D, name: String, pos: Vector3, rot_y_deg: float, soli
 		body.physics_material_override = pm
 		root.add_child(body)
 	return mi
+
+# Панель билборда — поверхность "tankco" из Kenney, рекламный плакат. По просьбе
+# игрока щит должен быть чистым белым и пустым, поэтому переопределяем именно её
+# белым материалом. Override ставится здесь, до Materials.apply_tree(..., "prop")
+# в конце сборки карты: apply_tree пропускает поверхности с уже заданным override
+# (materials.gd:174), так что белое не перетирается додведенным танко. Каркас
+# (grey/bark) и опоры не трогаем — белим только сам щит.
+static var _billboard_blank: StandardMaterial3D
+static func _blank_billboard_panel(mi: MeshInstance3D) -> void:
+	if _billboard_blank == null:
+		_billboard_blank = StandardMaterial3D.new()
+		_billboard_blank.resource_name = "billboard_blank"
+		_billboard_blank.albedo_color = Color(0.90, 0.90, 0.91)
+		_billboard_blank.roughness = 0.6
+		_billboard_blank.metallic = 0.0
+	for i in mi.mesh.get_surface_count():
+		var src := mi.mesh.surface_get_material(i)
+		if src != null and src.resource_name == "tankco":
+			mi.set_surface_override_material(i, _billboard_blank)
 
 # Мировая «плита полотна»: прямоугольник горизонтальных граней поверхности road и её
 # высота. Пустой словарь — полотно не плоское (рампа, лежачий полицейский). Нужно это

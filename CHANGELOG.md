@@ -116,7 +116,7 @@ workflow refuses to publish a tag that does not match it.
 
 - The first public release of the crash sandbox: a car body that crumples with
   dents at the point of impact, five cars from a heavy pickup to the Endless
-  car with no speed cap, and six maps from a test arena to a big city.
+  car with no speed cap, and seven maps from a test arena to a big city.
 - In-run telemetry HUD: speed, peak g-force, dent count and depth, the impact
   log and an on-screen fps counter.
 - Impact replay of the last 10 seconds with stepping and playback speed;

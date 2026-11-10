@@ -102,9 +102,9 @@ function tick() {
   msEl.textContent = shownMs.toFixed(1);
   fpsEl.textContent = String(Math.round(shownFps));
 
-  const over = ms > OVERLOAD;
-  meterEl.classList.toggle("over", over && !REDUCED);
-  msEl.parentElement.classList.toggle("over", over || ms > BUDGET);
+  const zone = ms > OVERLOAD ? "zone-over" : ms > BUDGET ? "zone-drop" : "zone-ok";
+  meterEl.classList.remove("zone-ok", "zone-drop", "zone-over");
+  meterEl.classList.add(zone);
 
   // the fill is a readout: the cost drawn on the 0..OVERLOAD instrument scale
   fillEl.style.width = clamp(ms / OVERLOAD * 100, 0, 100).toFixed(1) + "%";

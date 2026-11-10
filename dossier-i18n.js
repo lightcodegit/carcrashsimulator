@@ -55,6 +55,7 @@ const I18N = {
 
     bench_kick: "Section 02 — instrument panel",
     bench_comp: "composition.",
+
     bench_lede: "The measured frame cost of this effect composition, live rendering at 1600×900 on integrated graphics. Drag the slider to try your own frame budget.",
     bench_r1: "Effect composition",
     bench_r2: "Render scale",
@@ -102,6 +103,7 @@ const I18N = {
     dl_win_sub: "x86_64 · Windows 10/11 · OpenGL 3.3 · ~38 MB",
     dl_linux: "Linux",
     dl_linux_sub: "x86_64 · glibc · X11 or Wayland · ~29 MB",
+    dl_file: "ZIP archive from the latest release",
     dl_go: "Download ↓",
     req1: "The archive contains one self-contained file — game data is embedded into the executable.",
     req2: "Windows 10/11 or a glibc Linux distribution; GPU with OpenGL 3.3 — integrated graphics is fine at the default preset.",
@@ -168,7 +170,7 @@ const I18N = {
     f6b: "Пресеты картинки плюс отдельные графические опции, слоу-мо, два языка с переключением на лету и переназначение управления — клавиатура и геймпад хранятся отдельно.",
 
     bench_kick: "Раздел 02 — приборная панель",
-    bench_comp: "композиция.",
+    bench_comp: "пресет.",
     bench_lede: "Замеренная цена кадра этой композиции эффектов, живой рендер на 1600×900 на встроенной графике. Двигай ползунок, чтобы попробовать свой бюджет кадра.",
     bench_r1: "Состав эффектов",
     bench_r2: "Масштаб рендера",
@@ -178,7 +180,7 @@ const I18N = {
     v_drop: m => "падает до 30 Гц — " + m + " fps",
     v_gpu: "нужна дискретная видеокарта",
     scale_lbl: p => "масштаб рендера " + p + "%",
-    p0: "НИЗКИЙ", p1: "СРЕДНИЙ", p2: "ВЫСОКИЙ", p3: "КИНО",
+    p0: "НИЗКИЙ", p1: "СРЕДНИЙ", p2: "ВЫСОКИЙ", p3: "ФИЛЬМ",
 
     scr_kick: "Раздел 03 — доска улик",
     scr_h2: "Прямо из игры.",
@@ -216,6 +218,7 @@ const I18N = {
     dl_win_sub: "x86_64 · Windows 10/11 · OpenGL 3.3 · ~38 МБ",
     dl_linux: "Linux",
     dl_linux_sub: "x86_64 · glibc · X11 или Wayland · ~29 МБ",
+    dl_file: "ZIP-архив из последнего релиза",
     dl_go: "Загрузить ↓",
     req1: "В архиве один самодостаточный файл — данные игры встроены в исполняемый файл.",
     req2: "Windows 10/11 или glibc-дистрибутив Linux; GPU с OpenGL 3.3 — встроенной графики достаточно на дефолтном пресете.",

@@ -1,6 +1,6 @@
 extends Node3D
-# Проба багов фотомода/реплея/удара: геометрия нижних панелей, восстановление
-# HUD через настоящий пайплайн ввода, колёса в фотомоде, удар при посадке.
+# Probe of photo-mode/replay/impact bugs: bottom bar geometry, HUD restore through
+# the real input pipeline, wheels in photo mode, impact on landing.
 var _fails := 0
 var gm: GameManager
 
@@ -21,7 +21,7 @@ func _ready() -> void:
 	add_child(gm)
 	for f in 10: await get_tree().physics_frame
 
-	# --- 1. геометрия полос: кнопки обязаны сидеть внутри своей панели ---
+	# --- 1. bar geometry: buttons must sit inside their own panel ---
 	var photo: Control = gm.hud._photo_panel
 	var replay: Control = gm.hud._replay_panel
 	for pair in [["photo", photo, gm.hud._photo_buttons], ["replay", replay, gm.hud._replay_buttons]]:
@@ -30,16 +30,16 @@ func _ready() -> void:
 		for b in pair[2]:
 			var br: Rect2 = (b as Control).get_global_rect()
 			if not pr.encloses(br): out += 1
-		check(out == 0, "%s bar: %d кнопок вылезают из панели" % [pair[0], out])
-	# подпись не должна вылезать за панель
+		check(out == 0, "%s bar: %d buttons escape the panel" % [pair[0], out])
+	# the caption must not stick out of the panel
 	for pair in [["photo", gm.hud._photo_info, photo], ["replay", gm.hud._replay_info, replay]]:
 		var lab: Label = pair[1]
 		var pr: Rect2 = (pair[2] as Control).get_global_rect()
 		check(pr.encloses(Rect2(lab.get_global_position(), Vector2(1, 1))),
-			"%s bar: подпись начинается вне панели" % pair[0])
+			"%s bar: caption starts outside the panel" % pair[0])
 
-	# --- 2. БЕЗ HUD и восстановление через настоящий пайплайн ввода ---
-	gm.hud.photo_button("СБРОС ВИДА")  # warm: панели существуют
+	# --- 2. WITHOUT HUD and restore through the real input pipeline ---
+	gm.hud.photo_button("СБРОС ВИДА")  # warm: panels exist
 	gm._open_photo()
 	await get_tree().process_frame
 	check(gm.photo.active, "photo mode open")
@@ -52,7 +52,7 @@ func _ready() -> void:
 	check(not gm.hud._panels_hidden, "F5 through the real input pipeline restores HUD")
 	check(gm.photo.hud_off == false, "hud_off flag synced after F5")
 
-	# --- 3. колёса в фотомоде: WASD камеры не трогает машину ---
+	# --- 3. wheels in photo mode: WASD camera keys must not touch the car ---
 	var steer0: float = gm.car._wheels[0].steering
 	var pos0: Vector3 = gm.car.chassis.global_position
 	_key(KEY_A)
@@ -66,7 +66,7 @@ func _ready() -> void:
 	_key(KEY_A)
 	_key(KEY_W)
 
-	# --- 4. посадка после трамплина на малой скорости не считается ударом ---
+	# --- 4. landing after a ramp at low speed must not count as an impact ---
 	gm._exit_photo()
 	await get_tree().process_frame
 	GameContext.select("sedan", "speedway")
@@ -74,12 +74,12 @@ func _ready() -> void:
 	for f in 10: await get_tree().physics_frame
 	var impacts := 0
 	gm.car.impact.connect(func(_s, _p, _n): impacts += 1)
-	# разгон до ~35 км/ч и прыжок с трамплина: тормоз держим, чтобы скорость была малой
+	# accelerate to ~35 km/h and jump off the ramp; keep the brake held so speed stays low
 	Input.action_press("throttle")
 	for f in 240:
 		await get_tree().physics_frame
 		if gm.car.chassis.linear_velocity.length() > 10.0: break
-	Input.action_press("brake")   # газ отпускаем тормозом: скорость на кромке малая
+	Input.action_press("brake")   # the brake releases the throttle: low speed at the edge
 	Input.action_release("throttle")
 	for f in 600:
 		await get_tree().physics_frame

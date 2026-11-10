@@ -1,7 +1,7 @@
 extends Node
-# Пауза обязана замораживать симуляцию. GameManager стоит в PROCESS_MODE_ALWAYS,
-# чтобы Esc и «в меню» работали, — и этот режим наследуют ВСЕ его дети. Если машина
-# крутится на паузе, она уезжает с места, а после снятия получает залп импульсов.
+# Pause must freeze the simulation. GameManager runs in PROCESS_MODE_ALWAYS so that Esc and
+# "back to menu" keep working — and ALL of its children inherit that mode. If the car keeps
+# ticking while paused, it drifts away from its spot and, once resumed, gets a volley of impulses.
 var _fails := 0
 var gm: GameManager
 var _f := 0
@@ -31,9 +31,9 @@ func _physics_process(_dt: float) -> void:
 		"coast":
 			if _f == 170:
 				gm._set_paused(true)
-				check(gm.get_tree().paused, "дерево поставлено на паузу")
+				check(gm.get_tree().paused, "the tree is paused")
 				check(gm.process_mode == Node.PROCESS_MODE_ALWAYS,
-					"меню паузы живёт при паузе: Esc работает")
+					"the pause menu lives while paused: Esc works")
 				_p_pause = gm.car.chassis.global_position
 				_v_pause = gm.car.speed_kmh()
 				_leak = 0.0
@@ -42,9 +42,9 @@ func _physics_process(_dt: float) -> void:
 			_leak = maxf(_leak, gm.car.chassis.global_position.distance_to(_p_pause))
 			if _f == 230:
 				var dspeed := absf(gm.car.speed_kmh() - _v_pause)
-				print("на паузе: уезд %.3f м, скорость %.1f -> %.1f км/ч" % [_leak, _v_pause, gm.car.speed_kmh()])
-				check(_leak < 0.05, "на паузе машина стоит на месте (%.3f м)" % _leak)
-				check(dspeed < 0.5, "на паузе скорость не меняется (%.1f км/ч)" % dspeed)
+				print("while paused: drift %.3f m, speed %.1f -> %.1f km/h" % [_leak, _v_pause, gm.car.speed_kmh()])
+				check(_leak < 0.05, "the car stays in place while paused (%.3f m)" % _leak)
+				check(dspeed < 0.5, "the speed does not change while paused (%.1f km/h)" % dspeed)
 				var before := gm.car.chassis.global_position
 				_before = before
 				gm._set_paused(false)
@@ -52,8 +52,8 @@ func _physics_process(_dt: float) -> void:
 		"resumed":
 			if _f == 235:
 				var jump := gm.car.chassis.global_position.distance_to(_before)
-				print("первые 5 кадров после паузы: %.3f м" % jump)
-				check(jump < 1.5, "после снятия с паузы нет залпа (%.2f м за 5 кадров)" % jump)
+				print("the first 5 frames after the pause: %.3f m" % jump)
+				check(jump < 1.5, "no volley after unpausing (%.2f m over 5 frames)" % jump)
 				print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 				get_tree().quit(0 if _fails == 0 else 1)
 

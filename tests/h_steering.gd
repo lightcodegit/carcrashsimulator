@@ -1,20 +1,21 @@
 extends Node3D
-# Поворот на большой скорости (жалоба «машины на большой скорости не поворачивают
-# нормально»). Угол передних колёс ограничен допустимым боковым ускорением, и прежний
-# потолок 1.07 g без нижнего порога на 180 км/ч оставлял полградуса: руль крутится,
-# машина едет прямо. Здесь меряется то, что чувствует игрок: как быстро меняется курс,
-# сколько машина уводит в сторону, доворачивает ли она после отпускания руля (иначе
-# поворот — это занос) и не съедает ли само поворот скорость.
+# Steering at high speed (the complaint «cars don't steer properly at high speed»).
+# The front wheel angle is capped by the allowed lateral acceleration, and the old
+# 1.07 g ceiling without a lower bound at 180 km/h left half a degree: the wheel
+# turns, the car goes straight. What is measured here is what the player feels: how
+# fast the heading changes, how far the car pulls aside, whether it straightens
+# after the wheel is released (otherwise a turn is just a skid) and whether the
+# turn itself eats speed.
 const SPEEDS := [80.0, 140.0, 200.0, 260.0]
 const CARS := ["sport", "sedan", "limousine"]
-const HOLD := 60             # тиков полного руля (1 с)
-const COAST := 60            # тиков после отпускания
-const YAW_MIN := 15.0        # °/с: минимум, который был бы недостижим при старом потолке
-const T03_MIN := 6.0         # °: курс через 0.3 с — столько игрок ждёт от «поворачивает»
-const CORRIDOR_MAX := 90.0   # м дороги на 30° поворота при 200 км/ч
-const RESIDUAL_MAX := 15.0   # °: на сколько курс уползает после отпускания руля
-const SPEED_KEEP := 0.8      # долю скорости обязан сохранить
-const SIDE_MIN := 6.0        # м: боковой снос за секунду
+const HOLD := 60             # ticks of full steering (1 s)
+const COAST := 60            # ticks after release
+const YAW_MIN := 15.0        # °/s: a minimum that was unreachable under the old ceiling
+const T03_MIN := 6.0         # °: heading after 0.3 s — what the player expects from «it steers»
+const CORRIDOR_MAX := 90.0   # m of road at a 30° turn at 200 km/h
+const RESIDUAL_MAX := 15.0   # °: how much the heading creeps after the wheel is released
+const SPEED_KEEP := 0.8      # the speed fraction that must be kept
+const SIDE_MIN := 6.0        # m: lateral drift within a second
 
 var _fails := 0
 var car: CarRig
@@ -56,8 +57,8 @@ func _run() -> void:
 	var kmh := float(parts[1])
 	_tag = "%s @%d" % [id, int(kmh)]
 	if id != _car_id:
-		# CarRig.build добавляет узлы, а не пересобирает их: вторая машина в одном риге
-		# оставила бы в дереве оба шасси
+		# CarRig.build adds nodes instead of rebuilding them: a second car in the
+		# same rig would leave both chassis in the tree
 		if car != null and is_instance_valid(car): car.free()
 		car = CarRig.new(); add_child(car)
 		car.build(VehicleDB.get_params(id), get_world_3d())
@@ -95,17 +96,17 @@ func _step() -> void:
 		_step()
 		return
 	Input.action_release("throttle")
-	var yaw_rate := absf(_yaw_hold)                 # ° за секунду держания руля
+	var yaw_rate := absf(_yaw_hold)                 # ° per second of holding the wheel
 	var residual := absf(rad_to_deg(angle_difference(car.heading, _yaw0)) - _yaw_hold)
 	var kept := car.speed_kmh() / maxf(_v0, 1.0)
 	var drift := absf(car.chassis.global_position.z - _z0)
-	print("%-14s курс %+6.1f° за 1 с, после руля %+5.1f°, снос %5.1f м, увод %.1f м/с, на выходе %.0f км/ч (%.0f%%)" % [
+	print("%-14s heading %+6.1f° in 1 s, %+5.1f° after release, drift %5.1f m, slide %.1f m/s, exit %.0f km/h (%.0f%%)" % [
 		_tag, _yaw_hold, residual, drift, _max_side, car.speed_kmh(), kept * 100.0])
 	check(yaw_rate >= YAW_MIN,
-		"%s: полный руль на 1 с поворачивает машину минимум на %.0f° (поворот %.1f°)" % [_tag, YAW_MIN, yaw_rate])
-	check(drift >= SIDE_MIN, "%s: машина уехала в сторону на %.1f м, а не ехала прямо" % [_tag, drift])
+		"%s: full steering for 1 s turns the car by at least %.0f° (turn %.1f°)" % [_tag, YAW_MIN, yaw_rate])
+	check(drift >= SIDE_MIN, "%s: the car pulled aside by %.1f m instead of going straight" % [_tag, drift])
 	check(residual <= RESIDUAL_MAX,
-		"%s: после отпускания руля курс доворачивает на %.1f° — это занос, а не поворот" % [_tag, residual])
-	check(kept >= SPEED_KEEP, "%s: поворот не должен съедать скорость (%.0f%% от %.0f км/ч)" % [
+		"%s: the heading keeps turning %.1f° after release — that is a skid, not a turn" % [_tag, residual])
+	check(kept >= SPEED_KEEP, "%s: the turn must not eat speed (%.0f%% of %.0f km/h)" % [
 		_tag, kept * 100.0, _v0])
 	_run()

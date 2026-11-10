@@ -1,8 +1,8 @@
 extends Node
-# Выбор машины и карты переживает выход в меню и из игры: select пишет
-# last_car/last_map в settings.cfg, меню поднимает подсветку карточек по
-# GameContext, а загрузочный экран гасится по готовности сцены и не торчит
-# над игрой.
+# The car and map choice survives exiting to the menu and out of the game: select writes
+# last_car/last_map into settings.cfg, the menu raises card highlighting via
+# GameContext, and the loading screen is dimmed when the scene is ready and does not
+# loom over the game.
 var _fails := 0
 
 func check(cond: bool, msg: String) -> void:
@@ -11,7 +11,7 @@ func check(cond: bool, msg: String) -> void:
 func _ready() -> void:
 	get_window().size = Vector2i(1600, 900)
 
-	# 1) select сохраняет выбор и валидирует мусор
+	# 1) select persists the choice and validates garbage
 	GameContext.select("pickup", "bigcity")
 	check(GameContext.car_id == "pickup" and GameContext.map_id == "bigcity",
 		"select applies valid ids (%s/%s)" % [GameContext.car_id, GameContext.map_id])
@@ -25,7 +25,7 @@ func _ready() -> void:
 	check(String(cf.get_value("video", "last_car", "")) == "pickup",
 		"last_car written to disk (%s)" % str(cf.get_value("video", "last_car", "")))
 
-	# 2) меню поднимает выбор из GameContext: карточки не сбрасываются на первые
+	# 2) the menu raises the choice from GameContext: cards do not reset to the first ones
 	GameContext.select("sport", "speedway")
 	var mm = load("res://scenes/main_menu.tscn").instantiate()
 	add_child(mm)
@@ -35,11 +35,11 @@ func _ready() -> void:
 	mm.queue_free()
 	await get_tree().process_frame
 
-	# 3) загрузочный экран: показывается по запросу, гасится по готовности
+	# 3) loading screen: shows on request, dims when ready
 	check(not GameContext.loading_visible(), "loading screen hidden by default")
 	GameContext.loading_show()
 	check(GameContext.loading_visible(), "loading screen shows on request")
-	GameContext._loading_until_ms = 0   # тест не ждёт минимальную выдержку
+	GameContext._loading_until_ms = 0   # the test does not wait out the minimum hold
 	GameContext.loading_hide()
 	await get_tree().process_frame
 	check(not GameContext.loading_visible(), "loading screen hides once the scene is ready")

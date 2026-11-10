@@ -1,32 +1,35 @@
 extends Node3D
-# Жалоба: «когда машина при падении приземляется на трамплин или на его край, то скорость
-# снижается». Прежние проверки (h_ramp_run, h_landing) мерили посадку на РОВНЫЙ пол и проезд горки
-# колёсами, а этот случай — кузов падает на наклонную грань горки или на кромку её гребня.
-# Замер до правки: приземление на склон 4.4° с 80 км/ч — 30 g, 1079 км/ч/с и минус 79 км/ч
-# за 12 тиков: нос уходит под верхнюю грань гребня и упирается брюхом в торец горки.
+# Complaint: "when the car lands on a ramp or its edge during a fall, speed drops". The
+# previous checks (h_ramp_run, h_landing) measured landing on FLAT floor and rolling over
+# the hill on wheels, while this case is the body falling onto the hill's slanted face or
+# onto the lip of its crest. Measured before the fix: landing on the 4.4° slope at 80 km/h
+# — 30 g, 1079 km/h/s and minus 79 km/h over 12 ticks: the nose goes under the crest's top
+# face and the belly jams into the hill's end.
 #
-# Горка — настоящий ассет дорог (roadRamp и roadRampLong, растянутые втрое, как на картах),
-# а не клин из кода теста. Полосу берём по ЦЕНТРУ плиты: у roadRamp геометрия смещена от
-# начала координат, и на z=0 машина стоит на краю плиты половиной колёс в воздухе — в
-# таком прогоне лучи опоры поверхность не видят и проверка мерит пустоту.
+# The hill is a real road asset (roadRamp and roadRampLong, stretched ×3 like on the maps),
+# not a wedge built in test code. We take the lane through the CENTER of the plate:
+# roadRamp's geometry is offset from the origin, and at z=0 the car stands on the plate's
+# edge with half its wheels in the air — in such a run the support rays do not see the
+# surface and the check measures emptiness.
 #
-# Машину держим на нужной ВЫСОТЕ НАД ГРАНЬЮ ( Position каждый тик), а потом отпускаем:
-# иначе точка отрыва зависит от скорости и на 200 км/ч машина улетает за горку — проверка
-# начинает мерить посадку за трамплином вместо приземления на него.
+# We hold the car at the required HEIGHT ABOVE THE FACE (set Position every tick), then
+# release it: otherwise the takeoff point depends on speed and at 200 km/h the car flies
+# past the hill — the check would start measuring a landing beyond the ramp instead of
+# onto it.
 
 const KMPS := 3.6
-const WINDOW := 4          # тиков, за которые мерим замедление — как в детекторе удара
-const LAND_TICKS := 30     # 0.5 с после касания: окно, в котором потеря ещё заслуга посадки
-const PEAK_MAX := 120.0    # км/ч/с: порог удара (210) с тем же запасом, что в h_ramp_run
-const LOSS_MAX := 25.0     # км/ч за окно
-const ADVANCE_MIN := 5.0   # м вперёд за окно: встала у горки — значит упёрлась в неё
-const SINK_MIN := 1.0        # м: такой спуск прогон считает настоящим падением
+const WINDOW := 4          # ticks used to measure deceleration — same as the impact detector
+const LAND_TICKS := 30     # 0.5 s after the touch: window within which the loss is still the landing's doing
+const PEAK_MAX := 120.0    # km/h/s: impact threshold (210) with the same margin as in h_ramp_run
+const LOSS_MAX := 25.0     # km/h within the window
+const ADVANCE_MIN := 5.0   # m of forward travel within the window: stopped at the hill means it jammed into it
+const SINK_MIN := 1.0        # m: the run counts such a descent as a real fall
 const HEIGHTS := [3.0, 6.0]
 const SPEEDS := [60.0, 110.0, 200.0]
 const RAMPS := ["roadRamp", "roadRampLong"]
-# На горку садятся не все прогоны: на 200 км/ч машина с гребня улетает за неё, и это
-# нормальное поведение трамплина, а не ошибка. Поэтому пороги агрегатные — они же и
-# доказательство, что проверка мерит приземление именно на горку, а не пустоту.
+# Not every run lands on the hill: at 200 km/h the car flies off the crest past it, and
+# that is the ramp's normal behavior, not an error. So the thresholds are aggregate —
+# they are also the proof that the check measures a landing onto the hill itself, not emptiness.
 const ON_RAMP_MIN := 3
 const HARD_MIN := 8
 
@@ -53,28 +56,28 @@ func _ready() -> void:
 	car.build(VehicleDB.get_params("sport"), get_world_3d())
 	car.impact.connect(func(_s: float, _p: Vector3, _n: Vector3) -> void: _impacts += 1)
 	for name in RAMPS:
-		# плита горки с тем же stretching, что на картах: ramp(..., 3.0) и roadRampLong ×3
+		# hill plate with the same stretching as on the maps: ramp(..., 3.0) and roadRampLong ×3
 		var m := MapKit.kit(self, name, Vector3(60, 0, 0), 90, true, true, Vector3(1.0, 1.0, 3.0))
 		MapKit.kit(self, "roadStraight", Vector3(180, 0, 0), 90, false, true)
-		# тело горки появляется в физическом мире только после синхронизации пространства
+		# the hill body appears in the physical world only after space synchronization
 		for _i in 3:
 			await get_tree().physics_frame
 		await _sweep(name, m)
 		for c in get_children():
 			if c != fb and c != car: c.free()
 	check(_cases >= HEIGHTS.size() * SPEEDS.size() * RAMPS.size() * 2,
-		"тест не пустой: посадок измерено %d" % _cases)
+		"the test is not vacuous: %d landings measured" % _cases)
 	check(_on_ramp >= ON_RAMP_MIN,
-		"машины садятся ИМЕННО на горку: %d посадок из %d" % [_on_ramp, _cases])
+		"the cars land EXACTLY on the hill: %d landings out of %d" % [_on_ramp, _cases])
 	check(_hard >= HARD_MIN,
-		"это падения, а не съезды: %d спусков ≥ %.1f м из %d" % [_hard, SINK_MIN, _cases])
-	print("посадок %d, на горке %d, со спуском ≥ %.1f м %d" % [_cases, _on_ramp, SINK_MIN, _hard])
-	print("худшая посадка: пик %.0f км/ч/с, потеря за окно %.1f км/ч (пороги %.0f и %.1f)" % [
+		"these are falls, not slides: %d descents ≥ %.1f m out of %d" % [_hard, SINK_MIN, _cases])
+	print("landings %d, on the hill %d, with descent ≥ %.1f m %d" % [_cases, _on_ramp, SINK_MIN, _hard])
+	print("worst landing: peak %.0f km/h/s, loss within window %.1f km/h (thresholds %.0f and %.1f)" % [
 		_worst_peak, _worst_loss, PEAK_MAX, LOSS_MAX])
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
-# Перебор: середина склона и кромка гребня, две высоты, три скорости.
+# Enumeration: middle of the slope and the crest's lip, two heights, three speeds.
 func _sweep(name: String, m: MeshInstance3D) -> void:
 	var box: AABB = m.global_transform * m.get_aabb()
 	var lane := (box.position.z + box.end.z) * 0.5
@@ -85,19 +88,19 @@ func _sweep(name: String, m: MeshInstance3D) -> void:
 			await _land(name, "склон", mid, float(h), float(v), lane, box)
 			await _land(name, "кромка", box.end.x - half, float(h), float(v), lane, box)
 
-# Высота наклонной грани горки в точке x: плита идёт от земли до гребня линейно.
+# Height of the hill's slanted face at x: the plate rises from ground to crest linearly.
 func _rise(box: AABB, x: float) -> float:
 	var t := clampf((x - box.position.x) / maxf(box.size.x, 0.001), 0.0, 1.0)
 	return box.position.y + t * (box.end.y - box.position.y)
 
 func _land(name: String, where: String, x: float, h: float, kmh: float,
 		lane: float, box: AABB) -> void:
-	var tag := "%s/%s %.1f м @%.0f" % [name, where, h, kmh]
+	var tag := "%s/%s %.1f m @%.0f" % [name, where, h, kmh]
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(20.0, 1.0, lane)))
 	for _i in 25:
 		await get_tree().physics_frame
-	# Удержание считаем по ЦЕНТРУ кузова: у roadRamp верхняя грань в начале плиты лежит
-	# на уровне земли, и «низ на h выше грани» означал бы падение в 10 см.
+	# The hold is computed by the body CENTER: for roadRamp the top face at the plate's
+	# start lies at ground level, and "bottom h above the face" would mean a 10 cm drop.
 	for _i in 12:
 		car.chassis.global_position = Vector3(x, _rise(box, x) + h, lane)
 		car.chassis.linear_velocity = Vector3.ZERO
@@ -118,16 +121,16 @@ func _land(name: String, where: String, x: float, h: float, kmh: float,
 	var peak := 0.0
 	var impacts0 := _impacts
 	var hist: Array[Vector3] = []
-	# фаза 1: полёт должен быть устойчивым (3 тика подряд без земли) — доказательство, что
-	# машина именно падала, а не съезжала по склону
+	# phase 1: the flight must be sustained (3 ticks in a row without ground) — proof that
+	# the car actually fell, not slid down the slope
 	for _i in 120:
 		await get_tree().physics_frame
 		air = 0 if car._grounded else air + 1
 		if air >= 3:
 			flew = true
 			break
-	# фаза 2: касание на движении вниз — на губе горки колёса теряют землю и на подъёме,
-	# и на вылете, а жалоба про приземление
+	# phase 2: the touch while moving downward — at the hill's lip wheels lose ground on
+	# the climb too, and at launch, while the complaint is about landing
 	for _i in 240:
 		if not flew or touch: break
 		await get_tree().physics_frame
@@ -142,13 +145,13 @@ func _land(name: String, where: String, x: float, h: float, kmh: float,
 			impacts0 = _impacts
 			hist = [v]
 	if not flew:
-		print("PARTIAL: %s: полёта не было — машина не оторвалась" % tag)
+		print("PARTIAL: %s: no flight — the car never left the ground" % tag)
 		return
 	if not touch:
-		print("PARTIAL: %s: посадки не было (воздух %d тиков, скорость %.0f км/ч)" % [
+		print("PARTIAL: %s: no landing (air %d ticks, speed %.0f km/h)" % [
 			tag, fticks, car.speed_kmh()])
 		return
-	# фаза 3: окно посадки
+	# phase 3: the landing window
 	for _i in LAND_TICKS + 8:
 		if lt >= LAND_TICKS: break
 		await get_tree().physics_frame
@@ -166,14 +169,14 @@ func _land(name: String, where: String, x: float, h: float, kmh: float,
 	if on_ramp: _on_ramp += 1
 	_worst_peak = maxf(_worst_peak, peak)
 	_worst_loss = maxf(_worst_loss, loss)
-	print("%-26s полёт %2d тик, спуск %.2f м, vy=%.1f, x=%.1f %s: потеря %5.1f км/ч, пик %4.0f км/ч/с (%.1f g), %5.1f м за окно, ударов %d" % [
-		tag, fticks, sink, vy0, x0, "НА ГОРКЕ" if on_ramp else "за горкой", loss, peak,
+	print("%-26s flight %2d tick, descent %.2f m, vy=%.1f, x=%.1f %s: loss %5.1f km/h, peak %4.0f km/h/s (%.1f g), %5.1f m within the window, impacts %d" % [
+		tag, fticks, sink, vy0, x0, "ON THE HILL" if on_ramp else "past the hill", loss, peak,
 		peak / 3.6 / 9.81, after, hit])
 	if sink >= SINK_MIN: _hard += 1
-	check(loss < LOSS_MAX, "%s: приземление на %s не съедает скорость (%.1f км/ч за 0.5 с)" % [
+	check(loss < LOSS_MAX, "%s: landing on %s does not eat speed (%.1f km/h in 0.5 s)" % [
 		tag, where, loss])
-	check(peak < PEAK_MAX, "%s: приземление на %s ниже порога удара с запасом (%.0f км/ч/с)" % [
+	check(peak < PEAK_MAX, "%s: landing on %s is below the impact threshold with margin (%.0f km/h/s)" % [
 		tag, where, peak])
-	check(hit == 0, "%s: приземление на %s не регистрирует удар (%d)" % [tag, where, hit])
-	check(after > ADVANCE_MIN, "%s: машина уехала от %s, а не упёрлась в него (%.1f м)" % [
+	check(hit == 0, "%s: landing on %s registers no impact (%d)" % [tag, where, hit])
+	check(after > ADVANCE_MIN, "%s: the car drove away from %s instead of jamming into it (%.1f m)" % [
 		tag, where, after])

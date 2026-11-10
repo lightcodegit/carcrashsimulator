@@ -1,8 +1,8 @@
 extends Node3D
-# Частицы второго этапа: дым резины по колёсам, искры скребка о стену, пыль от
-# сбитого предмета и честная вкл/выкл-настройка. Курсы два: голый харнес (условия
-# включения считаются от CarRig напрямую) и живая сцена GameManager (настройка,
-# пауза, рестарт и крючок предмета доходят туда, где их ожидает игрок).
+# Second-stage particles: tyre smoke per wheel, sparks from scraping the wall, dust from a
+# knocked-over prop and an honest on/off setting. Two courses: a bare harness (the enable
+# conditions are computed straight from CarRig) and the live GameManager scene (the setting,
+# pause, restart and the prop hook reach the place where the player expects them).
 var _fails := 0
 var car: CarRig
 var fx: EffectsDirector
@@ -34,14 +34,14 @@ func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
 
 func _ready() -> void:
-	# сцена-хост может поставить паузу (gm._set_paused), а харнес обязан считать кадры дальше
+	# the host scene may raise the pause (gm._set_paused), while the harness must keep counting frames
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	var fb := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var bx := BoxShape3D.new()
 	bx.size = Vector3(2400, 2, 900); cs.shape = bx
 	fb.add_child(cs); add_child(fb); fb.global_position = Vector3(600, -1, 0)
-	# длинная стена: на первом этапе стоит в стороне (z=60), под этап скребка
-	# переезжает на грань z=5.0 ровно напротив полосы
+	# the long wall: in the first stage it stands aside (z=60), and for the scrape stage it
+	# moves to the z=5.0 edge exactly opposite the lane
 	_wall = StaticBody3D.new()
 	var wcs := CollisionShape3D.new(); var wb := BoxShape3D.new()
 	wb.size = Vector3(900, 3, 2); wcs.shape = wb
@@ -56,10 +56,10 @@ func _ready() -> void:
 	skid.setup(car)
 	_cone = MapProps.loose(self, "res://assets/props/cone.glb", _cone_pos,
 		MapDefs.PROP, 0.0, 3.0) as LooseProp
-	# тот же крючок, что ставит GameManager; без него конус вёл бы себя как раньше
+	# the same hook GameManager installs; without it the cone would behave as before
 	_cone.on_hit_fx = fx.on_prop_hit
 	check(fx.smoke_emitters().size() == car.wheel_count(),
-		"дым на каждое колесо (%d против %d)" % [fx.smoke_emitters().size(), car.wheel_count()])
+		"smoke on every wheel (%d vs %d)" % [fx.smoke_emitters().size(), car.wheel_count()])
 	_phase = "drift"
 	Input.action_press("throttle")
 
@@ -88,9 +88,9 @@ func _physics_process(_dt: float) -> void:
 				_drawn_at_drift = skid.marks_drawn()
 				Input.action_press("handbrake")
 				Input.action_press("steer_right")
-			# и след, и дым — величины накопленные: сравнивать их по одному кадру
-			# бессмысленно (на 200-м занос уже мог кончиться), поэтому сверяем
-			# условие по каждому каку окна и требуем совпадения везде
+			# both the mark and the smoke are accumulated quantities: comparing them on a
+			# single frame is pointless (by frame 200 the slide could already be over), so the
+			# condition is compared on every frame of the window and must match everywhere
 			if _f > 100 and _f <= 200:
 				_drift_frames += 1
 				var smoke_now := _smoke_on_count()
@@ -106,19 +106,19 @@ func _physics_process(_dt: float) -> void:
 			if _puff_at >= 0 and _f >= _puff_at + 90:
 				_after_prop()
 			elif _f == _prop_at + 560:
-				check(false, "конус не был сбит за бюджет (%d всплесхов)" % fx.prop_puffs)
+				check(false, "the cone was not knocked over within the budget (%d puffs)" % fx.prop_puffs)
 				_to_wall()
 		"wall":
-			# переключатель проверяем там, где что-то реально происходит: скребок
-			# сыплет залпами каждые ~0.13 с, и «выключено» обязано остановить счётчик,
-			# а не только погасить уже затухающий эммитер
+			# the switch is checked where something really happens: the scraper fires bursts
+			# about every 0.13 s, and "off" has to stop the counter, not only dim an emitter
+			# that is already fading
 			if _f == _wall_at + 150:
 				_tog_off = fx.scrape_bursts
 				fx.set_enabled(false)
 			if _f == _wall_at + 270:
 				var missed := fx.scrape_bursts - _tog_off
 				check(missed <= 1,
-					"выключенные частицы останавливают скребок (%d залпов за 2 с)" % missed)
+					"disabled particles stop the scraper (%d bursts over 2 s)" % missed)
 				fx.set_enabled(true)
 			if _f >= _wall_at + 420:
 				_after_wall()
@@ -127,24 +127,24 @@ func _physics_process(_dt: float) -> void:
 		_:
 			pass
 
-# A) дым и след резины включаются одним и тем же условием по одним и тем же уровням
+# A) smoke and tyre marks are enabled by one and the same condition on one and the same levels
 func _after_drift() -> void:
 	var drawn := skid.marks_drawn() - _drawn_at_drift
-	check(drawn > 10, "занос чертит следы (%d отметок)" % drawn)
+	check(drawn > 10, "the slide draws marks (%d marks)" % drawn)
 	check(_drift_mismatch == 0,
-		"дымят ровно те колёса, что чертят: расходимость %d кадров из %d" % [
+		"exactly the wheels that mark are the ones smoking: mismatch %d frames out of %d" % [
 			_drift_mismatch, _drift_frames])
-	check(_drift_level > 0, "в окне заноса было колесо выше порога SkidMarks")
+	check(_drift_level > 0, "inside the slide window a wheel was above the SkidMarks threshold")
 	check(_drift_smoke == _drift_level,
-		"кадры с порогом %d, кадры с дымом %d" % [_drift_level, _drift_smoke])
-	# B) выключенные частицы гасят ВСЕ эммитеры, включённые возвращают условие
+		"frames at the threshold %d, frames with smoke %d" % [_drift_level, _drift_smoke])
+	# B) disabled particles extinguish ALL emitters, enabling them restores the condition
 	fx.set_enabled(false)
 	await get_tree().physics_frame
-	check(not _any_emitting(fx), "particles off: ни один эммитер не активен")
+	check(not _any_emitting(fx), "particles off: no emitter is active")
 	fx.set_enabled(true)
 	await get_tree().physics_frame
 	check(_smoke_on_count() == _wheels_at_threshold(),
-		"particles on: дым снова равен условию (%d против %d)" % [
+		"particles on: smoke equals the condition again (%d vs %d)" % [
 			_smoke_on_count(), _wheels_at_threshold()])
 	Input.action_release("handbrake")
 	Input.action_release("steer_right")
@@ -154,13 +154,13 @@ func _after_drift() -> void:
 	_prop_at = _f
 	_phase = "prop"
 
-# C) сбитый предмет: пыль через callback; пролёт конуса ждём честно, 1.5 с
+# C) knocked-over prop: dust through the callback; the cone's flight is waited for honestly, 1.5 s
 func _after_prop() -> void:
 	if _phase != "prop": return
-	check(fx.prop_puffs >= 1, "сбитый конус дал всплесх пыли (%d)" % fx.prop_puffs)
+	check(fx.prop_puffs >= 1, "the knocked-over cone gave a dust puff (%d)" % fx.prop_puffs)
 	var fly := _cone.global_position.distance_to(_cone_pos)
-	check(fly > 2.0, "конус реально сбит и улетел (%.1f м)" % fly)
-	check(fx._debris.emitting, "пылевой эммитер взведён ударом")
+	check(fly > 2.0, "the cone really got hit and flew off (%.1f m)" % fly)
+	check(fx._debris.emitting, "the dust emitter was armed by the impact")
 	_to_wall()
 
 func _to_wall() -> void:
@@ -174,23 +174,23 @@ func _to_wall() -> void:
 	_phase = "wall"
 	_wall_at = _f
 
-# D) скользящий контакт вдоль стены: искры залпами, но с троттлингом
+# D) sliding contact along the wall: sparks in bursts, but throttled
 func _after_wall() -> void:
 	if _phase != "wall": return
 	_phase = "reset"
 	var bursts := fx.scrape_bursts - _bursts_at_wall
-	check(bursts >= 2, "скольжение вдоль стены дало залпы искр (%d)" % bursts)
-	# окно 420 кадров ≈ 7 с, порог залпа 0.13 с: без троттлинга было бы ~3200
-	check(bursts <= 60, "залпы скребка троттлятся, а не сыплются каждый кадр (%d)" % bursts)
+	check(bursts >= 2, "sliding along the wall produced spark bursts (%d)" % bursts)
+	# the window is 420 frames ≈ 7 s, the burst threshold 0.13 s: without throttling it would be ~3200
+	check(bursts <= 60, "scraper bursts are throttled instead of raining every frame (%d)" % bursts)
 	check(fx.all_emitters().size() >= car.wheel_count() + 4,
-		"полный набор эммитеров: искры, пыль, обломки, пламя, дым (%d)" % fx.all_emitters().size())
+		"the full emitter set: sparks, dust, debris, flame, smoke (%d)" % fx.all_emitters().size())
 	Input.action_release("throttle")
 	_reset_stage()
 
 func _reset_stage() -> void:
 	_phase = "game"
 	fx.reset_transient()
-	check(not fx._sparks.emitting, "reset_transient погасил текущие искры")
+	check(not fx._sparks.emitting, "reset_transient extinguished the live sparks")
 	Input.action_release("throttle")
 	Input.action_release("handbrake")
 	Input.action_release("steer_right")
@@ -201,9 +201,9 @@ func _reset_stage() -> void:
 	_live_state = 0
 	_live_f0 = 0
 
-# Вехи живой сцены привязаны к первому видимому задымлению, а не к номеру кадра:
-# на арене горки гасят занос раньше, чем наступает расписанный кадр проверки,
-# плоский асфальт городка для этого и выбран (тот же вывод, что у h_padflow).
+# The live-scene milestones are tied to the first visible smoke, not to a frame number:
+# on the arena the hills kill the slide before the scheduled check frame arrives, so the
+# town's flat asphalt is chosen for this (the same conclusion as in h_padflow).
 func _game_stage() -> void:
 	_gm_f += 1
 	if _gm_f == 40:
@@ -211,10 +211,10 @@ func _game_stage() -> void:
 		for n in get_tree().get_nodes_in_group(LooseProp.GROUP):
 			if not (n is LooseProp): continue
 			if not (n as LooseProp).on_hit_fx.is_valid():
-				check(false, "GameManager не повесил приёмник пыли на предмет %s" % n.name)
+				check(false, "GameManager did not hang a dust receiver on prop %s" % n.name)
 				return
 			wired += 1
-		check(wired > 0, "все %d предметов живой сцены имеют приёмник пыли" % wired)
+		check(wired > 0, "all %d props of the live scene have a dust receiver" % wired)
 		Input.action_press("throttle")
 	if _gm_f == 150:
 		_gm_marks_at = _gm.skid.marks_drawn()
@@ -222,7 +222,7 @@ func _game_stage() -> void:
 		Input.action_press("steer_right")
 	match _live_state:
 		0:
-			# ждём первое задымление в окне 150..340
+			# waiting for the first smoke in the window 150..340
 			for p in _gm.effects.smoke_emitters():
 				if p.emitting:
 					_saw_live_smoke = true
@@ -230,23 +230,23 @@ func _game_stage() -> void:
 					_live_state = 1
 					break
 			if _gm_f == 340:
-				check(false, "в живой сцене дым так и не появился (следов +%d)" % [
+				check(false, "in the live scene the smoke never appeared (marks +%d)" % [
 					_gm.skid.marks_drawn() - _gm_marks_at])
 				check(_gm.skid.marks_drawn() > _gm_marks_at,
-					"в живой сцене хотя бы следы чертились")
+					"in the live scene at least the marks were drawn")
 				_live_state = 9
 		1:
 			if _gm_f == _live_f0 + 10:
 				check(_gm.skid.marks_drawn() > _gm_marks_at,
-					"в живой сцене занос чертит и дымит одновременно")
+					"in the live scene the slide draws marks and smokes at once")
 				_live_off_marks = _gm.skid.marks_drawn()
 				Settings.set_value("particles_enabled", false)
 				_live_state = 2
 		2:
 			if _gm_f == _live_f0 + 25:
-				check(not _any_emitting(_gm.effects), "настройка «частицы» гасит живую сцену целиком")
+				check(not _any_emitting(_gm.effects), "the particles setting extinguishes the whole live scene")
 				check(_gm.skid.marks_drawn() > _live_off_marks,
-					"следы резины — не частицы: они продолжают чертить")
+					"tyre marks are not particles: they keep being drawn")
 				Settings.set_value("particles_enabled", true)
 				_live_state = 3
 		3:
@@ -254,19 +254,19 @@ func _game_stage() -> void:
 				var any3 := false
 				for p in _gm.effects.smoke_emitters():
 					if p.emitting: any3 = true
-				check(any3, "включённая настройка возвращает дым на живом заносе")
+				check(any3, "the enabled setting brings smoke back in the live slide")
 				_gm._set_paused(true)
 				_live_state = 4
 		4:
 			if _gm_f == _live_f0 + 46:
-				check(not _any_emitting(_gm.effects), "пауза гасит частицы")
+				check(not _any_emitting(_gm.effects), "pause extinguishes the particles")
 				_gm._set_paused(false)
 				_gm._respawn_now()
 				_live_state = 5
 		5:
 			if _gm_f == _live_f0 + 54:
 				check(not _any_emitting(_gm.effects),
-					"рестарт погасил всё текущее (дым, искры, пламя, пыль)")
+					"the restart extinguished everything live (smoke, sparks, flame, dust)")
 				Input.action_release("handbrake")
 				Input.action_release("steer_right")
 				_finish()

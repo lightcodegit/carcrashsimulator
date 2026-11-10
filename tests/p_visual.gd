@@ -1,5 +1,5 @@
 extends Node3D
-# НЕ headless: --path . --fixed-fps 60 --quit-after 700 res://tests/p_visual.tscn
+# NOT headless: --path . --fixed-fps 60 --quit-after 700 res://tests/p_visual.tscn
 var _frame := 0
 var gm: GameManager
 var _impacts := 0

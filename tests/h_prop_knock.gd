@@ -1,7 +1,7 @@
 extends Node3D
-# Сносимые предметы: лёгкие (конус, пилон) улетают от удара и почти не тормозят машину,
-# тяжёлый пластиковый отбойник тормозит заметно. Отдельно проверяем, что на всех трёх
-# картах действительно есть динамические тела.
+# Knockdown props: light ones (cone, pylon) fly off on impact and barely slow the car,
+# the heavy plastic barrier slows it noticeably. Separately we verify all three maps
+# really contain dynamic bodies.
 var _fails := 0
 var _f := 0
 var _pf := 0
@@ -27,11 +27,11 @@ func _ready() -> void:
 	var fl := StaticBody3D.new()
 	var cs := CollisionShape3D.new(); var b := BoxShape3D.new()
 	b.size = Vector3(600, 2, 60); cs.shape = b
-	# трение пола — как на дорогах карт (нулевое): иначе тест меряет поведение в среде,
-	# которой в игре нет, и предмет, который никогда не останавливается, выглядел бы нормально
+		# floor friction — same as map roads (zero): otherwise the test measures behavior
+		# in an environment the game does not have, and a prop that never stops would look fine
 	var fpm := PhysicsMaterial.new(); fpm.friction = 0.0
 	fl.physics_material_override = fpm
-	fl.add_child(cs); add_child(fl); fl.global_position = Vector3(200, -1.0 - 0.01 + 1.0, 0)  # верх пола = FLOOR_Y
+	fl.add_child(cs); add_child(fl); fl.global_position = Vector3(200, -1.0 - 0.01 + 1.0, 0)  # floor top = FLOOR_Y
 	await get_tree().process_frame
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())
@@ -42,7 +42,7 @@ func _ready() -> void:
 		var n := 0
 		for c in root_map.get_children():
 			if c is RigidBody3D: n += 1
-		check(n >= 5, "%s: на карте есть что снести (%d динамических тел)" % [id, n])
+		check(n >= 5, "%s: map has something to knock down (%d dynamic bodies)" % [id, n])
 		root_map.free()
 	_next()
 
@@ -79,8 +79,8 @@ func _physics_process(_dt: float) -> void:
 	if car == null or not is_instance_valid(car) or _prop == null: return
 	_f += 1
 	_pf += 1
-	# газ отпускаем до удара: иначе машина продолжает толкать предмет и разгоняться,
-	# и потерю скорости не измерить
+	# release the throttle before impact: otherwise the car keeps pushing the prop and
+	# accelerating, so the speed loss cannot be measured
 	if car.chassis.global_position.x > -10.0: Input.action_release("throttle")
 	if not _got_v and car.chassis.global_position.x > -4.0:
 		_v_before = car.speed_kmh()
@@ -95,27 +95,27 @@ func _physics_process(_dt: float) -> void:
 		var e := _prop.global_basis.get_euler()
 		var tilt := absf(e.x) + absf(e.z)
 		var loss := 100.0 * (1.0 - _v_after / maxf(1.0, _v_before))
-		print("%-8s v=%.0f->%.0f сдвиг=%.2f м (%.1f,%.1f,%.1f) v_предм=%.1f высота=%.2f наклон=%.2f потеря=%.1f%% ударов=%d" % [
+		print("%-8s v=%.0f->%.0f shift=%.2f m (%.1f,%.1f,%.1f) v_prop=%.1f height=%.2f tilt=%.2f loss=%.1f%% impacts=%d" % [
 			_kind, _v_before, _v_after, moved, _prop.global_position.x, _prop.global_position.y,
 			_prop.global_position.z, _prop.linear_velocity.length(), _max_y, tilt, loss, _impacts])
-		check(moved > 3.0, "%s улетел от удара (сдвиг %.2f м)" % [_kind, moved])
-		check(_max_y < 4.0, "%s не улетел в стратосферу (высота %.2f м)" % [_kind, _max_y])
+		check(moved > 3.0, "%s flew off on impact (shift %.2f m)" % [_kind, moved])
+		check(_max_y < 4.0, "%s did not fly into the stratosphere (height %.2f m)" % [_kind, _max_y])
 		if _kind == "barrier" or _kind == "planter" or _kind == "bench":
-			# низкое и широкое: бампер бьёт около центра масс, поэтому предмет едет
-			# юзом, а не кувыркается — то же поведение, что у отбойника
-			# тяжёлый и широкий: на дороге с нулевым трением он едет юзом, а не кувыркается
-			# (именно поэтому у полов трения нет — машина не должна терять скорость от касания),
-			# зато заметно тормозит машину и уползает далеко
-			check(loss > 4.0, "тяжёлый %s тормозит машину (%.1f%%)" % [_kind, loss])
-			check(moved > 8.0, "%s уползает далеко (%.2f м)" % [_kind, moved])
+			# low and wide: the bumper hits near the center of mass, so the prop slides
+			# instead of tumbling — same behavior as the barrier
+			# heavy and wide: on a zero-friction road it slides rather than tumbles
+			# (that is exactly why the floors have no friction — the car must not lose
+			# speed from touching), but it slows the car noticeably and crawls far away
+			check(loss > 4.0, "heavy %s slows the car (%.1f%%)" % [_kind, loss])
+			check(moved > 8.0, "%s crawls far away (%.2f m)" % [_kind, moved])
 		else:
-			check(tilt > 0.3 or _max_y > 0.3, "%s подброшен или опрокинут (наклон %.2f, высота %.2f)" % [_kind, tilt, _max_y])
-			check(loss < 12.0, "лёгкий предмет почти не тормозит (%.1f%%)" % loss)
-			check(_impacts == 0, "%s не считается ударом (%d)" % [_kind, _impacts])
-			check(car.body.dent_count == 0, "%s не мнёт кузов (%d)" % [_kind, car.body.dent_count])
-		# 7 секунд на то, чтобы предмет остановился сам. Машину увозим: она катится
-		# накатом быстрее предмета и догоняла его — замер показывал бы не затухание, а
-		# очередной толчок бампером.
+			check(tilt > 0.3 or _max_y > 0.3, "%s is tossed or tipped (tilt %.2f, height %.2f)" % [_kind, tilt, _max_y])
+			check(loss < 12.0, "light prop barely slows the car (%.1f%%)" % loss)
+			check(_impacts == 0, "%s does not count as an impact (%d)" % [_kind, _impacts])
+			check(car.body.dent_count == 0, "%s does not dent the body (%d)" % [_kind, car.body.dent_count])
+		# 7 seconds for the prop to stop on its own. We haul the car away: it rolls
+		# on inertia faster than the prop and caught up with it — the measurement would
+		# show not decay but another bumper push.
 		car.respawn(Transform3D(Basis.IDENTITY, Vector3(-140, 1.0, 0)))
 		_settling = true
 		_settle_at = _f + 420
@@ -124,15 +124,15 @@ func _physics_process(_dt: float) -> void:
 	if _settling and _f >= _settle_at:
 		rest = _prop.linear_velocity.length()
 		spin = _prop.angular_velocity.length()
-		print("%-8s осел: v=%.2f м/с ω=%.2f рад/с" % [_kind, rest, spin])
-		check(rest < 0.6, "%s останавливается после удара (%.2f м/с через 7 с)" % [_kind, rest])
-		check(spin < 1.5, "%s перестаёт вращаться (%.2f рад/с)" % [_kind, spin])
+		print("%-8s settled: v=%.2f m/s ω=%.2f rad/s" % [_kind, rest, spin])
+		check(rest < 0.6, "%s stops after the impact (%.2f m/s after 7 s)" % [_kind, rest])
+		check(spin < 1.5, "%s stops spinning (%.2f rad/s)" % [_kind, spin])
 		car.body.reset()
 		_next()
-	# Бюджет на каждый предмет, а не на весь прогон: общий лимит в 6000 кадров
-	# обрывал последний контроль молча — тест печатал ALL PASS, не дойдя до него.
+	# Budget per prop, not per whole run: a shared 6000-frame limit silently cut
+	# the last check — the test printed ALL PASS without ever reaching it.
 	if _f - _kind_at > 1800 or _f > 40000:
-		check(false, "%s не дошёл до своих проверок (%d кадров)" % [_kind, _f - _kind_at])
+		check(false, "%s never reached its checks (%d frames)" % [_kind, _f - _kind_at])
 		print("TIMEOUT on " + _kind)
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 		get_tree().quit(1)

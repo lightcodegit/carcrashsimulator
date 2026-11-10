@@ -1,8 +1,8 @@
 extends Node
-# Решающий опыт: точный коэффициент 2× против нативных 2× пикселей без
-# масштабирования. Если текст при k=2.0 такой же резкий, как нативный вдвое
-# больший шрифт — движок растеризует глифы в финальные пиксели, и ступени
-# можно делать самим content_scale_size. Если мыльнее — придётся множить px.
+# Decisive experiment: an exact 2x factor against native 2x pixels with no
+# scaling. If the text at k=2.0 is as sharp as a natively doubled font, the
+# engine rasterises glyphs into the final pixels and the steps can be made by
+# content_scale_size itself. If it is blurrier, px() must be multiplied instead.
 
 var _f := 0
 var _stable := 0
@@ -91,6 +91,6 @@ func _report() -> void:
 			hard += 1
 		elif d[m] > 0.05:
 			soft += 1
-	print("%s | окно=%s | k=%.2f | кадр=%dx%d | p99=%.4f max=%.4f | резких=%d мягких=%d" % [
+	print("%s | window=%s | k=%.2f | frame=%dx%d | p99=%.4f max=%.4f | hard=%d soft=%d" % [
 		tag, str(get_window().size), k, tex.get_width(), tex.get_height(),
 		d[int(n * 0.99)], d[n - 1], hard, soft])

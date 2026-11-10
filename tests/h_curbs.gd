@@ -1,7 +1,7 @@
 extends Node
-# Бордюры и боковые стенки трамплинов должны быть «наезжаемыми», а не стенами.
-# Машина едет газом: прямой teleport+linear_velocity дал бы юл от некрутящихся колёс
-# и торможение двигателем — контакт засчитался бы как удар без всякой стены.
+# Curbs and jump side walls must be drivable-over, not walls.
+# The car rolls in on throttle: a raw teleport+linear_velocity would jerk on non-spinning
+# wheels and engine-brake — the contact would count as an impact without any wall.
 var _fails := 0
 var gm: GameManager
 var _max_impact := 0.0
@@ -30,14 +30,14 @@ func _free() -> void:
 	for i in 6:
 		await get_tree().physics_frame
 
-# разгон вдоль axis: мораль шасси — локальная +Z (проверено живьём: rot 0 едет по +Z)
+# accelerate along axis: chassis forward is local +Z (verified live: rot 0 drives along +Z)
 func _aim(pos: Vector3, rot_deg: float) -> void:
 	gm.car.chassis.global_transform = Transform3D(
 		Basis(Vector3.UP, deg_to_rad(rot_deg)), pos)
 
 func _curb_case() -> void:
 	await _spawn()
-	# южный бордюр парка (-335,-335): гребень на линии z=-427, за ним газон
+	# south park curb (-335,-335): crest along z=-427, grass beyond it
 	_aim(Vector3(-335, 1.2, -460), 0.0)
 	Input.action_press("throttle")
 	for i in 400:
@@ -49,14 +49,14 @@ func _curb_case() -> void:
 	_v_after = gm.car.speed_kmh()
 	print("curb: max_impact %.0f, v_after %.0f, pos %s" % [_max_impact, _v_after,
 		str(gm.car.chassis.global_position)])
-	check(_max_impact < 75.0, "удар о бордюр парка мягкий (макс. %.0f км/ч)" % _max_impact)
-	check(_v_after > 45.0, "после бордюра машина катится дальше (%.0f км/ч)" % _v_after)
+	check(_max_impact < 75.0, "the park curb hit is soft (max %.0f km/h)" % _max_impact)
+	check(_v_after > 45.0, "the car keeps rolling after the curb (%.0f km/h)" % _v_after)
 	await _free()
 
 func _bump_side_case() -> void:
 	await _spawn()
-	# борт плиты бугра на бульваре: подъезд с z=+30 вдоль -Z. Газ держим до конца:
-	# тут важно, что geometry не глушит удар; катение без газа меряло бы сопротивление
+	# bump slab edge on the boulevard: approach from z=+30 along -Z. Hold throttle to the end:
+	# what matters here is that the geometry does not kill the impact; coasting without throttle would measure drag
 	_aim(Vector3(-140, 1.2, 30), 180.0)
 	Input.action_press("throttle")
 	for i in 400:
@@ -67,6 +67,6 @@ func _bump_side_case() -> void:
 	_v_after = gm.car.speed_kmh()
 	print("bump: max_impact %.0f, v_after %.0f, pos %s" % [_max_impact, _v_after,
 		str(gm.car.chassis.global_position)])
-	check(_max_impact < 75.0, "боковой борт бугра не стена (макс. %.0f км/ч)" % _max_impact)
-	check(_v_after > 35.0, "после съезда на бугор сбоку скорость цела (%.0f км/ч)" % _v_after)
+	check(_max_impact < 75.0, "the bump's side edge is not a wall (max %.0f km/h)" % _max_impact)
+	check(_v_after > 35.0, "speed survives entering the bump from the side (%.0f km/h)" % _v_after)
 	await _free()

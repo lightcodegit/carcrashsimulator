@@ -1,12 +1,12 @@
 extends Node3D
-# Каринка обязана оставаться картинкой: главная жалоба игроков была «машины чёрные»,
-# а починить это можно и случайно — например, сменив движок рендера. therefore полосы
-# кадра измеряются численно (никто не смотрит в PNG).
+# The picture must stay a picture: players' main complaint was "the cars are black",
+# and it can be broken accidentally — e.g. by switching the render backend. therefore
+# frame bands are measured numerically (nobody inspects PNGs).
 #
-# headless GPU не имеет, там проверка пропускается и печатает PARTIAL. Для подбора
-# компенсаций есть переменные окружения BGEN / SKYENERGY / AMBIENT.
+# headless has no GPU: the check is skipped there and prints PARTIAL. For tuning
+# compensations there are environment variables BGEN / SKYENERGY / AMBIENT.
 const BANDS := [
-	# [имя, y от, y до, минимальная яркость, максимальная]
+	# [name, y from, y to, min brightness, max]
 	["НЕБО", 0.00, 0.22, 0.30, 0.85],
 	["ЦЕНТР", 0.40, 0.60, 0.40, 0.85],
 	["ЗЕМЛЯ", 0.80, 1.00, 0.18, 0.60],
@@ -22,8 +22,8 @@ func _live() -> bool:
 
 func _ready() -> void:
 	if not _live():
-		print("PARTIAL: живой рендер недоступен — проверка яркости кадра пропущена")
-		print("SKIP (headless): яркость кадра не мерилась")
+		print("PARTIAL: live rendering unavailable — frame brightness check skipped")
+		print("SKIP (headless): frame brightness was not measured")
 		get_tree().quit(0)
 		return
 	GameContext.select("sport", "arena")
@@ -60,21 +60,21 @@ func _ready() -> void:
 			y += 4
 		var m := sum / maxf(float(n), 1.0)
 		var l := 0.2126 * m.x + 0.7152 * m.y + 0.0722 * m.z
-		# оттенок: небо обязано быть синим, а не серым — иначе свет от него тоже съехал
+		# hue: the sky must be blue, not grey — otherwise its light drifted too
 		var blueish := m.z > m.x
-		print("LUM %s: r=%.3f g=%.3f b=%.3f яркость=%.3f выжжено=%d%%" % [
+		print("LUM %s: r=%.3f g=%.3f b=%.3f brightness=%.3f burned=%d%%" % [
 			band[0], m.x, m.y, m.z, l, int(100.0 * float(clipped) / maxf(float(n), 1.0))])
-		check(l >= float(band[3]), "%s: полоса не чёрная (%.3f < %.3f)" % [band[0], l, float(band[3])])
-		check(l <= float(band[4]), "%s: полоса не выжжена (%.3f > %.3f)" % [band[0], l, float(band[4])])
-		check(float(clipped) / maxf(float(n), 1.0) < 0.25, "%s: не больше четверти пикселей в клиппинге" % band[0])
+		check(l >= float(band[3]), "%s: band is not black (%.3f < %.3f)" % [band[0], l, float(band[3])])
+		check(l <= float(band[4]), "%s: band is not burned out (%.3f > %.3f)" % [band[0], l, float(band[4])])
+		check(float(clipped) / maxf(float(n), 1.0) < 0.25, "%s: no more than a quarter of pixels clipped" % band[0])
 		if band[0] == "НЕБО":
-			# «ясное» — это не просто «синеватое»: порог по замеру. Физическое небо
-			# давало 0.046 (молоко), градиент даёт 0.11-0.12.
+			# "clear" is not just "bluish": threshold from measurement. Physical sky
+			# gave 0.046 (milky), the gradient gives 0.11-0.12.
 			check(m.z - m.x >= 0.08,
-				"небо ясное: синий заметнее красного на %.3f (ждали >= 0.08)" % (m.z - m.x))
-	# Кузов считаем отдельно: проецируем его габарит в экран и меряем яркость ровно там,
-	# где машина. Жалоба «машина чёрная» — это не средняя по кадру (там кузов светлее
-	# асфальта), а доля почти чёрных пикселей именно в его рамке.
+				"sky is clear: blue exceeds red by %.3f (expected >= 0.08)" % (m.z - m.x))
+	# Body measured separately: project its bounding box to screen and sample brightness
+	# exactly where the car is. The "black car" complaint is not about the frame average
+	# (there the body is brighter than asphalt) but the share of near-black pixels in its box.
 	var box := _car_box(img, Vector2(img.get_width(), img.get_height()))
 	var sum2 := Vector3.ZERO
 	var n2 := 0
@@ -93,15 +93,15 @@ func _ready() -> void:
 	var m2 := sum2 / maxf(float(n2), 1.0)
 	var dark_frac := float(dark) / maxf(float(n2), 1.0)
 	var lum2 := 0.2126 * m2.x + 0.7152 * m2.y + 0.0722 * m2.z
-	print("КУЗОВ: рамка %.0fx%.0f, яркость=%.3f, чёрных=%d%%" % [
+	print("BODY: box %.0fx%.0f, brightness=%.3f, black=%d%%" % [
 		box.size.x, box.size.y, lum2, int(100.0 * dark_frac)])
-	check(dark_frac < 0.08, "кузов не чёрный: почти чёрных пикселей %d%%" % int(100.0 * dark_frac))
-	check(lum2 > 0.15, "кузов различим в кадре (%.3f)" % lum2)
+	check(dark_frac < 0.08, "body is not black: near-black pixels %d%%" % int(100.0 * dark_frac))
+	check(lum2 > 0.15, "body is distinguishable in frame (%.3f)" % lum2)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
-# Экранная рамка кузова: восемь угков огибающей в мировых координатах проецируются
-# камерой, берём ограничивающий прямоугольник и режем по границам кадра.
+# Body screen box: the eight corners of the world-space bounding volume are projected
+# by the camera; take the bounding rect and clamp it to the frame edges.
 func _car_box(img: Image, size: Vector2) -> Rect2:
 	var c: Vector3 = gm.car.chassis.global_position
 	var lo := Vector2(size)

@@ -1,18 +1,19 @@
 extends Node3D
-# Проверка раскладки HUD числами: картинку смотреть нельзя, поэтому меряем геометрию и
-# состав. Три вещи, за которые отвечает тест:
-#   1) ничего не залезает за край экрана и панели не наезжают друг на друга;
-#   2) лишние показания из панели убраны НАСТОЯЩО (не перестали обновляться, а исчезли),
-#      а useful-набор — скорость, перегрузка, вмятины, кузов, сцепление, журнал — остался;
-#   3) HUD занимает малую долю экрана: «красивее» для нас означает прежде всего «меньше
-#      закрытого кадра».
+# HUD layout verified by numbers: the picture cannot be looked at, so we measure geometry
+# and content. Three things this test is responsible for:
+#   1) nothing runs past the screen edge and no panels overlap each other;
+#   2) the extra readouts are REMOVED from the panel for real (they did not merely stop
+#      updating, they are gone), while the useful set — speed, g-force, dents, body,
+#      grip, log — stayed;
+#   3) the HUD covers a small share of the screen: for us "nicer" means above all
+#      "less of the frame hidden".
 
-# Доля экрана, которую вправе занять HUD. Прежняя раскладка брала 14%: к ней спидометр
-# держал отдельную подпись скорости поверх круга, а панель телеметрии несла пять строк.
+# Share of the screen the HUD is allowed to take. The previous layout took 14%: with it
+# the speedometer kept a separate speed caption above the dial, and the telemetry panel carried five rows.
 const COVER_MAX := 0.12
-const LABEL_MAX := 26          # сколько надписей допустимо на экране заезда
-# Рамка меряется по фактическому видимому прямоугольнику, а не по дизайн-1600×900:
-# в headless окно квадратное, и проектные числа с экраном не совпадают.
+const LABEL_MAX := 26          # how many labels are acceptable on the run screen
+# The frame is measured by the actual visible rectangle, not by the 1600×900 design size:
+# in headless the window is square, and the design numbers do not match the screen.
 var VW := 1600.0
 var VH := 900.0
 const GONE := ["ГАБАРИТ ДЛИНЫ", "МАКС. ГЛУБИНА", "ПЕРЕГРУЗКА"]
@@ -21,7 +22,7 @@ const MUST := ["ПИК ПЕРЕГРУЗКИ", "ВМЯТИНЫ", "КУЗОВ", "�
 
 var gm: GameManager
 var _fails := 0
-var _panels: Array = []        # [Rect2, имя]
+var _panels: Array = []        # [Rect2, name]
 var _labels := 0
 var _texts := ""
 
@@ -49,38 +50,38 @@ func _ready() -> void:
 	for p in _panels:
 		cover += (p[0] as Rect2).get_area()
 	cover /= VW * VH
-	print("панелей %d, надписей %d, закрыто %.1f%% экрана" % [_panels.size(), _labels,
+	print("panels %d, labels %d, %.1f%% of the screen covered" % [_panels.size(), _labels,
 		cover * 100.0])
-	check(_panels.size() >= 3, "панелей на экране хоть сколько-нибудь (%d)" % _panels.size())
-	check(cover <= COVER_MAX, "HUD закрыта малая часть кадра (%.1f%% ≤ %.0f%%)" % [
+	check(_panels.size() >= 3, "the screen has at least some panels (%d)" % _panels.size())
+	check(cover <= COVER_MAX, "the HUD covers a small part of the frame (%.1f%% ≤ %.0f%%)" % [
 		cover * 100.0, COVER_MAX * 100.0])
-	check(_labels <= LABEL_MAX, "надписей не перебор (%d ≤ %d)" % [_labels, LABEL_MAX])
+	check(_labels <= LABEL_MAX, "no excess of labels (%d ≤ %d)" % [_labels, LABEL_MAX])
 	for t in GONE:
-		check(not I18n.t(t) in _texts, "из HUD убрано «%s»" % t)
+		check(not I18n.t(t) in _texts, "removed from the HUD: «%s»" % t)
 	for t in MUST:
-		check(I18n.t(t) in _texts, "в HUD осталось «%s»" % t)
+		check(I18n.t(t) in _texts, "still present in the HUD: «%s»" % t)
 	for i in _panels.size():
 		for j in range(i + 1, _panels.size()):
 			var a: Rect2 = _panels[i][0]
 			var b: Rect2 = _panels[j][0]
-			check(not a.intersects(b), "панели не наезжают: %s / %s" % [_panels[i][1],
+			check(not a.intersects(b), "panels do not overlap: %s / %s" % [_panels[i][1],
 				_panels[j][1]])
-	# живой ли HUD: цифры обязаны приходить из машины, а не стоять нулями
-	check(gm.hud._gauge.speed > 10.0, "спидометр показывает ход (%.0f)" % gm.hud._gauge.speed)
-	# Живой HUD: показание обязано приходить из машины. `text != ""` вечно истинно,
-	# потому что hud.gd пишет формат каждый кадр. Проверяем связку: вмяли кузов —
-	# и цифра в HUD обязана стать той же, что на кузове.
+	# is the HUD live: the numbers must come from the car, not sit at zero
+	check(gm.hud._gauge.speed > 10.0, "the speedometer shows motion (%.0f)" % gm.hud._gauge.speed)
+	# Live HUD: a readout must come from the car. `text != ""` is always true,
+	# because hud.gd writes the format every frame. So we check the link: dent the
+	# body — and the HUD number must become the same one as on the body.
 	gm.car.body.apply_impact(gm.car.chassis.global_position + Vector3(0.5, 0.4, 0.0),
 		Vector3(1, 0, 0), 90.0)
 	for _i in 3:
 		await get_tree().process_frame
 	check(gm.hud._v_dents.text == str(gm.car.body.dent_count),
-		"вмятины в HUD = вмятины на кузове (%s против %d)" % [gm.hud._v_dents.text, gm.car.body.dent_count])
-	check(gm.hud._v_dents.text != "0", "удар виден в HUD (%s)" % gm.hud._v_dents.text)
+		"dents in the HUD = dents on the body (%s vs %d)" % [gm.hud._v_dents.text, gm.car.body.dent_count])
+	check(gm.hud._v_dents.text != "0", "the impact is visible in the HUD (%s)" % gm.hud._v_dents.text)
 	check(gm.hud._v_peak.text == "%.2f g" % gm.hud._peak_g,
-		"перегрузка подписана живым значением (%s)" % gm.hud._v_peak.text)
-	check(gm.hud._v_deform.text.ends_with("%"), "шкала кузова в процентах (%s)" % gm.hud._v_deform.text)
-	check(gm.hud._v_grip.text.ends_with("%"), "шкала сцепления в процентах (%s)" % gm.hud._v_grip.text)
+		"the g-force is captioned with a live value (%s)" % gm.hud._v_peak.text)
+	check(gm.hud._v_deform.text.ends_with("%"), "the body scale is in percent (%s)" % gm.hud._v_deform.text)
+	check(gm.hud._v_grip.text.ends_with("%"), "the grip scale is in percent (%s)" % gm.hud._v_grip.text)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
@@ -95,10 +96,10 @@ func _walk(n: Node) -> void:
 		if ctl is Panel:
 			_panels.append([r, String(ctl.name)])
 			check(r.position.x >= -1.0 and r.position.y >= -1.0 and r.end.x <= VW + 1.0
-				and r.end.y <= VH + 1.0, "панель «%s» внутри экрана (%s)" % [ctl.name, r])
+				and r.end.y <= VH + 1.0, "panel «%s» is inside the screen (%s)" % [ctl.name, r])
 		if ctl == gm.hud._gauge:
-			_panels.append([r, "спидометр"])
-			check(r.end.x <= VW + 1.0 and r.end.y <= VH + 1.0, "спидометр внутри экрана (%s)" % r)
+			_panels.append([r, "speedometer"])
+			check(r.end.x <= VW + 1.0 and r.end.y <= VH + 1.0, "the speedometer is inside the screen (%s)" % r)
 		if ctl is Label:
 			var t := (ctl as Label).text
 			if t.strip_edges() == "":
@@ -109,5 +110,5 @@ func _walk(n: Node) -> void:
 			var host := ctl.get_parent()
 			if host is Panel:
 				var hr: Rect2 = (host as Control).get_global_rect()
-				check(hr.encloses(r), "надпись «%s» внутри панели (%s в %s)" % [t, r, hr])
+				check(hr.encloses(r), "label «%s» is inside the panel (%s within %s)" % [t, r, hr])
 		_walk(c)

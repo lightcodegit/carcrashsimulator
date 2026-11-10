@@ -1,6 +1,6 @@
 extends SceneTree
-# Ассеты Kenney Car Kit (CC0): структура машин, наличие кузова и колёс,
-# опора на землю, валидность городских моделей и пропов.
+# Kenney Car Kit assets (CC0): vehicle mesh structure, body and wheels present,
+# ground contact, valid city models and props.
 var _fails := 0
 
 func check(cond: bool, msg: String) -> void:
@@ -17,9 +17,9 @@ func _list(dir: String) -> Array:
 func _initialize() -> void:
 	for id in VehicleDB.ids():
 		var p = VehicleDB.get_params(id)
-		# отсутствие параметров — это провал, а не повод промолчать: молча пропущенная
-		# машина выглядела как зелёный тест
-		check(p != null, "%s: параметры найдены" % id)
+		# missing parameters is a failure, not a reason to stay silent: a silently
+		# skipped car looked like a green test
+		check(p != null, "%s: parameters found" % id)
 		if p == null: continue
 		var ps: PackedScene = load(p.model)
 		check(ps != null, "%s scene loads" % id)
@@ -38,7 +38,7 @@ func _initialize() -> void:
 				var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 				var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
 				var uv: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV]
-				check(verts.size() > 200, "%s body has geometry (%d вершин)" % [id, verts.size()])
+				check(verts.size() > 200, "%s body has geometry (%d verts)" % [id, verts.size()])
 				check(idx.size() > 0 and idx.size() % 3 == 0, "%s body is indexed (%d)" % [id, idx.size()])
 				check(uv.size() == verts.size(), "%s body has UVs (%d/%d)" % [id, uv.size(), verts.size()])
 				if uv.size() != verts.size(): uv_ok = false

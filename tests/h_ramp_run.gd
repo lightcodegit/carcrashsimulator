@@ -1,58 +1,59 @@
 extends Node3D
-# «Машины всё ещё иногда ударяются на рампах»: горки те, что лежат на настоящих картах,
-# а не клин, собранный самим тестом (h_handling, фаза A) — тот прошёл бы, даже если карта
-# ставит препятствие, о которое машина бьёт по-настоящему.
+# "Cars still sometimes crash on ramps": the hills tested are the ones on real maps,
+# not a wedge assembled by the test itself (h_handling, phase A) — that would pass even
+# if the map placed an obstacle the car actually slams into.
 #
-# Скорость на входе задаётся напрямую, а не разгоном, и горку проезжают четырьмя способами
-# на трёх скоростях: «иногда» из жалобы — это край полосы и въезд под углом, а не чистый
-# проезд по центру. Заезд заканчивается на приземлении: удар в стену после длинного полёта —
-# другой случай (h_handling, фазы B и D), а нам важно, что горка и посадка после неё кузов не
-# мяли.
+# Entry speed is set directly, not by accelerating, and each hill is driven four ways at
+# three speeds: the "sometimes" in the complaint is the lane edge and angled entry, not a
+# clean center pass. The run ends at the landing: hitting a wall after a long flight is
+# another case (h_handling, phases B and D), while here it matters that the hill and its
+# landing never dent the body.
 #
-# Тем, кто дал удар, отвечает физический мир: в момент удара смотрим, с чьим коллайдером
-# пересекается рама. Отбойник и трибуна в полуметре от разметки — не горка (замер на
-# арене: полоса z=-23.4 кончалась касанием отбойника, и тест приписывал это трамплину).
-# Полосу заезда поэтому подбираем ту, где рама до старта ни за что не цепляет.
-# Печатаем только числа.
+# Whoever caused the impact is answered by the physics world: at impact time we check
+# which collider the frame intersects. A barrier and a stand half a meter off the lane
+# are not the hill (measured on arena: lane z=-23.4 ended touching a barrier, and the
+# test blamed it on the ramp). So we pick an entry lane where the frame touches nothing
+# before the start. Numbers only in the output.
 
 const KMPS := 3.6
-var MAPS: Array[String] = MapDB.ids()   # новые карты с горками попадают в тест сами
+var MAPS: Array[String] = MapDB.ids()   # new maps with hills join the test automatically
 const SPEEDS := [60.0, 140.0, 210.0, 280.0]
-# как подъезжаем: [название, доля полуширины полосы, курс в градусах]
-# 0.5, не 0.85: у сегментов roadRamp/roadRampLong по флангам (|z| > 3.4) идёт приподнятая
-# белая лента в 0.2 м — это бордюр, а не горка: на 60 км/ч колесо об неё останавливает
-# машину, на 250 подбрасывает нос в наклонную грань. Бордюры проверяет h_prop_knock, а здесь
-# меряется сама горка в трёх полосах. Боковой заезд под 10° с горки уходит с полосы, и
-# заезд кончается «уехала с дороги», а не «горка дала удар» — его не проверяем.
+# how we approach: [name, share of half-lane-width, heading in degrees]
+# 0.5, not 0.85: roadRamp/roadRampLong segments have a raised 0.2 m white strip along the
+# flanges (|z| > 3.4) — that is a curb, not the hill: at 60 km/h a wheel against it stops
+# the car, at 250 it throws the nose into the slanted face. Curbs are checked by
+# h_prop_knock; here the hill itself is measured in three lanes. A side entry at 10°
+# leaves the lane on the hill and the run ends as "left the road", not "the hill caused
+# an impact" — we do not test that.
 const APPROACHES := [["по центру", 0.0, 0.0], ["правый край", 0.5, 0.0],
 	["левый край", -0.5, 0.0]]
-const ROLL_AFTER := 20.0     # м, которые машина должна прокатить по земле после горки
-const LAND_AFTER := 25.0     # м после горки, в пределах которых посадка ещё её заслуга
-const RUNUP := 8.0           # коридор перед горкой: скорость задаём сами, разгон не нужен
-const MARGIN := 120.0        # км/ч/с: худшее замедление горки должно быть ниже этого запаса
-const WINDOW := 4            # тиков, за которые мерим замедление — как в детекторе удара
+const ROLL_AFTER := 20.0     # m the car must roll on the ground after the hill
+const LAND_AFTER := 25.0     # m past the hill within which the landing is still its doing
+const RUNUP := 8.0           # corridor before the hill: we set speed ourselves, no run-up
+const MARGIN := 120.0        # km/h/s: the hill's worst deceleration must stay below this margin
+const WINDOW := 4            # ticks used to measure deceleration — same as the impact detector
 
 var _fails := 0
 var _runs := 0
 var gm: GameManager
 var _map := ""
 var _impacts := 0
-var _on_hill := 0            # удары о горку и о пол сразу за ней — их не должно быть
-var _other := 0              # касания посторонних препятствий: отбойников, трибун
-var _found := 0              # сколько горок нашлось на всех картах
-var _hb: AABB = AABB()       # полоса горки в мировых координатах
-var _hill_bodies: Array = []    # коллайдеры текущей горки
-var _ground_bodies: Array = []  # пол карты: на него и приземляются после прыжка
+var _on_hill := 0            # impacts on the hill and on the floor right after it — must be zero
+var _other := 0              # touches of foreign obstacles: barriers, stands
+var _found := 0              # how many hills were found across all maps
+var _hb: AABB = AABB()       # the hill's lane in world coordinates
+var _hill_bodies: Array = []    # colliders of the current hill
+var _ground_bodies: Array = []  # map floor: that is what the car lands on after the jump
 var _col_shape: CollisionShape3D
-var _hist: Array[Vector3] = []    # скорость по тикам этого заезда
-var _worst := 0.0                 # худшее замедление на горке, км/ч в секунду
-var _worst_v0 := Vector3.ZERO     # какие векторы скорости это замедление дали
+var _hist: Array[Vector3] = []    # velocity per tick of this run
+var _worst := 0.0                 # worst deceleration on the hill, km/h per second
+var _worst_v0 := Vector3.ZERO     # the velocity vectors that produced this deceleration
 var _worst_v1 := Vector3.ZERO
 var _worst_y := 0.0
-# Жалоба «приземляется куда сильно — очень много теряется скорости» про САМО касание,
-# а прежний заезд обрывался на этом тике. Поэтому после посадки мерим ещё окно в 30
-# тиков, а «эпизодом горки» считаем всё от въезда на неё до конца этого окна: полёт,
-# который ей обязан, и приземление в это же окно.
+# The complaint "lands hard — loses a lot of speed" is about the touch itself, while the
+# previous run aborted exactly on that tick. So after landing we keep measuring a 30-tick
+# window, and the "hill episode" spans from entering the hill to the end of that window:
+# the flight it owes and the touchdown within the same window.
 var _lt := -1
 var _lv0 := 0.0
 var _lvy := 0.0
@@ -61,10 +62,12 @@ var _lloss := 0.0
 var _lsink := ""
 var _lhist: Array[Vector3] = []
 var _episode := false
-# Посадка горки и стена карты в конце полёта — разные события: окно в 0.5 с после касания
-# ещё не кончилось, а рама уже уткнулась в чужое (замер на арене: правый край бугра на
-# 280 км/ч даёт посадку, а через 0.3 с — удар в торцовую стену на x=81, 173 км/ч потерь).
-# Если в окне посадки замедление дал чужой коллайдер, горке его не записываем.
+# The hill's landing and the map wall at the end of the flight are different events: the
+# 0.5 s window after the touch has not ended yet, but the frame already ran into something
+# foreign (measured on arena: the right edge of the bump at 280 km/h gives a landing and
+# 0.3 s later an impact into the end wall at x=81, 173 km/h lost).
+# If a foreign collider caused the deceleration inside the landing window, we do not
+# charge it to the hill.
 var _labort := ""
 
 func check(cond: bool, msg: String) -> void:
@@ -74,26 +77,26 @@ func _ready() -> void:
 	await get_tree().process_frame
 	for id in MAPS:
 		await _sweep(id)
-	check(_found >= 3, "горки найдены на картах, иначе тест пустой (%d)" % _found)
-	print("горок на картах: %d" % _found)
-	print("прогонов %d" % _runs)
+	check(_found >= 3, "hills must be found on maps, otherwise the test is empty (%d)" % _found)
+	print("hills found on maps: %d" % _found)
+	print("runs %d" % _runs)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
 func _sweep(id: String) -> void:
 	if gm != null and is_instance_valid(gm):
 		gm.queue_free()
-		# четыре кадра: тела прежней карты должны уйти из физического пространства до
-		# сборки новой, иначе её предметы толкаются с чужими
+		# four frames: the previous map's bodies must leave the physical space before
+		# the new one is built, otherwise its props jostle with foreign ones
 		for _i in 4:
 			await get_tree().physics_frame
 	if id == "endless":
-		# Горки «бесконечности» — те же roadRampLong(×3) и roadBump, что на кольце, и
-		# геометрию проверяет кольцо; здесь же плиты переставляются, и координаты
-		# препятствия, найденного один раз, уплывают из-под машины. Переставку меряет
-		# h_newmaps, а то, что по «бесконечности» можно ехать без вмятин, — h_map_props, h_prop_knock
-		# и h_restart_props, которые перебирают все карты.
-		print("NOTE: %s — те же горки, что на кольце; лента плит двигается, см. h_newmaps" % id)
+		# Endless' hills are the same roadRampLong(×3) and roadBump as on the ring, and the
+		# ring is where geometry is checked; here the plates get reshuffled, so the
+		# coordinates of an obstacle found once would drift out from under the car. The
+		# reshuffle is measured by h_newmaps, and driving endless without dents is covered
+		# by h_map_props, h_prop_knock and h_restart_props, which iterate all maps.
+		print("NOTE: %s — same hills as on the ring; the plate belt moves, see h_newmaps" % id)
 		return
 	_map = id
 	GameContext.select("sport", id)
@@ -101,38 +104,39 @@ func _sweep(id: String) -> void:
 	add_child(gm)
 	for _i in 30:
 		await get_tree().physics_frame
-	# На «бесконечности» ленты переставляются из-за спины вперёд, а горки мы ищем один раз:
-	# переставка унесла бы препятствие из-под машины, и заезд мерил бы пустую дорогу.
+	# On endless the belts reshuffle from behind to the front while we look for hills once:
+	# a reshuffle would carry the obstacle away from under the car and the run would
+	# measure an empty road.
 	gm._endless = false
 	gm.car.impact.connect(_on_impact)
 	for c in gm.car.chassis.get_children():
 		if c is CollisionShape3D: _col_shape = c
 	var hazards := _hazards()
-	# на «бесконечности» горок десятки — мерим три, разбросанные по ленте: иначе тест
-	# превращается в перебор всех, а повторяются они все одинаковые
+	# endless has dozens of hills — measure three spread along the belt; otherwise the
+	# test turns into checking all of them, and they are all identical copies
 	if hazards.size() > 3:
 		var picked: Array[Dictionary] = []
 		for k in 3:
 			picked.append(hazards[int(k * (hazards.size() - 1) / 2.0)])
 		hazards = picked
 	if hazards.is_empty():
-		print("NOTE: на %s горок нет — проверять нечего" % id)
+		print("NOTE: no hills on %s — nothing to check" % id)
 	_found += hazards.size()
 	for hz in hazards:
 		_hill_bodies = hz["bodies"]
 		for ap in APPROACHES:
 			for v in SPEEDS:
-				# Боком горку проезжаем до 210 км/ч: на 300 машина идёт по наклонённому
-				# наклону носом кузова и разворачивается на ней — это настоящая авария, а
-				# не «горка объявила удар», и проверять её на этом тесте нельзя.
+				# We drive the hill sideways only up to 210 km/h: at 300 the car rides the
+				# slope nose-first and spins on it — that is a real crash, not "the hill
+				# declared an impact", and this test must not check it.
 				await _run(String(hz["label"]), hz["box"] as AABB, String(ap[0]),
 					float(ap[1]), float(ap[2]), float(v))
 	gm.queue_free()
 
-# Горки карты — сегменты со своим коллайдером: «roadRamp» (трамплин) и «roadBump»
-# (лежачий полицейский). Ищем их по именам узлов MapDB, а не по записанным в тест
-# координатам: переставленный на карте трамплин не должен превращать проверку в пустую.
-# К горке относится её StaticBody3D: MapDB ставит тело в тот же position, что и меш.
+# Map hills are segments with their own collider: "roadRamp" (jump) and "roadBump"
+# (sleeping policeman). We find them by MapDB node names, not by coordinates hardcoded in
+# the test: a reshuffled ramp must not silently turn the check into a no-op.
+# A hill owns its StaticBody3D: MapDB places the body at the same position as the mesh.
 func _hazards() -> Array[Dictionary]:
 	var bodies: Array = []
 	var ground: Array = []
@@ -166,14 +170,14 @@ func _hazards() -> Array[Dictionary]:
 		return (x["box"] as AABB).position.x < (y["box"] as AABB).position.x)
 	return out
 
-# Поза старта: полоса — центр горки со смещением на долю её полуширины; начало коридора
-# сдвинуто по курсу так, чтобы линия движения всё равно вела в горку.
+# Start pose: the lane is the hill's center shifted by a share of its half-width; the run-up
+# start is offset along the heading so the line of travel still leads into the hill.
 func _lane_start(a: AABB, off: float, yaw: float) -> Transform3D:
 	var lane_z := (a.position.z + a.end.z) * 0.5 + off * maxf(a.size.z * 0.5 - 1.0, 0.5)
 	return Transform3D(Basis(Vector3.UP, yaw),
 		Vector3(a.position.x - RUNUP, 1.0, lane_z + tan(yaw) * (RUNUP + a.size.x * 0.5)))
 
-# Рама в этой позе ни за что не цепляет, кроме самой горки и пола?
+# Does the frame in this pose touch nothing except the hill itself and the floor?
 func _pose_clear(tf: Transform3D) -> bool:
 	if _col_shape == null: return true
 	var q := PhysicsShapeQueryParameters3D.new()
@@ -190,8 +194,8 @@ func _pose_clear(tf: Transform3D) -> bool:
 func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, kmh: float) -> void:
 	_runs += 1
 	var yaw := deg_to_rad(yaw_deg)
-	# край полосы поддвигаем внутрь, если там стоит отбойник: иначе проверка ловила бы
-	# касание отбойника вместо поведения горки
+	# nudge the lane edge inward if a barrier stands there: otherwise the check would
+	# catch a barrier touch instead of the hill's behavior
 	var off := off_req
 	while absf(off) > 0.05 and not _pose_clear(_lane_start(a, off, yaw)):
 		off -= signf(off) * 0.15
@@ -204,7 +208,7 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 	_hb = a
 	gm.car.respawn(tf)
 	for _i in 25:
-		await get_tree().physics_frame        # кузов оседает на подвеске
+		await get_tree().physics_frame        # the body settles on its suspension
 	var fwd := Vector3(cos(yaw), 0.0, -sin(yaw))
 	gm.car.chassis.linear_velocity = fwd * (kmh / KMPS)
 	var max_y := 0.0
@@ -231,8 +235,8 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 		var grounded := gm.car._grounded
 		if p.x > a.position.x: _episode = true
 		max_y = maxf(max_y, p.y)
-		# Запас до порога удара: детектор срабатывает на 210 км/ч/с, а горка обязана
-		# давать в разы меньше. Мерим тем же окном в 4 тика, что и детектор.
+		# Margin to the impact threshold: the detector fires at 210 km/h/s and the hill must
+		# give several times less. Measured with the same 4-tick window as the detector.
 		var vel := gm.car.chassis.linear_velocity
 		if _lt < 0:
 			_hist.append(vel)
@@ -245,9 +249,10 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 				_worst_v0 = _hist[0]
 				_worst_v1 = _hist[WINDOW]
 				_worst_y = p.y
-		# на губе трамплина клармп рамы ещё цепляет грань, и «воздух» загорается на тик
-		# в начале подъёма: засчитываем полёт только когда он устойчив, иначе заезд
-		# обрывался до настоящей посадки и проверка мерил бы взлёт, а не приземление.
+		# at the ramp's lip the frame's clamp shape still catches the edge and "air" lights
+		# up for a tick at the start of the climb: we count the flight only once it is
+		# sustained, otherwise the run aborted before the real landing and the check would
+		# measure takeoff instead of touchdown.
 		air_run = 0 if grounded else air_run + 1
 		if air_run > 0:
 			air += 1
@@ -259,15 +264,15 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 			reached = true
 		if p.x > a.end.x + 0.5:
 			crossed = true
-		# GameManager сам телепортирует машину на спавн, если та вылетела за границу
-		# карты: заезд окончен, дальше мерить нечего.
+		# GameManager teleports the car back to spawn itself if it flew past the map
+		# border: the run is over, nothing left to measure.
 		if p.distance_to(prev) > 12.0:
 			end = "вылет за границу"
 		elif _on_hill > 0:
 			end = "удар на горке"
 		elif crossed and jumped and grounded and _lt < 0 and vel.y < 0.0:
-			# сажаем только касание НА СПУСКЕ: колёса теряют землю и на ступенях горки,
-			# и на вылете, когда машина ещё растёт
+			# count only a touch DOWNHILL: wheels lose ground on the hill's steps too,
+			# and at launch while the car is still climbing
 			_lt = 0
 			_lv0 = gm.car.speed_kmh()
 			_lvy = vel.y
@@ -275,21 +280,22 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 		elif crossed and not jumped and p.x > a.end.x + ROLL_AFTER:
 			end = "прокатилась"
 		elif _other > 0 and _lt < 0:
-			# удар о чужое (отбойник, стену) важнее «машина встала»: иначе остановку после
-			# столкновения тест записывает горке. В окне посадки не обрываем: его окно
-			# само скажет, чьё это замедление (_labort).
+			# an impact on something foreign (barrier, wall) outranks "the car stopped":
+			# otherwise the test charges the hill for a post-collision stop. Do not abort
+			# inside the landing window: that window decides whose deceleration it is
+			# (_labort).
 			end = "цепнула постороннее"
 		elif p.x > a.position.x and gm.car.speed_kmh() < 2.0:
-			# 5-метровый трамплин на 60 км/ч по накату не берётся: машина встаёт на
-			# склоне и съезжает назад — это физика, а не «горка дала удар»
+			# a 5 m ramp at 60 km/h cannot be taken on inertia: the car stops on the slope
+			# and slides back — that is physics, not "the hill caused an impact"
 			end = "остановилась на горке"
 		elif gm.car.speed_kmh() < 2.0:
-			# на малой скорости машина идёт по бугру верхом и останавливается сразу за
-			# ним — это тоже чистый заезд, просто дальше мерить нечего
+			# at low speed the car straddles the bump and stops right after it — that is
+			# also a clean run, just nothing left to measure further
 			end = "прокатилась" if crossed else "встала до горки"
 		elif absf(p.z - (a.position.z + a.end.z) * 0.5) > a.size.z * 0.5 + 2.0:
-			# машина ушла с полосы в сторону (прыжок под углом уводит за отбойник,
-			# дальше уже деревья и трибуны) — поведение горки тут не измеряется
+			# the car left the lane sideways (an angled jump carries it past the barrier,
+			# then come trees and stands) — hill behavior is not measured here
 			end = "ушла с полосы"
 		if _lt >= 0:
 			_lt += 1
@@ -309,51 +315,54 @@ func _run(label: String, a: AABB, how: String, off_req: float, yaw_deg: float, k
 			if _lt == 30:
 				_lloss = _lv0 - gm.car.speed_kmh()
 				_episode = false
-				# чужое тело в этом окне решает, кому досталась потеря скорости
+				# a foreign body in this window decides who owns the speed loss
 				end = "цепнула постороннее" if _labort != "" else "приземлилась"
 		prev = p
-		# окно посадки досчитываем до конца, даже если машина успела за что-то зацепиться:
-		# именно это окно и есть предмет жалобы
+		# finish counting the landing window even if the car managed to snag on something:
+		# this window exactly is what the complaint is about
 		if end != "" and (_lt < 0 or _lt >= 30 or end != "приземлилась"):
 			break
 	var clean := end in ["приземлилась", "прокатилась", "остановилась на горке"]
-	print("%-34s проехала=%s полоса z=%+.1f горка x=%.0f..%.0f въезд=%3.0f км/ч подъём=%.2f м воздух=%3d тиков торможение=%3.0f км/ч/с ударов=%d (горка %d, посторонних %d) вмятин=%d — %s" % [
+	print("%-34s crossed=%s lane z=%+.1f hill x=%.0f..%.0f entry=%3.0f km/h rise=%.2f m air=%3d ticks braking=%3.0f km/h/s impacts=%d (hill %d, foreign %d) dents=%d — %s" % [
 		tag, crossed, lane_z, a.position.x, a.end.x, entry, max_y, air, _worst,
-		_impacts, _on_hill, _other, gm.car.body.dent_count, end if end != "" else "таймаут"])
-	# Тест не пустой: машина должна добраться до горки. На арене часть полётов кончается
-	# стеной — это не про горку, чистые посадки ищем там, где трасса длинная.
-	check(reached, "%s: машина добралась до горки (%s)" % [tag, end])
-	check(_on_hill == 0, "%s: горка не дала удара (%d)" % [tag, _on_hill])
+		_impacts, _on_hill, _other, gm.car.body.dent_count, end if end != "" else "timeout"])
+	# The test must not be vacuous: the car has to reach the hill. On arena some flights
+	# end at the wall — that is not about the hill; clean landings are sought where the
+	# track is long.
+	check(reached, "%s: car reached the hill (%s)" % [tag, end])
+	check(_on_hill == 0, "%s: the hill caused no impact (%d)" % [tag, _on_hill])
 	if clean:
-		# Удар и вмятину горке пишем только если в прогоне не было чужого касания: стена
-		# в конце длинного полёта или сбитый бачок оставляют след не по вине горки.
+		# We charge an impact or a dent to the hill only if the run had no foreign touch: a
+		# wall at the end of a long flight or a knocked-over tank leaves a mark not caused
+		# by the hill.
 		if _other == 0:
-			check(_impacts == 0, "%s: посадка после горки не удар (%d)" % [tag, _impacts])
-			check(gm.car.body.dent_count == 0, "%s: кузов цел после горки (%d)" % [tag, gm.car.body.dent_count])
-		var why := "v %.0f -> %.0f км/ч, вертикаль %+.1f -> %+.1f м/с на y=%.1f" % [
+			check(_impacts == 0, "%s: landing after the hill is not an impact (%d)" % [tag, _impacts])
+			check(gm.car.body.dent_count == 0, "%s: body intact after the hill (%d)" % [tag, gm.car.body.dent_count])
+		var why := "v %.0f -> %.0f km/h, vertical %+.1f -> %+.1f m/s at y=%.1f" % [
 			Vector3(_worst_v0.x, 0, _worst_v0.z).length() * 3.6,
 			Vector3(_worst_v1.x, 0, _worst_v1.z).length() * 3.6,
 			_worst_v0.y, _worst_v1.y, _worst_y]
-		check(_worst < MARGIN, "%s: горка тормозит с запасом до порога удара (%.0f км/ч/с, %s)" % [
+		check(_worst < MARGIN, "%s: hill brakes with margin below the impact threshold (%.0f km/h/s, %s)" % [
 			tag, _worst, why])
 	if _lt >= 30:
-		print("%-34s ПОСАДКА: %.0f км/ч с vy=%.1f → потеря %.1f км/ч за 0.5 с, торможение %.0f км/ч/с, рама цепляет %s%s" % [
+		print("%-34s LANDING: %.0f km/h with vy=%.1f → loss %.1f km/h in 0.5 s, braking %.0f km/h/s, frame touches %s%s" % [
 			tag, _lv0, _lvy, _lloss, _lpeak, _lsink,
-			" (прервана ударом о %s)" % _labort if _labort != "" else ""])
-		# Замедление после чужого удара в том же окне — счёт чужого удара, а не посадки:
-		# проверять его как «горка тормозит при приземлении» нельзя, иначе тест ловит
-		# стену в конце полёта и требует от горки то, что ей не принадлежит.
+			" (interrupted by impact with %s)" % _labort if _labort != "" else ""])
+		# Deceleration after a foreign impact in the same window is that impact's account,
+		# not the landing's: checking it as "the hill brakes on landing" is impossible,
+		# otherwise the test catches the end wall and demands of the hill what is not its
+		# responsibility.
 		if _labort == "":
-			check(_lloss < 25.0, "%s: жёсткая посадка не съедает скорость (%.1f км/ч за 0.5 с)" % [tag, _lloss])
-			check(_lpeak < MARGIN, "%s: посадка ниже порога удара с тем же запасом (%.0f км/ч/с)" % [tag, _lpeak])
+			check(_lloss < 25.0, "%s: hard landing does not eat speed (%.1f km/h in 0.5 s)" % [tag, _lloss])
+			check(_lpeak < MARGIN, "%s: landing below the impact threshold with the same margin (%.0f km/h/s)" % [tag, _lpeak])
 	if label == "рампа" and kmh >= 210.0 and clean and off_req == 0.0 and yaw_deg == 0.0:
-		check(air > 5, "%s: на трамплине машина оторвалась (%d тиков в воздухе)" % [tag, air])
+		check(air > 5, "%s: the car left the ground on the ramp (%d ticks airborne)" % [tag, air])
 
 func _on_impact(speed: float, point: Vector3, normal: Vector3) -> void:
 	_impacts += 1
-	# «заслуга горки» — её собственная геометрия, а также пол в коридоре сразу за ней:
-	# туда бросает машину после прыжка, и это как раз тот случай из жалобы. Всё остальное
-	# — посторонние препятствия, у них своя проверка (h_handling, h_prop_knock).
+	# The hill's "credit" is its own geometry plus the floor in the corridor right after it:
+	# that is where the car is thrown after the jump, exactly the complaint's case. Everything
+	# else is a foreign obstacle with its own check (h_handling, h_prop_knock).
 	var near := point.x > _hb.position.x - 1.0 and point.x < _hb.end.x + LAND_AFTER \
 		and absf(point.z - (_hb.position.z + _hb.end.z) * 0.5) < _hb.size.z * 0.5 + 1.0
 	var is_hill := false
@@ -370,18 +379,20 @@ func _on_impact(speed: float, point: Vector3, normal: Vector3) -> void:
 		var n3 := b as Node3D
 		who += "%s@(%.1f,%.1f,%.1f) " % [(b as Node).name, n3.global_position.x,
 			n3.global_position.y, n3.global_position.z]
-	# в эпизоде горки (на ней, в полёте с неё и в окне посадки) касание дороги — её счёт:
-	# именно её полёт привёл машину в эту точку. Отбойник и стена остаются посторонними.
+	# within a hill episode (on it, in its flight, in the landing window) a road touch is
+	# on its account: its flight is what brought the car to this point. Barriers and walls
+	# stay foreign.
 	var ours := is_hill or (is_ground and (near or _episode) and not is_strange)
 	if ours:
 		_on_hill += 1
 	else:
 		_other += 1
-		# удар в окне посадки: окно продолжает считаться, но его числа теперь не про горку
+		# impact inside the landing window: the window keeps counting, but its numbers
+		# are no longer about the hill
 		if _lt >= 0: _labort = strange.trim_suffix(" ")
-	print("   удар: %.0f км/ч точка (%.1f, %.1f, %.1f) нормаль (%.2f, %.2f, %.2f) %s, задето %s" % [
+	print("   impact: %.0f km/h point (%.1f, %.1f, %.1f) normal (%.2f, %.2f, %.2f) %s, hit %s" % [
 		speed, point.x, point.y, point.z, normal.x, normal.y, normal.z,
-		"горка" if ours else "постороннее", who if who != "" else "—"])
+		"hill" if ours else "foreign", who if who != "" else "—"])
 
 func _contacts() -> Array:
 	if _col_shape == null or gm.car.chassis == null: return []

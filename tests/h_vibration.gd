@@ -1,9 +1,9 @@
 extends Node3D
-# Виброфид проверяется внедрёнными callable: импульс ровно один на удар,
-# амплитуда растёт со скоростью и режется настройкой, непрерывный занос даёт
-# rumble, остановка гасит его одним нулём, выключенная настройка не порождает
-# ни одного вызова, устройство берётся из InputRouter.pad_index().
-# Железо здесь проверить нельзя — реальный путь Input.* помечен PARTIAL.
+# The vibration feed is checked with injected callables: exactly one impulse per
+# impact, amplitude grows with speed and is capped by the setting, a continuous
+# drift gives rumble, stopping silences it with a single zero, a disabled setting
+# produces no calls at all, and the device comes from InputRouter.pad_index().
+# Hardware cannot be verified here — the real Input.* path is marked PARTIAL.
 var _fails := 0
 var car: CarRig
 var feed: VibrationFeed
@@ -31,13 +31,13 @@ func _ready() -> void:
 	feed.rumble_fn = func(low: float, high: float, dev: int) -> void: _rumbles.append([low, high, dev])
 	feed.impulse_fn = func(low: float, high: float, ms: int, dev: int) -> void: _impulses.append([low, high, ms, dev])
 	feed.attach(car)
-	# дефолтный путь без железа: pad_index -1, реальные вызовы Input.* не
-	# делаются, исключений нет — сам удар при этом посчитан
+	# the default path without hardware: pad_index -1, no real Input.* calls are
+	# made, no exceptions — and the impact itself is still counted
 	var raw := VibrationFeed.new()
 	add_child(raw)
 	raw.attach(car)
 	car.impact.emit(80.0, Vector3.ZERO, Vector3.RIGHT)
-	check(raw.impulse_calls == 1, "дефолтный путь без железа считает импульс (%d)" % raw.impulse_calls)
+	check(raw.impulse_calls == 1, "the default path without hardware counts the impulse (%d)" % raw.impulse_calls)
 	raw.queue_free()
 	Input.action_press("throttle")
 
@@ -63,33 +63,33 @@ func _one_impulse(speed: float) -> Array:
 	_impulses.clear()
 	car.impact.emit(speed, Vector3.ZERO, Vector3.RIGHT)
 	if _impulses.size() != 1:
-		check(false, "удар %.0f дал не один импульс (%d)" % [speed, _impulses.size()])
+		check(false, "impact %.0f produced not exactly one impulse (%d)" % [speed, _impulses.size()])
 		return [0.0, 0.0, 0, -1]
 	return _impulses[0]
 
 func _impacts() -> void:
 	var a := _one_impulse(100.0)
 	_amp100 = float(a[0])
-	check(_amp100 > 0.0 and _amp100 <= 1.0, "амплитуда в диапазоне (%.3f)" % _amp100)
-	check(int(a[2]) > 0, "длительность положительная (%d)" % int(a[2]))
+	check(_amp100 > 0.0 and _amp100 <= 1.0, "amplitude in range (%.3f)" % _amp100)
+	check(int(a[2]) > 0, "duration is positive (%d)" % int(a[2]))
 	var b := _one_impulse(190.0)
-	check(float(b[0]) > _amp100, "быстрый удар вибрирует сильнее (%.3f > %.3f)" % [float(b[0]), _amp100])
+	check(float(b[0]) > _amp100, "a faster impact vibrates harder (%.3f > %.3f)" % [float(b[0]), _amp100])
 	Settings.set_value("vibration_strength", 0.5)
 	var c := _one_impulse(100.0)
 	check(absf(float(c[0]) - _amp100 * 0.5) <= 0.01,
-		"сила 0.5 режет амплитуду вдвое (%.3f против %.3f)" % [float(c[0]), _amp100 * 0.5])
+		"strength 0.5 halves the amplitude (%.3f vs %.3f)" % [float(c[0]), _amp100 * 0.5])
 	Settings.set_value("vibration_strength", 1.0)
-	# устройство по умолчанию — из InputRouter.pad_index(): назначение на
-	# конкретный геймпад переключает номер, которому шлётся вибрация
+	# the default device comes from InputRouter.pad_index(): binding to a specific
+	# gamepad switches the device number the vibration is sent to
 	var jb := InputEventJoypadButton.new()
 	jb.button_index = 12
 	jb.device = 2
 	InputRouter.rebind("nitro", jb)
-	check(InputRouter.pad_index() == 2, "pad_index помнит назначенный девайс (%d)" % InputRouter.pad_index())
+	check(InputRouter.pad_index() == 2, "pad_index remembers the assigned device (%d)" % InputRouter.pad_index())
 	var d := _one_impulse(60.0)
-	check(int(d[3]) == 2, "импульс ушёл девайсу 2 из InputRouter (%s)" % str(d))
+	check(int(d[3]) == 2, "the impulse went to device 2 from InputRouter (%s)" % str(d))
 	InputRouter.clear_binding("nitro")
-	# занос: ручник + руль, rumble обязан появиться сам (не по нашей команде)
+	# drift: handbrake + steering, rumble must appear on its own (not on our command)
 	Input.action_press("handbrake")
 	Input.action_press("steer_right")
 	_rumbles.clear()
@@ -100,19 +100,19 @@ func _after_slip() -> void:
 	for r in _rumbles:
 		if float(r[0]) > 0.1: any = true
 	check(any and _rumbles.size() >= 2,
-		"непрерывный занос даёт ненулевой rumble многократно (%d)" % _rumbles.size())
-	# остановка (пауза/рестарт идут этим же путём): ровно один нулевой вызов,
-	# и после неё — тишина, хотя машина всё ещё крутится на ручнике
+		"a continuous drift yields nonzero rumble repeatedly (%d)" % _rumbles.size())
+	# stop (pause/restart go this same way): exactly one zero call,
+	# and after it — silence, though the car is still spinning on the handbrake
 	_rumbles.clear()
 	feed.set_active(false)
 	check(_rumbles.size() == 1 and float(_rumbles[0][0]) == 0.0 and float(_rumbles[0][1]) == 0.0,
-		"остановка прислала один нулевой rumble (%s)" % str(_rumbles))
+		"the stop sent one zero rumble (%s)" % str(_rumbles))
 	_stop_snapshot = _rumbles.size() + _impulses.size()
 	_phase = "stopped"
 
 func _disabled() -> void:
 	check(_rumbles.size() + _impulses.size() <= _stop_snapshot,
-		"после остановки новых вызовов нет (%d против %d)" % [
+		"no new calls after the stop (%d vs %d)" % [
 			_rumbles.size() + _impulses.size(), _stop_snapshot])
 	feed.set_active(true)
 	Settings.set_value("vibration_enabled", false)
@@ -125,14 +125,14 @@ var _dis_n := 0
 
 func _finish() -> void:
 	check(_rumbles.size() + _impulses.size() == _dis_n,
-		"выключенная вибрация не порождает ни одного вызова (+%d)" % [
+		"disabled vibration produces no calls at all (+%d)" % [
 			_rumbles.size() + _impulses.size() - _dis_n])
 	Input.action_release("throttle")
 	Input.action_release("handbrake")
 	Input.action_release("steer_right")
 	car.slip = 0.0
 	if Input.get_connected_joypads().is_empty():
-		print("PARTIAL: живого геймпада нет — реальный путь Input.start_joy_vibration проверен только внедрёнными заглушками")
+		print("PARTIAL: no live gamepad — the real Input.start_joy_vibration path was exercised only through injected stubs")
 	Settings.reset()
 	InputRouter.reset_keys()
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

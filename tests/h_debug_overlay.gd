@@ -1,7 +1,7 @@
 extends Node
-# Отладочный оверлей: включён → панель существует; каждая из четырёх секций
-# печатает непустой текст без nan/inf; F2 и F3 работают через настоящий InputMap
-# (синтезированное событие), а настройка доживает до файла и обратно.
+# Debug overlay: enabled → the panel exists; each of the four sections
+# prints non-empty text without nan/inf; F2 and F3 work through the real InputMap
+# (a synthesised event), and the setting survives the round trip to file and back.
 var _fails := 0
 var gm: GameManager
 var hud: HUD
@@ -20,85 +20,85 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	hud = gm.hud
 	overlay = _find_overlay(hud)
-	check(overlay != null, "оверлей собран вместе с HUD")
+	check(overlay != null, "overlay built together with the HUD")
 	if overlay == null:
 		print("FAILS %d" % _fails); get_tree().quit(1); return
-	check(hud._gameplay.has(overlay), "оверлей учтён в списке геймплейных панелей")
+	check(hud._gameplay.has(overlay), "overlay counted in the gameplay panel list")
 
-	# Раскладка: оверлей обязан влезать в экран и не наезжать на остальные панели.
-	# Проверяем здесь, а не в h_hud_layout: у того свой бюджет надписей и закрытой
-	# площади, и влезать в него чужой панелью значит портить его контракт.
+	# Layout: the overlay must fit on screen and not encroach on the other panels.
+	# Checked here, not in h_hud_layout: that test has its own label budget and covered
+	# area, and squeezing a foreign panel into it would corrupt its contract.
 	var rect := overlay.get_global_rect()
 	var view := get_viewport().get_visible_rect()
 	check(rect.position.x >= 0 and rect.position.y >= 0
 		and rect.end.x <= view.size.x and rect.end.y <= view.size.y,
-		"оверлей внутри экрана (%s в %s)" % [str(rect), str(view.size)])
+		"overlay inside the screen (%s in %s)" % [str(rect), str(view.size)])
 	var hits := 0
 	for p in hud._gameplay:
 		if p == overlay: continue
 		if rect.intersects(p.get_global_rect()): hits += 1
-	check(hits == 0, "оверлей не наезжает на панели HUD (%d)" % hits)
+	check(hits == 0, "overlay does not overlap HUD panels (%d)" % hits)
 
-	# контракт данных: оверлей читает снимки, а не приватные поля
+	# data contract: the overlay reads snapshots, not private fields
 	var snap: Dictionary = gm.car.debug_snapshot()
 	for key in ["speed_kmh", "steer_deg", "steer_max_deg", "slip", "grounded",
 		"pedal", "hand", "heading_deg", "contacts", "skid"]:
-		check(snap.has(key), "снимок машины отдаёт ключ %s" % key)
+		check(snap.has(key), "car snapshot exposes key %s" % key)
 	check(is_finite(float(snap.speed_kmh)) and is_finite(float(snap.steer_deg)),
-		"числа снимка конечны")
+		"snapshot numbers are finite")
 	var scene: Dictionary = gm.debug_scene()
 	for key in ["map_root", "bounds", "spawn", "endless", "map_id", "crashes"]:
-		check(scene.has(key), "снимок сцены отдаёт ключ %s" % key)
+		check(scene.has(key), "scene snapshot exposes key %s" % key)
 	var counts := MapDB.debug_counts(scene.map_root, gm.camera.global_position)
-	check(int(counts.nodes) > 100, "обход дерева нашёл узлы (%d)" % int(counts.nodes))
-	check(int(counts.bodies) > 0, "на карте есть динамические тела (%d)" % int(counts.bodies))
+	check(int(counts.nodes) > 100, "the tree walk found nodes (%d)" % int(counts.nodes))
+	check(int(counts.bodies) > 0, "the map has dynamic bodies (%d)" % int(counts.bodies))
 
-	# секции: F3 листает, текст обязан быть живым
+	# sections: F3 cycles through them, the text must be live
 	for i in 30:
 		await get_tree().process_frame
-	# Счётчики кадра существуют только при живом рендере: в headless движок не
-	# считает вызовы отрисовки, и «ноль» там — не поломка, а отсутствие GPU.
+	# Frame counters exist only under a live renderer: in headless the engine does not
+	# count draw calls, so "zero" there is not breakage but a missing GPU.
 	if DisplayServer.get_name() != "headless":
 		var calls := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-		check(calls > 0, "под живым рендером вызовы отрисовки nonzero (%d)" % calls)
+		check(calls > 0, "draw calls nonzero under a live renderer (%d)" % calls)
 	else:
-		print("PARTIAL: вызовы отрисовки под headless не меряются")
+		print("PARTIAL: draw calls are not measurable under headless")
 	var seen := {}
 	for i in 4:
 		var text := String(overlay._label.text)
-		check(text.length() > 24, "секция %d печатает текст (%d симв.)" % [i, text.length()])
-		check(text.begins_with("DEBUG · "), "секция %d подписана (%s)" % [i, text.left(16)])
+		check(text.length() > 24, "section %d prints text (%d chars)" % [i, text.length()])
+		check(text.begins_with("DEBUG · "), "section %d is titled (%s)" % [i, text.left(16)])
 		check("nan" not in text.to_lower() and "inf" not in text.to_lower(),
-			"в секции %d нет nan/inf" % i)
-		# Моноширинный 14px даёт ~8.4 px на символ, поле подписи — 348 px. Длиннее —
-		# и текст режется по краю панели, что ровно то, что поймал первый скриншот.
+			"section %d has no nan/inf" % i)
+		# Monospace 14px gives ~8.4 px per glyph, the title field is 348 px. Any longer and
+		# the text clips at the panel edge — exactly what the first screenshot caught.
 		var widest := 0
 		for line in text.split("\n"):
 			widest = maxi(widest, String(line).length())
-		check(widest <= 41, "ни одна строка секции %d не обрезается (самая длинная %d)" % [i, widest])
-		print("секция %d: %s" % [i, text.replace("\n", " · ").strip_edges().left(150)])
+		check(widest <= 41, "no line of section %d is clipped (longest %d)" % [i, widest])
+		print("section %d: %s" % [i, text.replace("\n", " · ").strip_edges().left(150)])
 		seen[text.left(12)] = true
 		_press("debug_section")
 		await get_tree().process_frame
-	check(seen.size() == 4, "четыре секции дают четыре разных заголовка (%d)" % seen.size())
+	check(seen.size() == 4, "four sections give four distinct titles (%d)" % seen.size())
 
-	# выключение: панель уходит из дерева, а список панелей перестаёт её учитывать.
-	# has() на освобождённом объекте в TypedArray запрещён движком, поэтому сверяем
-	# длину списка до и после, а не ищем в нём уже несуществующий узел.
+	# disabling: the panel leaves the tree and the panel list stops counting it.
+	# has() on a freed object is forbidden by the engine for TypedArray, so we compare
+	# the list length before and after instead of searching for a node that no longer exists.
 	var panels_before := hud._gameplay.size()
 	_press("debug_toggle")
 	await get_tree().process_frame
 	await get_tree().process_frame
-	check(not Settings.debug_mode, "F2 выключил режим (настройка flipped)")
-	check(_find_overlay(hud) == null, "после выключения оверлея нет в дереве")
+	check(not Settings.debug_mode, "F2 turned the mode off (setting flipped)")
+	check(_find_overlay(hud) == null, "after disabling, no overlay left in the tree")
 	check(hud._gameplay.size() == panels_before - 1,
-		"панель убрана из списка геймплейных (%d → %d)" % [panels_before, hud._gameplay.size()])
+		"panel removed from the gameplay list (%d → %d)" % [panels_before, hud._gameplay.size()])
 	_press("debug_toggle")
 	await get_tree().process_frame
-	check(Settings.debug_mode and _find_overlay(hud) != null, "F2 включил режим обратно")
+	check(Settings.debug_mode and _find_overlay(hud) != null, "F2 turned the mode back on")
 
-	# Уступчивость: F2, назначенная действию игрока, отладчик не дёргает. Живой
-	# пайплайн ввода: событие проходит через viewport, как от настоящей клавиши.
+	# Yielding: F2 rebound to a player action must not toggle the debugger. The live
+	# input pipeline: the event goes through the viewport, just like a real key.
 	var f2 := InputEventKey.new()
 	f2.physical_keycode = KEY_F2
 	f2.pressed = true
@@ -106,12 +106,12 @@ func _ready() -> void:
 	var was := Settings.debug_mode
 	get_viewport().push_input(f2)
 	await get_tree().process_frame
-	check(Settings.debug_mode == was, "F2, занятая игроком, не переключает отладчик")
+	check(Settings.debug_mode == was, "F2 taken by the player does not toggle the debugger")
 	InputRouter.reset_keys()
 	await get_tree().process_frame
 
-	# На паузе оверлей обязан жить: именно на паузе удобнее читать цифры. HUD
-	# переводится в ALWAYS, оверлей наследует его — проверяем, а не предполагаем.
+	# On pause the overlay must stay alive: pause is exactly when reading the numbers is
+	# convenient. The HUD switches to ALWAYS and the overlay inherits it — we verify, not assume.
 	gm._set_paused(true)
 	await get_tree().process_frame
 	var ov := _find_overlay(hud)
@@ -121,22 +121,22 @@ func _ready() -> void:
 	ev.pressed = true
 	ov.call("_unhandled_input", ev)
 	await get_tree().process_frame
-	check(String(ov._label.text) != before, "F3 работает на паузе")
+	check(String(ov._label.text) != before, "F3 works while paused")
 	gm._set_paused(false)
 	await get_tree().process_frame
 
-	# настройка проходит путь файл → загрузка
+	# the setting takes the file → load path
 	Settings.debug_mode = false
 	Settings.save()
 	var cf := ConfigFile.new()
-	check(cf.load("user://settings.cfg") == OK, "cfg перечитывается")
+	check(cf.load("user://settings.cfg") == OK, "cfg reloads")
 	var raw: Variant = cf.get_value("video", "debug_mode", null)
-	check(raw == false, "в файл записано false (%s)" % str(raw))
+	check(raw == false, "the file holds false (%s)" % str(raw))
 	Settings.debug_mode = true
 	Settings.save()
 	Settings.debug_mode = false
 	Settings.load_values()
-	check(Settings.debug_mode, "true доживает до следующей загрузки")
+	check(Settings.debug_mode, "true survives to the next load")
 
 	Settings.debug_mode = false
 	Settings.save()
@@ -153,8 +153,8 @@ func _find_overlay(h: HUD) -> Control:
 				return k
 	return null
 
-# Синтезированное событие проходит через InputMap: так проверка заодно подтверждает,
-# что действия debug_toggle и debug_section зарегистрированы на F2 и F3.
+# A synthesised event goes through InputMap: this also confirms that the
+# debug_toggle and debug_section actions are registered on F2 and F3.
 func _press(action: String) -> void:
 	var ev := InputEventKey.new()
 	ev.physical_keycode = KEY_F2 if action == "debug_toggle" else KEY_F3
@@ -164,4 +164,4 @@ func _press(action: String) -> void:
 		if node == null or not is_instance_valid(node): continue
 		node.call("_unhandled_input", ev)
 		handled = true
-	check(handled, "обработчик %s вызван" % action)
+	check(handled, "handler for %s invoked" % action)

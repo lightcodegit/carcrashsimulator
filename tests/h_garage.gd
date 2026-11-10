@@ -29,8 +29,8 @@ func _ready() -> void:
 	var panel: Node = menu._garage
 	check(panel != null, "separate garage panel")
 	check(panel.sliders.size() == 10, "all tuning and finish controls present")
-	# потолок именно физический (BRAKE_MAX_G × g), а не магическое число: float32
-	# хранит 16.1865 как 16.1865005…, поэтому точное сравнение с литералом проваливалось
+	# the cap is the physical one (BRAKE_MAX_G × g), not a magic number: float32
+	# stores 16.1865 as 16.1865005…, so an exact comparison with the literal failed
 	var brake_cap := 1.65 * 9.81
 	check(panel.sliders.brake_decel.max_value <= brake_cap + 0.01, "no dead brake slider region")
 	check(panel.sliders.accel_max.has_focus(), "enter garage focuses tuning")
@@ -77,8 +77,8 @@ func _ready() -> void:
 	check(gm.car.params.accel_max == 9, "restart retains tuning")
 	check(gm.car.body._mat.albedo_texture.get_image().get_data() == draft_bytes, "restart retains appearance")
 	UiTheme.force_step(0)
-	# PARTIAL обязан быть условным: в живом окне GPU есть, и говорить «картинку
-	# не проверяли» там — значит врать в отчёте
+	# PARTIAL must be conditional: a live window has a GPU, and saying "the image
+	# was not checked" there would lie in the report
 	if DisplayServer.get_name() == "headless":
 		print("PARTIAL: native headless layout verified; live GPU visual verification pending")
 	else:
@@ -88,8 +88,8 @@ func _ready() -> void:
 		for yy in range(0, img.get_height(), 13):
 			for xx in range(0, img.get_width(), 13):
 				if img.get_pixel(xx, yy).get_luminance() > 0.05: lit += 1
-		check(lit > 40, "живой кадр гаража не чёрный: %d светлых выборок" % lit)
-		print("LIVE: GPU-кадр гаража проверен (%d светлых выборок из ~%d)" % [
+		check(lit > 40, "the live garage frame is not black: %d lit samples" % lit)
+		print("LIVE: the garage GPU frame is verified (%d lit samples of ~%d)" % [
 			lit, int(img.get_width() / 13.0) * int(img.get_height() / 13.0)])
 	print("ALL PASS" if fails == 0 else "FAILS %d" % fails)
 	get_tree().quit(0 if fails == 0 else 1)

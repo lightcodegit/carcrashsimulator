@@ -1,8 +1,8 @@
 extends Node
-# Контракт ступеней интерфейса. Дробный коэффициент движок отдаёт мылом (см.
-# h_pixelscale), поэтому рост сделан целыми ступенями и own числами раскладки.
-# Значит, на ступени 2× ВСЁ — шрифты, иконки, отступы, ширина колонок и панелей —
-# обязано вырасти ровно вдвое. Один пропущенный литерал тест и поймает.
+# UI step contract. A fractional scale factor makes the engine render blurry (see
+# h_pixelscale), so growth is done in whole steps and own layout numbers.
+# Therefore at step 2× EVERYTHING — fonts, icons, margins, column and panel
+# widths — must grow exactly twofold. A single missed literal is what this test catches.
 
 var _fails := 0
 const EXPECTED := 14
@@ -29,12 +29,12 @@ func _metrics(step: int) -> Dictionary:
 	mm._show_section(0)
 	m["nav_w"] = mm._nav[0].custom_minimum_size.x
 	var marks: Array = mm.find_children("*", "TextureRect", true, false)
-	# логотип — самая широкая текстурка меню; брать marks[0] нельзя: порядок
-	# обхода зависит от дерева и попадался нулевой по размеру узел
+	# the logo is the widest texture in the menu; taking marks[0] is not allowed:
+	# traversal order depends on the tree and a zero-size node used to come up
 	var mark_w := 0.0
 	for tr in marks:
 		mark_w = maxf(mark_w, (tr as Control).custom_minimum_size.x)
-	check(mark_w > 0.0, "в меню найдена текстурка с ненулевой шириной")
+	check(mark_w > 0.0, "a texture with nonzero width was found in the menu")
 	m["logo_mark"] = mark_w
 	m["panel_w"] = mm._panel.offset_right - mm._panel.offset_left
 	m["start_w"] = mm._start_btn.custom_minimum_size.x
@@ -53,26 +53,26 @@ func _check_font() -> int:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	get_window().size = Vector2i(1600, 900)
-	# автоступень обязана считаться по экрану, а не по окну: игрок с 4K стартует
-	# в окне 1600×900 и по размеру окна никогда бы не увидел вторую ступень
+	# the auto step must be computed from the screen, not the window: a 4K player
+	# starts in a 1600×900 window and would never see the second step from window size
 	var want := 2 if DisplayServer.screen_get_size().y >= 1700 else 1
 	check(UiTheme.step() == want,
-		"автоступень по экрану %s даёт %d, получилась %d" % [
+		"auto step from screen %s wants %d, got %d" % [
 			str(DisplayServer.screen_get_size()), want, UiTheme.step()])
 	var one := _metrics(1)
 	var two := _metrics(2)
-	# полнота: без этого пропущенный замер молча сокращает список и «всё проходит»
-	check(one.size() == EXPECTED, "ступень 1× отдала %d замеров, ожидалось %d" % [one.size(), EXPECTED])
-	check(two.size() == EXPECTED, "ступень 2× отдала %d замеров, ожидалось %d" % [two.size(), EXPECTED])
-	check(one.keys() == two.keys(), "наборы замеров совпадают: %s против %s" % [str(one.keys()), str(two.keys())])
-	check(UiTheme.step() == 2, "ступень переключается (сейчас %d)" % UiTheme.step())
+	# completeness: without it a skipped measurement silently shortens the list and «everything passes»
+	check(one.size() == EXPECTED, "step 1× returned %d measurements, expected %d" % [one.size(), EXPECTED])
+	check(two.size() == EXPECTED, "step 2× returned %d measurements, expected %d" % [two.size(), EXPECTED])
+	check(one.keys() == two.keys(), "measurement sets match: %s vs %s" % [str(one.keys()), str(two.keys())])
+	check(UiTheme.step() == 2, "the step switches (now %d)" % UiTheme.step())
 	for key in one:
 		var a: float = float(one[key])
 		var b: float = float(two[key])
-		check(is_equal_approx(b, a * 2.0), "%s: 2× = %s, ожидалось %s" % [key, str(b), str(a * 2.0)])
-	# ступень 1× обязана остаться прежним дизайном: ни один замер не изменился сам
+		check(is_equal_approx(b, a * 2.0), "%s: 2× = %s, expected %s" % [key, str(b), str(a * 2.0)])
+	# step 1× must remain the original design: no measurement changed on its own
 	for key in one:
-		check(float(one[key]) > 0.0, "%s: ступень 1× отдаёт ненулевой дизайн-размер" % key)
+		check(float(one[key]) > 0.0, "%s: step 1× returns a nonzero design size" % key)
 	UiTheme.force_step(0)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

@@ -1,7 +1,7 @@
 extends Node3D
-# Контроллер обязан уважать Engine.time_scale: при 0.3 за то же число физических тиков
-# машина набирает примерно втрое меньшую скорость. Прежний жёсткий dt = 1/60 давал
-# обычный разгон даже в слоу-мо.
+# The controller must respect Engine.time_scale: at 0.3 the car builds up roughly
+# three times less speed over the same number of physics ticks. The old hardcoded
+# dt = 1/60 gave normal acceleration even in slow motion.
 var _fails := 0
 var car: CarRig
 var _ticks := 0
@@ -35,12 +35,12 @@ func _physics_process(_dt: float) -> void:
 	elif _phase == 1 and _ticks == 150:
 		var v_slow := car.speed_kmh()
 		var ratio := v_slow / maxf(0.001, _v_normal)
-		check(Engine.time_scale == 0.3, "слоу-мо включено (%.2f)" % Engine.time_scale)
-		check(_v_normal > 20.0, "обычный разгон состоялся (%.1f км/ч)" % _v_normal)
+		check(Engine.time_scale == 0.3, "slow motion is active (%.2f)" % Engine.time_scale)
+		check(_v_normal > 20.0, "normal acceleration happened (%.1f km/h)" % _v_normal)
 		check(ratio > 0.2 and ratio < 0.45,
-			"в слоу-мо разгон втрое медленнее (%.1f против %.1f км/ч, доля %.2f)" % [v_slow, _v_normal, ratio])
+			"slow motion accelerates three times slower (%.1f vs %.1f km/h, ratio %.2f)" % [v_slow, _v_normal, ratio])
 		TimeScale.set_hold(false)
-		check(Engine.time_scale == 1.0, "после отпускания масштаб вернулся (%.2f)" % Engine.time_scale)
-		print("SLOWMO normal=%.1f км/ч slow=%.1f км/ч ratio=%.2f" % [_v_normal, v_slow, ratio])
+		check(Engine.time_scale == 1.0, "scale returned to 1.0 after release (%.2f)" % Engine.time_scale)
+		print("SLOWMO normal=%.1f km/h slow=%.1f km/h ratio=%.2f" % [_v_normal, v_slow, ratio])
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 		get_tree().quit(0 if _fails == 0 else 1)

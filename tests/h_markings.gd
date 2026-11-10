@@ -1,12 +1,12 @@
 extends Node3D
-# Разметка не должна делить плоскость ни с чем. Плита Kenney — корыто из трёх уровней
-# (в местных координатах: трава y=0.0, асфальт y=0.1, белые полосы y=0.2), поэтому
-# важны именно мировые высоты:
-# 1) полотно приподнято над полом карты, но не выше тротуарного бордюра;
-# 2) белая полоса ощутимо выше своего асфальта (10 см — настоящий поребрик);
-# 3) ни одна горизонтальная грань ассетов не совпадает с плоскостью пола в пределах
-#    2 мм — ровно это и давало мерцание, когда плиту топили на половину высоты.
-const SEG := "road"          # дорожными считаем только сегменты road*
+# The marking must share its plane with nothing. A Kenney plate is a trough of three
+# levels (in local coordinates: grass y=0.0, asphalt y=0.1, white stripes y=0.2), so
+# it is exactly the world heights that matter:
+# 1) the road surface is lifted above the map floor but not above the kerb;
+# 2) the white stripe is clearly above its own asphalt (10 cm — a real kerb);
+# 3) no horizontal face of any asset coincides with the floor plane within
+#    2 mm — that is precisely what made the flicker when plates were sunk by half their height.
+const SEG := "road"          # only road* segments count as road
 var _fails := 0
 var _arch_seen := 0
 
@@ -26,7 +26,7 @@ static func _tris(mesh: Mesh, surface: int) -> PackedVector3Array:
 			out.append(verts[idx[k]]); out.append(verts[idx[k + 1]]); out.append(verts[idx[k + 2]])
 	return out
 
-# Мировые высоты верхних горизонтальных граней поверхности с именем name_key.
+# World heights of the top horizontal faces of the surface named name_key.
 static func _horiz(mesh: Mesh, tr: Transform3D, name_key: String) -> Array[float]:
 	var ys: Array[float] = []
 	for s in mesh.get_surface_count():
@@ -41,9 +41,9 @@ static func _horiz(mesh: Mesh, tr: Transform3D, name_key: String) -> Array[float
 			if absf(n.y) > 0.9 * n.length(): ys.append(maxf(a.y, maxf(b.y, d.y)))
 	return ys
 
-# Минимальная мировая высота полотна сегмента — то же правило, по которому MapDB его
-# и ставит. По горизонтальным граням нельзя: у рампы единственная горизонтальная грань
-# полотна — это верхняя площадка на 2.6 м, а въезд наклонён.
+# Minimum world height of the segment's road surface — the same rule by which MapDB
+# places it. Horizontal faces will not do: on a ramp the only horizontal road face is
+# the top platform at 2.6 m, while the approach is sloped.
 static func _road_min(p: MeshInstance3D) -> float:
 	var got := INF
 	for s in p.mesh.get_surface_count():
@@ -62,10 +62,11 @@ static func _kits(n: Node, out: Array) -> void:
 	for c in n.get_children():
 		_kits(c, out)
 
-# Мировая координата оси полотна плиты вдоль её поперечной оси. У roadStart она
-# не в центре плиты (6.3 против 5.0 у обычных), и прямая постановка без поправки
-# уводит белую линию арки на 1.3 м вбок — жалоба «кривые линии в начале Большого
-# Города». Сравниваем арку с соседней плитой: ось обязана совпадать.
+# World coordinate of the plate's road axis along its transverse axis. For roadStart it
+# is not at the plate centre (6.3 instead of the usual 5.0), and plain placement without
+# that correction drags the arch's white line 1.3 m sideways — the report "crooked lines
+# at the start of Big City". The arch is compared with a neighbouring plate: the axes must
+# match.
 static func _lateral_center(p: MeshInstance3D) -> float:
 	var cx := 0.0
 	var n := 0
@@ -88,15 +89,15 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		var kits: Array = []
 		_kits(root, kits)
-		# пол карты — главный источник мерцания: ни одна грань ассета не должна ложиться
-		# ровно в его плоскость
+		# the map floor is the main flicker source: no asset face may lie exactly in its
+		# plane
 		var on_floor := 0
 		for mi in kits:
 			var p := mi as MeshInstance3D
 			for s in ["road", "grey", "grass"]:
 				for y in _horiz(p.mesh, p.global_transform, s):
 					if absf(y - MapDefs.FLOOR_Y) < 0.0005: on_floor += 1
-		check(on_floor == 0, "%s: ни одна грань ассета не легла в плоскость пола (%d)" % [id, on_floor])
+		check(on_floor == 0, "%s: no asset face landed in the floor plane (%d)" % [id, on_floor])
 		var plates := 0
 		var lifted := 0
 		var proud := 0
@@ -106,14 +107,14 @@ func _ready() -> void:
 			var lo := _road_min(p)
 			if not is_finite(lo): continue
 			plates += 1
-			# Полотно лежит на 1–10 мм ВЫШЕ физической земли: меньше — грани совпадают и
-			# мерцают, больше — колёса визуально проваливаются в дорогу.
+			# The road surface lies 1–10 mm ABOVE the physical ground: less and the faces
+			# coincide and flicker, more and the wheels visually sink into the road.
 			if lo > MapDefs.FLOOR_Y + 0.0005 and lo < MapDefs.FLOOR_Y + 0.010: lifted += 1
 			for g in _horiz(p.mesh, p.global_transform, "grey"):
 				if g - lo > 0.05 and g - lo < 0.30: proud += 1
-		check(plates > 5, "%s: дорожных сегментов %d" % [id, plates])
-		check(lifted == plates, "%s: полотно всех плит приподнято над полом (%d из %d)" % [id, lifted, plates])
-		check(proud > 10, "%s: белая разметка выше своего асфальта (%d граней)" % [id, proud])
+		check(plates > 5, "%s: road segments %d" % [id, plates])
+		check(lifted == plates, "%s: every plate's surface is lifted above the floor (%d of %d)" % [id, lifted, plates])
+		check(proud > 10, "%s: the white marking is above its own asphalt (%d faces)" % [id, proud])
 		var arches := 0
 		var seen := 0
 		for mi in kits:
@@ -125,9 +126,9 @@ func _ready() -> void:
 			for mi2 in kits:
 				var q := mi2 as MeshInstance3D
 				if String(q.mesh.resource_path.get_file().get_basename()) != "roadStraightLong": continue
-				# сравнивать можно только плиты с той же поперечной осью: у кольца рядом
-				# плиты повёрнуты, и их «поперечная координата» считается в другом
-				# направлении
+				# only plates with the same transverse axis may be compared: by the ring the
+				# plates are rotated, and their "transverse coordinate" is computed in a
+				# different direction
 				if absf(p.global_transform.basis.x.dot(q.global_transform.basis.x)) < 0.99: continue
 				var d: float = p.global_position.distance_to(q.global_position)
 				if d < bd: bd = d; best = q
@@ -137,13 +138,13 @@ func _ready() -> void:
 			if not is_finite(la) or not is_finite(lb): continue
 			if absf(la - lb) > 0.15:
 				arches += 1
-				print("  %s: арка на %.2f, соседняя плита на %.2f (сдвиг %.2f м)" % [
+				print("  %s: arch at %.2f, neighbouring plate at %.2f (offset %.2f m)" % [
 					id, la, lb, la - lb])
 		_arch_seen += seen
-		check(arches == 0, "%s: арки старта стоят по оси улицы (%d со сдвигом)" % [id, arches])
+		check(arches == 0, "%s: the start arches stand on the street axis (%d with an offset)" % [id, arches])
 		root.queue_free()
 		await get_tree().process_frame
-	# «ноль со сдвигом» ничего не значит, если в поле зрения не было ни одной арки
-	check(_arch_seen > 0, "арки старта вообще попадали в проверку (%d)" % _arch_seen)
+	# "zero with an offset" means nothing if not a single arch ever came into view
+	check(_arch_seen > 0, "start arches were covered by the check at all (%d)" % _arch_seen)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

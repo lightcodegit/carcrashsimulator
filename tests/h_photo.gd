@@ -1,8 +1,8 @@
 extends Node3D
-# Фотомод: мир на паузе, своя свободная камера, снимаемый интерфейс и PNG на
-# диске. Живой пиксель в headless неоткуда брать (движок не рисует), поэтому
-# захват кадра подменяется заглушкой и проверяется ровно то, что проверяется без
-# GPU: путь, имя, счётчик и байты файла.
+# Photo mode: the world on pause, its own free camera, a hideable interface and a PNG on
+# disk. There is no way to get a live pixel in headless (the engine draws nothing), so the
+# frame capture is replaced by a stub and exactly what can be verified without a GPU is
+# checked: the path, the name, the counter and the file bytes.
 var _fails := 0
 var gm: GameManager
 var _f := 0
@@ -57,44 +57,44 @@ func _physics_process(_dt: float) -> void:
 		5: _s_numbering()
 		_: pass
 
-# ── 0. вход из меню паузы ───────────────────────────────────────────────────
+# ── 0. entry from the pause menu ─────────────────────────────────────────────────
 func _s_boot() -> void:
 	if _f < 30: return
-	check(_p != null, "GameManager собрал фотомод")
+	check(_p != null, "GameManager assembled the photo mode")
 	Input.action_press("throttle")
 	if _f < 90: return
 	Input.action_release("throttle")
 	gm._set_paused(true)
 	var btn := gm.hud.pause_button("ФОТОМОД")
-	check(btn != null, "в меню паузы есть шестая строка «ФОТОМОД»")
+	check(btn != null, "the pause menu has the sixth row «ФОТОМОД»")
 	if btn == null:
 		_finish(); return
 	btn.pressed.emit()
 	_stage = 1
 	_f = 0
 
-# ── 1. мир стоит: физика не двигает машину ни на микрометр ──────────────────
+# ── 1. the world stands still: physics moves the car by not even a micrometre ─────
 func _s_frozen() -> void:
 	if _f == 2:
-		check(_p.active, "ФОТОМОД открылся")
-		check(gm.is_frozen(), "фотомод заморозил мир")
-		check(_p.camera.current, "текущей стала камера фотомода")
+		check(_p.active, "the photo mode opened")
+		check(gm.is_frozen(), "the photo mode froze the world")
+		check(_p.camera.current, "the photo mode camera became the current one")
 		check(get_viewport().get_camera_3d() == _p.camera,
-			"вьюпорт видит камеру фотомода, а не игровую")
-		check(gm.hud.photo_ui_visible(), "полоса фотомода видна")
-		check(not gm.hud._pause_panel.visible, "карточка паузы спрятана")
+			"the viewport sees the photo mode camera, not the game one")
+		check(gm.hud.photo_ui_visible(), "the photo mode strip is visible")
+		check(not gm.hud._pause_panel.visible, "the pause card is hidden")
 		_p0 = _car.chassis.global_position
 		_sim_at_entry = gm.replay.sim_t
 	if _f != 60: return
 	var moved := _car.chassis.global_position.distance_to(_p0)
 	check(moved < 1e-6,
-		"за 58 физических тиков машина не сдвинулась ни на микрометр (%.7f м)" % moved)
+		"over 58 physics ticks the car did not move by a single micrometre (%.7f m)" % moved)
 	check(gm.replay.sim_t == _sim_at_entry,
-		"recorder на паузе фотомода молчит (%.3f против %.3f)" % [gm.replay.sim_t, _sim_at_entry])
+		"the recorder stays silent during the photo-mode pause (%.3f vs %.3f)" % [gm.replay.sim_t, _sim_at_entry])
 	_stage = 2
 	_f = 0
 
-# ── 2. свободная камера: курс, наклон, шаг, зум, возврат вида ───────────────
+# ── 2. free camera: yaw, pitch, step, zoom, view reset ────────────────────────────
 func _s_camera() -> void:
 	var cam := _p.camera
 	if _f == 2:
@@ -102,129 +102,129 @@ func _s_camera() -> void:
 		var y0 := cam.global_position.y
 		_p.look(200.0, 0.0)
 		check(absf(cam.global_rotation.y - yaw0) > 0.3,
-			"мышь крутит курс камеры (%.3f рад сдвига)" % absf(cam.global_rotation.y - yaw0))
+			"the mouse turns the camera yaw (%.3f rad of shift)" % absf(cam.global_rotation.y - yaw0))
 		_p.look(0.0, 9000.0)
 		check(absf(cam.global_rotation.x) <= PhotoMode.PITCH_LIMIT + 0.01,
-			"тангаж не переворачивается (%.3f при потолке %.3f)" %
+			"the pitch does not flip over (%.3f against a ceiling of %.3f)" %
 			[absf(cam.global_rotation.x), PhotoMode.PITCH_LIMIT])
 		check(absf(absf(cam.global_rotation.x) - PhotoMode.PITCH_LIMIT) < 0.02,
-			"дальше потолка наклон не уходит (%.3f против %.3f)" %
+			"the tilt does not go past the ceiling (%.3f vs %.3f)" %
 			[absf(cam.global_rotation.x), PhotoMode.PITCH_LIMIT])
 		_p.reset_view()
 		check(cam.global_transform.origin.distance_to(gm.camera.global_transform.origin) < 1e-4,
-			"«СБРОС ВИДА» возвращает камеру туда, где стояла игровая")
+			"«СБРОС ВИДА» returns the camera to where the game one stood")
 		_p.sprint = true
 		var w0 := cam.global_position
 		_p.set_nav(0, 0, 1)
 		_p.move_step(1.0)
 		check(w0.distance_to(cam.global_position) > PhotoMode.MOVE_SPEED * PhotoMode.SPRINT * 0.9,
-			"Shift ускоряет шаг (%.2f м за секунду)" % w0.distance_to(cam.global_position))
+			"Shift speeds up the step (%.2f m per second)" % w0.distance_to(cam.global_position))
 		_p.sprint = false
 		var before := cam.global_position
 		_p.set_nav(0, 0, 1)
 		_p.move_step(1.0)
 		check(before.distance_to(cam.global_position) > 1.0,
-			"W шагает вперёд по курсу камеры (%.2f м)" % before.distance_to(cam.global_position))
+			"W steps forward along the camera yaw (%.2f m)" % before.distance_to(cam.global_position))
 		var up0 := cam.global_position
 		_p.set_nav(0, 1, 0)
 		_p.move_step(1.0)
 		check(cam.global_position.y > before.y + 1.0,
-			"E поднимает камеру вверх, а не вперёд (%.2f против %.2f)" % [cam.global_position.y, before.y])
+			"E lifts the camera up instead of forward (%.2f vs %.2f)" % [cam.global_position.y, before.y])
 		var up_at := cam.global_position.y
 		_p.set_nav(1, 0, 0)
 		_p.move_step(1.0)
 		check(absf(cam.global_position.y - up_at) < 1e-6,
-			"D едет вбок и не меняет высоту (%.4f против %.4f)" % [cam.global_position.y, up_at])
+			"D moves sideways and keeps the height (%.4f vs %.4f)" % [cam.global_position.y, up_at])
 		var sideways := Vector2(cam.global_position.x, cam.global_position.z).distance_to(
 			Vector2(up0.x, up0.z))
 		check(absf(sideways - PhotoMode.MOVE_SPEED) < 0.2,
-			"D прошёл ровно MOVE_SPEED поперёк (%.2f)" % sideways)
+			"D travelled exactly MOVE_SPEED sideways (%.2f)" % sideways)
 		_p.set_nav(0, 0, 0)
-		check(cam.global_position.y != y0, "камера реально ушла с игровой высоты")
+		check(cam.global_position.y != y0, "the camera really left the game height")
 	if _f == 4:
 		var f0 := cam.fov
 		for i in 40: _p.zoom(PhotoMode.FOV_STEP)
 		check(absf(cam.fov - PhotoMode.FOV_MAX) < 0.01,
-			"зум упирается в потолок %d° (%.1f)" % [int(PhotoMode.FOV_MAX), cam.fov])
+			"zoom stops at the ceiling of %d° (%.1f)" % [int(PhotoMode.FOV_MAX), cam.fov])
 		for i in 100: _p.zoom(-PhotoMode.FOV_STEP)
 		check(absf(cam.fov - PhotoMode.FOV_MIN) < 0.01,
-			"зум не проваливается под минимум %d° (%.1f)" % [int(PhotoMode.FOV_MIN), cam.fov])
+			"zoom does not drop under the minimum of %d° (%.1f)" % [int(PhotoMode.FOV_MIN), cam.fov])
 		cam.fov = f0
 		_p.fov = f0
 		var wu := _wheel(1, false)
 		var pos := cam.global_position
 		_p._unhandled_input(wu)
-		check(absf(cam.fov - f0) < 0.01, "обычное колесо не меняет угол (%.1f)" % cam.fov)
+		check(absf(cam.fov - f0) < 0.01, "the plain wheel does not change the angle (%.1f)" % cam.fov)
 		check(absf(pos.distance_to(cam.global_position) - PhotoMode.DOLLY_STEP) < 1e-4,
-			"колесо подъезжает на один шаг (%.2f м при шаге %.2f)" %
+			"the wheel dollies in by one step (%.2f m with a step of %.2f)" %
 			[pos.distance_to(cam.global_position), PhotoMode.DOLLY_STEP])
-		# колесо приходит парой событий; отпускание не обязано двигать камеру
+		# the wheel arrives as a pair of events; the release must not move the camera
 		var wu_off := _wheel(1, false)
 		wu_off.pressed = false
 		var parked := cam.global_position
 		_p._unhandled_input(wu_off)
 		check(cam.global_position.distance_to(parked) < 1e-6,
-			"отпускание колеса ничего не двигает (%.4f м)" % cam.global_position.distance_to(parked))
+			"releasing the wheel moves nothing (%.4f m)" % cam.global_position.distance_to(parked))
 		_p._unhandled_input(_wheel(1, true))
 		check(absf(cam.fov - (f0 + PhotoMode.FOV_STEP)) < 0.01,
-			"Ctrl+колесо расширяет угол (%.1f против %.1f)" % [cam.fov, f0 + PhotoMode.FOV_STEP])
+			"Ctrl+wheel widens the angle (%.1f vs %.1f)" % [cam.fov, f0 + PhotoMode.FOV_STEP])
 		_p._unhandled_input(_wheel(-1, true))
 		check(absf(cam.fov - f0) < 0.01,
-			"Ctrl+колесо назад возвращает угол (%.1f против %.1f)" % [cam.fov, f0])
+			"Ctrl+wheel backwards restores the angle (%.1f vs %.1f)" % [cam.fov, f0])
 		var zk := InputEventKey.new()
 		zk.keycode = KEY_Z
 		zk.pressed = true
 		_p._unhandled_input(zk)
 		check(absf(cam.fov - f0) < 0.01,
-			"Z больше не зумит — клавишу отдаёт игровым биндам (%.1f)" % cam.fov)
+			"Z no longer zooms — the key is yielded to the game bindings (%.1f)" % cam.fov)
 	if _f == 6:
 		gm.hud.photo_button("БЕЗ HUD").pressed.emit()
 	if _f == 8:
-		check(_p.hud_off, "«БЕЗ HUD» переключилась")
+		check(_p.hud_off, "«БЕЗ HUD» toggled")
 		var hidden := 0
 		for c in gm.hud._gameplay:
 			if not c.visible: hidden += 1
 		check(hidden == gm.hud._gameplay.size(),
-			"все игровые панели скрыты (%d из %d)" % [hidden, gm.hud._gameplay.size()])
-		check(not gm.hud.photo_ui_visible(), "и полоса фотомода скрыта")
+			"all gameplay panels are hidden (%d of %d)" % [hidden, gm.hud._gameplay.size()])
+		check(not gm.hud.photo_ui_visible(), "and the photo mode strip is hidden")
 		var f5 := InputEventKey.new()
 		f5.keycode = KEY_F5
 		f5.pressed = true
 		_p._unhandled_input(f5)
 	if _f == 10:
-		check(not _p.hud_off, "F5 возвращает интерфейс")
+		check(not _p.hud_off, "F5 brings the interface back")
 		var shown := 0
 		for c in gm.hud._gameplay:
 			if c.visible: shown += 1
 		check(shown == gm.hud._gameplay.size(),
-			"интерфейс вернулся целиком (%d из %d)" % [shown, gm.hud._gameplay.size()])
-		# служебная клавиша уступает, если игрок поставил на неё своё действие
+			"the interface came back in full (%d of %d)" % [shown, gm.hud._gameplay.size()])
+		# a service key yields when the player put their own action on it
 		var f5b := InputEventKey.new()
 		f5b.keycode = KEY_F5
 		f5b.pressed = true
 		InputRouter.rebind("cam_cycle", f5b)
 		_p._unhandled_input(f5b)
 		check(not _p.hud_off,
-			"F5, назначенная игровому действию, интерфейс не прячет")
+			"F5 assigned to a game action does not hide the interface")
 		InputRouter.reset_keys()
 		_fake_shot(16)
 		_p.hide_hud(true)
 	if _f == 12:
-		check(_p.hud_off, "интерфейс спрятан вручную («БЕЗ HUD»)")
+		check(_p.hud_off, "the interface is hidden by hand («БЕЗ HUD»)")
 		gm.hud.photo_button("СНИМОК").pressed.emit()
 	if _f == 14:
 		check(_p.hud_off,
-			"снимок прячет интерфейс на кадр и возвращает ровно то, что было до съёмки")
+			"the shot hides the interface for one frame and returns exactly what was there before it")
 		var off := 0
 		for c in gm.hud._gameplay:
 			if not c.visible: off += 1
-		check(off == gm.hud._gameplay.size(), "и панели действительно скрыты (%d)" % off)
+		check(off == gm.hud._gameplay.size(), "and the panels really are hidden (%d)" % off)
 		_p.hide_hud(false)
 		_stage = 3
 		_f = 0
 
 
-# ── 3. снимок: файл, имя, счётчик, отсутствие живого пикселя ────────────────
+# ── 3. the shot: file, name, counter, absence of a live pixel ─────────────────────
 func _s_shot() -> void:
 	if _f == 2:
 		_fake_shot(64)
@@ -232,43 +232,43 @@ func _s_shot() -> void:
 		_shots_at_stage = before
 		_disk_at_stage = _count_files()
 		var p := _p.capture()
-		check(_p.shots == before + 1, "снимок увеличил счётчик (%d против %d)" % [_p.shots, before + 1])
+		check(_p.shots == before + 1, "the shot increased the counter (%d vs %d)" % [_p.shots, before + 1])
 		check(p.begins_with("user://photos/photo_") and p.ends_with(".png"),
-			"путь снимка в user://photos с порядковым именем (%s)" % p)
+			"the shot path is in user://photos with a serial name (%s)" % p)
 		var abs := ProjectSettings.globalize_path(p)
-		check(FileAccess.file_exists(abs), "PNG лёг на диск (%s)" % abs)
+		check(FileAccess.file_exists(abs), "the PNG landed on disk (%s)" % abs)
 		if FileAccess.file_exists(abs):
 			var fa := FileAccess.open(abs, FileAccess.READ)
 			var bytes := fa.get_length()
 			var magic := fa.get_buffer(4)
 			fa.close()
-			check(bytes > 40, "файл непустой (%d байт)" % bytes)
+			check(bytes > 40, "the file is not empty (%d bytes)" % bytes)
 			check(magic[0] == 0x89 and magic[1] == 0x50 and magic[2] == 0x4E and magic[3] == 0x47,
-				"первые байты — подпись PNG")
+				"the first bytes are the PNG signature")
 		var second := _p.capture()
-		check(second != p, "второй снимок не перезатирает первый (%s против %s)" % [second, p])
+		check(second != p, "the second shot does not overwrite the first (%s vs %s)" % [second, p])
 		check(gm.hud._photo_info.text.contains(second.replace("user://", "")),
-			"подпись полосы обновляется сигналом записи, а не ожиданием кадра (%s)" %
+			"the strip caption updates from the write signal, not by waiting for a frame (%s)" %
 			gm.hud._photo_info.text)
-		# «СНИМОК» по кнопке: сначала гаснит интерфейс, пишет кадр на следующем
-		# процесс-тик и возвращает интерфейс обратно
+		# «СНИМОК» as a button: first it dims the interface, writes the frame on the next
+		# process tick and returns the interface afterwards
 		gm.hud.photo_button("СНИМОК").pressed.emit()
 	if _f == 4:
 		check(_p.shots == _shots_at_stage + 3,
-			"кнопка «СНИМОК» добавила кадр (%d против %d)" % [_p.shots, _shots_at_stage + 3])
-		check(not _p.hud_off, "после съёмки интерфейс вернулся")
-		check(gm.hud.photo_ui_visible(), "после съёмки полоса снова видна")
+			"the «СНИМОК» button added a frame (%d vs %d)" % [_p.shots, _shots_at_stage + 3])
+		check(not _p.hud_off, "after the shot the interface came back")
+		check(gm.hud.photo_ui_visible(), "after the shot the strip is visible again")
 		_disk_shots = _count_files()
 		check(_disk_shots == _disk_at_stage + 3,
-			"на диске три новых снимка: два руками и один кнопкой (%d против %d)" %
+			"the disk has three new shots: two by hand and one by button (%d vs %d)" %
 			[_disk_shots, _disk_at_stage + 3])
 		_p.look_fn = Callable()
 		var got := _p.capture()
 		if got == "":
-			print("PARTIAL: headless не отдаёт текстуру вьюпорта — живой пиксель не проверялся")
+			print("PARTIAL: headless does not give up the viewport texture — the live pixel was not checked")
 		else:
 			check(FileAccess.file_exists(ProjectSettings.globalize_path(got)),
-				"живой захват всё равно написал файл (%s)" % got)
+				"the live capture still wrote a file (%s)" % got)
 		_stage = 4
 		_f = 0
 
@@ -280,65 +280,65 @@ func _count_files() -> int:
 		if f.begins_with("photo_") and f.ends_with(".png"): n += 1
 	return n
 
-# ── 4. выход: камера и мир возвращаются ─────────────────────────────────────
+# ── 4. exit: the camera and the world come back ───────────────────────────────────
 func _s_exit() -> void:
 	if _f == 2:
 		gm.hud.photo_button("ВЫХОД").pressed.emit()
 	if _f == 4:
-		check(not _p.active, "выход закрыл фотомод")
-		check(not gm.is_frozen(), "мир размяк")
-		check(gm.camera.current, "игровая камера снова текущая")
-		check(get_viewport().get_camera_3d() == gm.camera, "вьюпорт вернулся к игровой камере")
-		check(not gm.hud.photo_ui_visible(), "полоса фотомода скрыта")
+		check(not _p.active, "the exit closed the photo mode")
+		check(not gm.is_frozen(), "the world unfroze")
+		check(gm.camera.current, "the game camera is the current one again")
+		check(get_viewport().get_camera_3d() == gm.camera, "the viewport returned to the game camera")
+		check(not gm.hud.photo_ui_visible(), "the photo mode strip is hidden")
 		var shown := 0
 		for c in gm.hud._gameplay:
 			if c.visible: shown += 1
-		check(shown == gm.hud._gameplay.size(), "интерфейс снова целый (%d)" % shown)
+		check(shown == gm.hud._gameplay.size(), "the interface is whole again (%d)" % shown)
 		Input.action_press("throttle")
 	if _f == 70:
 		Input.action_release("throttle")
 		check(_car.chassis.global_position.distance_to(_p0) > 0.5,
-			"после выхода машина поехала (%.2f м)" % _car.chassis.global_position.distance_to(_p0))
+			"after the exit the car started driving (%.2f m)" % _car.chassis.global_position.distance_to(_p0))
 		check(gm.replay.sim_t > _sim_at_entry,
-			"recorder снова пишет (%.2f против %.2f)" % [gm.replay.sim_t, _sim_at_entry])
+			"the recorder writes again (%.2f vs %.2f)" % [gm.replay.sim_t, _sim_at_entry])
 		gm._set_paused(true)
 		gm.hud.pause_button("ФОТОМОД").pressed.emit()
 	if _f == 74:
 		gm._unhandled_input(_act("pause"))
 	if _f == 76:
-		check(not _p.active, "Esc вышел из фотомода")
-		check(not gm.is_frozen(), "после Esc заезд идёт")
+		check(not _p.active, "Esc exited the photo mode")
+		check(not gm.is_frozen(), "after Esc the run goes on")
 		_stage = 5
 		_f = 0
 
-# ── 5. нумерация продолжается, а не начинается заново ───────────────────────
+# ── 5. numbering continues instead of starting over ────────────────────────────────
 func _s_numbering() -> void:
 	if _f == 4:
 		_disk_shots = _count_files()
-		check(_disk_shots >= 3, "снимки переживают выход из фотомода (%d)" % _disk_shots)
+		check(_disk_shots >= 3, "the shots survive leaving the photo mode (%d)" % _disk_shots)
 		gm._set_paused(true)
 		gm.hud.pause_button("ФОТОМОД").pressed.emit()
 	if _f == 8:
-		check(_p.active, "второй вход в фотомод открылся")
+		check(_p.active, "the second entry into the photo mode opened")
 		check(absf(_p.fov - gm.camera.fov) < 0.01,
-			"вход берёт угол игровой камеры, а не прошлый зум (%.1f против %.1f)" %
+			"entry takes the game camera's angle, not the previous zoom (%.1f vs %.1f)" %
 			[_p.fov, gm.camera.fov])
 		check(absf(_p.camera.fov - gm.camera.fov) < 0.01,
-			"и сразу ставит его на свою камеру (%.1f)" % _p.camera.fov)
+			"and sets it on its own camera right away (%.1f)" % _p.camera.fov)
 		_fake_shot(8)
 		var p := _p.capture()
 		check(p.ends_with("photo_%04d.png" % (_disk_shots + 1)),
-			"нумерация продолжается с числа файлов на диске (%s после %d снимков)" % [p, _disk_shots])
-		# «СНИМОК» пишет кадр на следующем тике; выход раньше этого тика обязан
-		# дописать снимок, а не выбросить его молча
+			"numbering continues from the number of files on disk (%s after %d shots)" % [p, _disk_shots])
+		# «СНИМОК» writes the frame on the next tick; exiting before that tick has to
+		# finish the shot instead of dropping it silently
 		var shot_n := _p.shots
 		var disk_n := _count_files()
 		_p.shoot()
 		gm._exit_photo()
 		check(_p.shots == shot_n + 1,
-			"выход из фотомода дописал неотснятый кадр (%d против %d)" % [_p.shots, shot_n + 1])
+			"leaving the photo mode finished the unwritten frame (%d vs %d)" % [_p.shots, shot_n + 1])
 		check(_count_files() == disk_n + 1,
-			"и он лёг на диск (%d против %d)" % [_count_files(), disk_n + 1])
+			"and it landed on disk (%d vs %d)" % [_count_files(), disk_n + 1])
 		_finish()
 
 func _finish() -> void:

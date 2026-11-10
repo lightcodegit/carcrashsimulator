@@ -1,8 +1,8 @@
 extends Node3D
-# Issue #5: «боковая дорога» (травяной пол) у вечной трассы заканчивался —
-# floor_follow дёргает пол за машиной. Проверяем съезд с дороги и долгий
-# забег по траве: пол под колёсами не кончается, дорожная лента не видна
-# над пустотой.
+# Issue #5: on the endless track the "side road" (the grass floor) used to run out —
+# floor_follow drags the floor after the car. We check driving off the road and a long
+# run over grass: the floor under the wheels never ends, and the road strip is never
+# visible hanging above the void.
 var _fails := 0
 var gm: GameManager
 
@@ -16,19 +16,19 @@ func _ready() -> void:
 	add_child(gm)
 	for f in 10: await get_tree().physics_frame
 	var floor_body: StaticBody3D = gm._map_root.get_node_or_null("endless_floor")
-	check(floor_body != null, "пол бесконечности найден по имени")
+	check(floor_body != null, "the endless floor is found by name")
 	if floor_body == null: print("FAILS %d" % _fails); get_tree().quit(1); return
 
-	# 1) съезд с дороги на траву и 4 км прямо по ней
+	# 1) off the road onto the grass and 4 km straight along it
 	var start_x: float = gm.car.chassis.global_position.x
-	# телепорт на траву рядом с дорогой (barrier на ±5 не даёт выехать боком)
+	# teleport onto the grass next to the road (the barrier at ±5 keeps the car from pulling out sideways)
 	gm.car.respawn(Transform3D(Basis(Vector3.UP, 0.0), Vector3(start_x, 1.0, 40.0)))
 	Input.action_press("throttle")
 	for f in 600:
 		await get_tree().physics_frame
 		var d := gm.car.chassis.global_position - floor_body.position
 		if absf(d.x) > 60.0 and absf(d.z) > 8.0: break
-	# 4 км по траве: пол обязан дёргаться за машиной, машина не падает
+	# 4 km over grass: the floor must follow the car, the car must not fall
 	var fell := 0.0
 	for f in 4800:
 		await get_tree().physics_frame
@@ -38,16 +38,16 @@ func _ready() -> void:
 		if f % 400 == 0 and f > 0:
 			var gap := gm.car.chassis.global_position.x - floor_body.position.x
 			check(absf(gap) < 11000.0,
-				"пол в пределах 11 км от машины (зазор %.0f м на тике %d)" % [gap, f])
-	check(fell == 0, "машина не провалилась в пустоту за 4 км по траве")
+				"the floor stays within 11 km of the car (gap %.0f m at tick %d)" % [gap, f])
+	check(fell == 0, "the car did not fall into the void over 4 km of grass")
 	check(gm.car.chassis.global_position.x > start_x + 3000.0,
-		"машина доехала до дальних километров (%.0f → %.0f)" % [start_x, gm.car.chassis.global_position.x])
+		"the car reached the far kilometres (%.0f → %.0f)" % [start_x, gm.car.chassis.global_position.x])
 
-	# 2) дорога рядом всё так же есть: луч вниз у машины попадает в пол или плиту
+	# 2) the road nearby is still there: a downward ray at the car hits the floor or a plate
 	var space := get_world_3d().direct_space_state
 	var from: Vector3 = gm.car.chassis.global_position + Vector3(0, 3.0, 0)
 	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -30.0, 0)))
-	check(not hit.is_empty(), "под машиной на любом километре есть твёрдая поверхность")
+	check(not hit.is_empty(), "there is a solid surface under the car at any kilometre")
 
 	if _fails == 0: print("ALL PASS")
 	else: print("FAILS %d" % _fails)

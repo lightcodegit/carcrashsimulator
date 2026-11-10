@@ -1,8 +1,9 @@
 extends Node3D
-# Сколько реально тормозит машина с каждого устройства — метрика без проверок.
-# Жалоба «ручник на геймпаде моментально сбрасывает скорость» не воспроизводится на
-# голом CarRig и на живой сцене синтетическими событиями, значит сравнивать надо
-# сам профиль замедления: клавиатура и геймпад, служебный тормоз и ручник.
+# How much each device actually brakes the car — a metric without checks.
+# The complaint «the handbrake on a gamepad instantly drops speed» does not
+# reproduce on a bare CarRig or on a live scene via synthetic events, so what
+# must be compared is the deceleration profile itself: keyboard vs gamepad,
+# service brake vs handbrake.
 const SETTLE := 150
 const WINDOW := 60
 var gm: GameManager
@@ -37,13 +38,13 @@ func _physics_process(dt: float) -> void:
 		Input.action_press("brake" if _phase == "brake" else "handbrake")
 		_prev = v
 	if _f > SETTLE and _f <= SETTLE + WINDOW and _prev > 0.0:
-		# пик потери за тик: именно «моментально» игрок чувствует как резкий шаг,
-		# а не как плавное замедление
+		# the peak loss per tick: «instantly» is what the player feels as a sharp
+		# step, not as smooth deceleration
 		_min_d = minf(_min_d, (v - _prev) / dt)
 		_prev = v
 	if _f == SETTLE + WINDOW:
 		for x in ["throttle", "brake", "handbrake"]: Input.action_release(x)
-		print("PROFILE %s: %.0f -> %.0f км/ч за %.1f с; пик %.0f км/ч/с (%.1f g); x=%.0f" % [
+		print("PROFILE %s: %.0f -> %.0f km/h in %.1f s; peak %.0f km/h/s (%.1f g); x=%.0f" % [
 			_phase, _v0, v, WINDOW / 60.0, -_min_d, -_min_d / 3.6 / 9.81,
 			gm.car.chassis.global_position.x])
 		_next()

@@ -1,8 +1,8 @@
 extends Node3D
-# Драйвер звука на живой машине: частота вспышек следует за оборотами, кадры
-# реально уходят в playback, настройки доходят до шины «SFX», удар — до микшера.
-# Headless-аудио — заглушка: если playback не выдался, печатаем PARTIAL, но всё
-# остальное (hz, пики, шина, счётчики) проверяется и так.
+# Audio driver on a live machine: the flash frequency follows the rpm, frames
+# really go into playback, settings reach the "SFX" bus, the impact reaches the mixer.
+# Headless audio is a stub: if nothing was pushed to playback we print PARTIAL, but
+# everything else (hz, peaks, bus, counters) is checked anyway.
 var _fails := 0
 var car: CarRig
 var drv: AudioDriver
@@ -35,34 +35,34 @@ func _ready() -> void:
 	_phase = "accel"
 	Input.action_press("throttle")
 
-# шина «SFX» идемпотентна: повторный ensure не плодит вторую шину
+# the "SFX" bus is idempotent: a repeated ensure must not spawn a second bus
 func _bus_idempotent() -> void:
 	var idx0 := drv.sfx_bus_index()
-	check(idx0 >= 0, "шина SFX существует (%d)" % idx0)
+	check(idx0 >= 0, "SFX bus exists (%d)" % idx0)
 	var n0 := AudioServer.get_bus_count()
 	drv._ensure_bus()
 	drv._ensure_bus()
-	check(AudioServer.get_bus_count() == n0, "повторный ensure не добавил шину (%d против %d)" % [
+	check(AudioServer.get_bus_count() == n0, "repeated ensure added no bus (%d vs %d)" % [
 		AudioServer.get_bus_count(), n0])
-	check(drv.sfx_bus_index() == idx0, "индекс шины стабилен (%d)" % drv.sfx_bus_index())
+	check(drv.sfx_bus_index() == idx0, "bus index is stable (%d)" % drv.sfx_bus_index())
 
 func _mute_volume() -> void:
 	Settings.set_value("audio_enabled", true)
 	Settings.set_value("audio_volume", 0.5)
 	drv.apply_settings()
 	var idx := drv.sfx_bus_index()
-	check(idx >= 0 and not AudioServer.is_bus_mute(idx), "при включённом звуке шина не глуха")
+	check(idx >= 0 and not AudioServer.is_bus_mute(idx), "with sound enabled the bus is not muted")
 	var lin := drv.bus_linear_volume()
-	check(lin > 0.45 and lin < 0.55, "громкость 0.5 дошла до шины линейно (%.3f)" % lin)
+	check(lin > 0.45 and lin < 0.55, "volume 0.5 reached the bus linearly (%.3f)" % lin)
 	Settings.set_value("audio_enabled", false)
 	drv.apply_settings()
-	check(AudioServer.is_bus_mute(drv.sfx_bus_index()), "выключенный звук глушит шину")
+	check(AudioServer.is_bus_mute(drv.sfx_bus_index()), "disabled sound mutes the bus")
 	Settings.set_value("audio_enabled", true)
 	drv.apply_settings()
-	check(not AudioServer.is_bus_mute(drv.sfx_bus_index()), "включённый звук снимает mute")
+	check(not AudioServer.is_bus_mute(drv.sfx_bus_index()), "enabled sound lifts the mute")
 	Settings.set_value("audio_volume", 0.9)
 	drv.apply_settings()
-	check(absf(drv.bus_linear_volume() - 0.9) < 0.05, "ползунок громкости дошёл до шины (%.3f)" % drv.bus_linear_volume())
+	check(absf(drv.bus_linear_volume() - 0.9) < 0.05, "the volume slider reached the bus (%.3f)" % drv.bus_linear_volume())
 	Settings.set_value("audio_volume", 0.8)
 	drv.apply_settings()
 
@@ -76,13 +76,13 @@ func _physics_process(_dt: float) -> void:
 			if _f == 90:
 				_hz_b = drv.last_engine_hz
 				Input.action_release("throttle")
-				# один честный пинок в бок стены: детектор удара меряет потерю
-				# скорости, а не принудительно заданную скорость
+				# one honest kick into the wall side: the impact detector measures the
+				# speed loss, not a forcibly set velocity
 				car.chassis.linear_velocity = Vector3(35.0, 0.0, 0.0)
 				_phase = "crash"
 		"crash":
 			if _f == 300:
-				check(false, "удар о стену не случился к кадру %d" % _f)
+				check(false, "no impact against the wall by frame %d" % _f)
 				_finish()
 			elif drv.impacts_heard > 0:
 				_phase = "after_impact"
@@ -93,10 +93,10 @@ func _physics_process(_dt: float) -> void:
 func _finish() -> void:
 	if _phase == "done": return
 	_phase = "done"
-	check(drv.last_engine_hz > 0.0, "после разгона частота вспышек ненулевая (%.1f Гц)" % drv.last_engine_hz)
+	check(drv.last_engine_hz > 0.0, "after acceleration the flash frequency is non-zero (%.1f Hz)" % drv.last_engine_hz)
 	check(_hz_b > _hz_a and _hz_a > 0.0,
-		"частота растёт вместе с оборотами (%.1f -> %.1f Гц)" % [_hz_a, _hz_b])
-	# соответствие RPM→Гц: firing = rpm/60×CYL/2; сверяем с фактическими колёсами
+		"the frequency grows with the rpm (%.1f -> %.1f Hz)" % [_hz_a, _hz_b])
+	# RPM→Hz correspondence: firing = rpm/60×CYL/2; compare against the actual wheels
 	var rpm := 0.0
 	var n := 0
 	for i in car.wheel_count():
@@ -107,24 +107,24 @@ func _finish() -> void:
 		rpm /= float(n)
 		var want := rpm / 60.0 * AudioMixer.CYL / 2.0
 		check(absf(drv.last_engine_hz - want) <= 2.0,
-			"Гц вспышек = обороты/60×цилиндров/2 (%.1f против %.1f)" % [drv.last_engine_hz, want])
-	# Счётчик протолканных кадров имеет смысл только там, где вывод существует:
-	# на dummy-дровере драйвер намеренно не заводит генератор (освобождение
-	# живого AudioStreamGenerator в headless валило процесс).
+			"flash Hz = rpm/60×cylinders/2 (%.1f vs %.1f)" % [drv.last_engine_hz, want])
+	# The pushed-frame counter only makes sense where output exists:
+	# on the dummy driver the driver deliberately does not start the generator (freeing
+	# a live AudioStreamGenerator in headless crashed the process).
 	if AudioDriver.has_output_device():
 		check(drv.frames_pushed > _pushed_a,
-			"кадры уходят в playback по мере движения (%d -> %d)" % [_pushed_a, drv.frames_pushed])
-	check(drv.impacts_heard >= 1, "удар долетел до драйвера (%d)" % drv.impacts_heard)
+			"frames go into playback as the car moves (%d -> %d)" % [_pushed_a, drv.frames_pushed])
+	check(drv.impacts_heard >= 1, "the impact reached the driver (%d)" % drv.impacts_heard)
 	check(drv.mixer.impact_env() > 0.1,
-		"после удара микшер звенит burst'ом (%.3f)" % drv.mixer.impact_env())
+		"after the impact the mixer rings with a burst (%.3f)" % drv.mixer.impact_env())
 	check(drv.last_block_peak > 0.0 and drv.last_block_peak <= 1.0,
-		"пик блока в границах (%.3f)" % drv.last_block_peak)
+		"block peak within bounds (%.3f)" % drv.last_block_peak)
 	if drv.playback_missing:
-		print("PARTIAL: аудиодрайвер %s — вывод не заводится, проверены данные до границы вывода" %
+		print("PARTIAL: audio driver %s — no output started, data checked up to the output boundary" %
 			AudioServer.get_driver_name())
 	else:
-		print("PARTIAL: звук из колонок здесь не проверяется — проверены данные до границы вывода")
-	# живой прогон через GameManager: mute обязан доходить до шины на Settings.changed
+		print("PARTIAL: speaker sound is not checked here — data checked up to the output boundary")
+	# live run through GameManager: mute must reach the bus on Settings.changed
 	await _in_game()
 	Settings.reset()
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
@@ -136,16 +136,16 @@ func _in_game() -> void:
 	add_child(g)
 	for i in 5:
 		await get_tree().physics_frame
-	check(g.audio != null and g.vibration != null, "GameManager создаёт аудио- и вибро-узлы")
+	check(g.audio != null and g.vibration != null, "GameManager creates audio and vibration nodes")
 	Settings.set_value("audio_enabled", false)
 	await get_tree().physics_frame
 	var idx := g.audio.sfx_bus_index()
-	check(idx >= 0 and AudioServer.is_bus_mute(idx), "настройка mute доходит до шины в живой сцене")
+	check(idx >= 0 and AudioServer.is_bus_mute(idx), "the mute setting reaches the bus in a live scene")
 	Settings.set_value("audio_enabled", true)
 	Settings.set_value("audio_volume", 0.4)
 	await get_tree().physics_frame
 	check(absf(g.audio.bus_linear_volume() - 0.4) < 0.05,
-		"громкость доходит до шины в живой сцене (%.3f)" % g.audio.bus_linear_volume())
+		"volume reaches the bus in a live scene (%.3f)" % g.audio.bus_linear_volume())
 	g.queue_free()
 	for i in 3:
 		await get_tree().process_frame

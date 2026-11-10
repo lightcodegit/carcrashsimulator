@@ -1,8 +1,8 @@
 extends Node
-# Настройки переживают враждебный файл, конфликтные бинды не дублируются, а
-# рестарт не наследует состояние педалей. Родительский кейс: одна правка
-# settings.cfg руками обрывала загрузку посередине, и все настройки молча
-# слетали (проверено на bool(Array) и String(dict)).
+# Settings survive a hostile file, conflicting bindings are not duplicated, and a
+# restart does not inherit pedal state. The parent case: one hand edit of
+# settings.cfg aborted the load mid-way and every setting silently reset (verified
+# on bool(Array) and String(dict)).
 const PATH_CFG := "user://settings.cfg"
 var _backup := ""
 var _fails := 0
@@ -38,80 +38,80 @@ func _hostile_cfg() -> void:
 		"exposure = \"nan\"\nshadow_preset = Vector2(1,1)\n[window]\nw = 0\nh = 0\nmax = [true]\n" +
 		"[keys]\nthrottle = {}\nbrake = 42\nnitro = [65, 66]\npause = \"k0\"\n")
 	Settings.load_values()
-	check(Settings.preset == 0, "preset вне диапазона прижат к границе (%d)" % Settings.preset)
-	check(Settings.preset_name() != "", "имя пресета читается (%s)" % Settings.preset_name())
+	check(Settings.preset == 0, "preset out of range clamped to the bound (%d)" % Settings.preset)
+	check(Settings.preset_name() != "", "preset name is readable (%s)" % Settings.preset_name())
 	check(Settings.fov >= 60.0 and Settings.fov <= 120.0,
-		"fov после мусора в пределах разумного (%.1f)" % Settings.fov)
+		"fov within sane bounds after garbage (%.1f)" % Settings.fov)
 	check(Settings.scale >= 0.5 and Settings.scale <= 1.0,
-		"scale после мусора в пределах разумного (%.2f)" % Settings.scale)
-	# NaN в файле отравил бы каждый последующий boot: строка «nan» не считается
-	# числом, а clampf и так выкидывает не-конечное значение за границы.
-	check(is_finite(Settings.exposure), "exposure остался конечным (%.2f)" % Settings.exposure)
-	check(typeof(Settings.fog) == TYPE_BOOL, "bool-ключ остался bool (%s)" % typeof(Settings.fog))
-	# бинды из битых строк не читаются, но и не теряются: действие остаётся по умолчанию
+		"scale within sane bounds after garbage (%.2f)" % Settings.scale)
+	# NaN in the file would poison every later boot: the string "nan" is not a number,
+	# and clampf already drops the non-finite value past the bounds.
+	check(is_finite(Settings.exposure), "exposure stayed finite (%.2f)" % Settings.exposure)
+	check(typeof(Settings.fog) == TYPE_BOOL, "bool key stayed bool (%s)" % typeof(Settings.fog))
+	# binds from broken strings are not read, but not lost either: the action keeps its default
 	var th := InputMap.action_get_events("throttle")
-	check(th.size() > 0, "throttle остался с биндом после {} в файле (%d)" % th.size())
+	check(th.size() > 0, "throttle kept a bind after {} in the file (%d)" % th.size())
 	var br := InputMap.action_get_events("brake")
-	check(br.size() > 0, "brake остался с биндом после числа в файле (%d)" % br.size())
-	# «pause = k0»: физический код 0 не нажимается. Если принять такой бинд, действие
-	# останется без события, а пауза в заезде открывается только клавишей.
+	check(br.size() > 0, "brake kept a bind after a number in the file (%d)" % br.size())
+	# "pause = k0": physical code 0 cannot be pressed. If such a bind were accepted, the
+	# action would be left with no event, and pause in a run opens only by key.
 	var pz := InputMap.action_get_events("pause")
-	check(pz.size() > 0, "pause не остался без бинда после k0 (%d)" % pz.size())
+	check(pz.size() > 0, "pause did not stay unbound after k0 (%d)" % pz.size())
 	var pz_ok := false
 	for e in pz:
 		if e is InputEventKey and (e as InputEventKey).physical_keycode == KEY_ESCAPE:
 			pz_ok = true
-	check(pz_ok, "pause вернулся к ESC после k0")
+	check(pz_ok, "pause returned to ESC after k0")
 	check(not Settings._win_ok(Rect2i(0, 0, 2000000000, 2000000000)),
-		"абсурдный размер окна не проходит проверку")
-	# Геометрия возврата окна на экран. Проверка синтетическая, а не через
-	# DisplayServer: в headless экран читается как 0×0, и живой вызов ничего бы не
-	# доказал, зато поймал бы собственную ошибку клампа.
+		"absurd window size fails the check")
+	# Window geometry: returning the window to the screen. The check is synthetic, not via
+	# DisplayServer: in headless the screen reads as 0x0, a live call would prove nothing and
+	# would instead catch its own clamp bug.
 	var one := Rect2i(0, 0, 1920, 1080)
 	var win := Vector2i(1600, 900)
 	check(Settings._clamp_pos(Vector2i(120, 80), win, one) == Vector2i(120, 80),
-		"видимая позиция не двигается")
+		"a visible position is not moved")
 	var back := Settings._clamp_pos(Vector2i(-90000, -90000), win, one)
 	check(back.x == -1440 and back.y == 0,
-		"улетевшее влево-вверх окно возвращается с 160 px на экране (%s)" % str(back))
+		"a window that flew off up-left returns with 160 px on screen (%s)" % str(back))
 	var fwd := Settings._clamp_pos(Vector2i(5000, 5000), win, one)
 	check(fwd.x == 1760 and fwd.y == 920,
-		"улетевшее вправо-вниз окно возвращается (%s)" % str(fwd))
-	# Второй монитор слева: отрицательные координаты — нормальное место, переносить
-	# окно на основной экран при каждом старте нельзя.
+		"a window that flew off down-right returns (%s)" % str(fwd))
+	# Second monitor on the left: negative coordinates are a normal place; the window must
+	# not be dragged to the primary screen on every start.
 	var left := Rect2i(-1920, 0, 3840, 1080)
 	check(Settings._clamp_pos(Vector2i(-1900, 10), win, left) == Vector2i(-1900, 10),
-		"окно на левом мониторе остаётся на левом мониторе")
-	# Геометрия окна: ноль в файле — не размер, а мусор. Хуже того, в headless сам
-	# движок отдаёт окно 0×0, и опрос окна в тестовом прогоне затирал настоящие
-	# настройки игрока (в user://settings.cfg появлялось w=0 h=0).
+		"a window on the left monitor stays on the left monitor")
+	# Window geometry: zero in the file is not a size, it is garbage. Worse, in headless the
+	# engine itself reports a 0x0 window, and polling the window in a test run would wipe the
+	# real player settings (w=0 h=0 appearing in user://settings.cfg).
 	check(Settings._win_ok(Settings._win_rect),
-		"нулевой размер из файла не попал в геометрию (%s)" % str(Settings._win_rect.size))
-	# Принуждаем испорченную геометрию и требуем, чтобы save() её залатал: именно
-	# такой ноль превращает окно в серое поле с тонкой полоской интерфейса.
+		"a zero size from the file did not enter the geometry (%s)" % str(Settings._win_rect.size))
+	# Force the corrupted geometry and require save() to patch it: exactly this zero turns the
+	# window into a grey field with a thin strip of UI.
 	Settings._win_rect = Rect2i(0, 0, 0, 0)
 	Settings.save()
 	var cf := ConfigFile.new()
-	check(cf.load(PATH_CFG) == OK, "файл настроек перечитывается после save")
+	check(cf.load(PATH_CFG) == OK, "the settings file reloads after save")
 	var saved_w := int(cf.get_value("window", "w", 0))
 	var saved_h := int(cf.get_value("window", "h", 0))
 	check(saved_w >= Settings.WIN_MIN.x and saved_h >= Settings.WIN_MIN.y,
-		"в файл записан осмысленный размер окна (%dx%d)" % [saved_w, saved_h])
+		"a meaningful window size was written to the file (%dx%d)" % [saved_w, saved_h])
 	Settings.reset()
 
 func _corrupt_cfg() -> void:
-	# Синтаксически битый файл (нераскрытый массив) — единственный случай, где игра
-	# обязана сохранить копию: без неё следующий save молча стирает бинды и настройки.
+	# A syntactically broken file (unterminated array) is the one case where the game must
+	# keep a copy: without it the next save silently wipes binds and settings.
 	var bad := "user://settings.cfg.bad"
 	if FileAccess.file_exists(bad): DirAccess.remove_absolute(bad)
 	_write("[video]\nfog = [1, 2\n")
 	Settings.load_values()
-	check(FileAccess.file_exists(bad), "битый settings.cfg сохранён копией в .bad")
+	check(FileAccess.file_exists(bad), "a broken settings.cfg is kept as a .bad copy")
 	if FileAccess.file_exists(bad): DirAccess.remove_absolute(bad)
 
 func _oversized_cfg() -> void:
-	# Парсер ConfigFile однопоточный: файл размером с лог остановил бы старт. Такой
-	# файл — мусор, и читать его нельзя: копия в .bad и жизнь на текущих значениях.
+	# The ConfigFile parser is single-threaded: a log-sized file would halt startup. Such a
+	# file is garbage and must not be read: a .bad copy and life on the current values.
 	var junk := "[video]\n"
 	while junk.length() < Settings.CFG_MAX_BYTES + 4096:
 		junk += "filler_%d = 1\n" % junk.length()
@@ -119,39 +119,39 @@ func _oversized_cfg() -> void:
 	Settings.set_value("fov", 99.0, false)
 	Settings.load_values()
 	check(is_equal_approx(Settings.fov, 99.0),
-		"переразмеренный файл не перечитывается (%.1f)" % Settings.fov)
-	check(FileAccess.file_exists("user://settings.cfg.bad"), "переразмеренный файл отложен в .bad")
+		"an oversized file is not reloaded (%.1f)" % Settings.fov)
+	check(FileAccess.file_exists("user://settings.cfg.bad"), "an oversized file was stashed to .bad")
 	if FileAccess.file_exists("user://settings.cfg.bad"):
 		DirAccess.remove_absolute("user://settings.cfg.bad")
-	# атомарная запись: ни черновик, ни тень прежнего файла не должны пережить save
+	# atomic write: neither the draft nor the shadow of the previous file should survive save
 	Settings.save()
 	check(not FileAccess.file_exists("user://settings.cfg.part"),
-		"после save не остался черновик .part")
+		"no .part draft remained after save")
 	check(not FileAccess.file_exists("user://settings.cfg.old"),
-		"после save не осталась тень прежнего файла .old")
+		"no .old shadow of the previous file remained after save")
 	var after := ConfigFile.new()
-	check(after.load(PATH_CFG) == OK, "файл читается после атомарной замены")
+	check(after.load(PATH_CFG) == OK, "the file reads after the atomic replace")
 
 func _crash_recovery() -> void:
-	# Состояние после смерти процесса в окне «цель ушла в .old, черновик ещё не
-	# встал»: settings.cfg нет, единственная копия — тень. Первый save этого заезда
-	# раньше удалял .old как пережиток и стирал настройки окончательно.
+	# State after the process dies in the window "the target moved to .old, the draft not yet
+	# in place": settings.cfg is gone, the only copy is the shadow. The first save of that run
+	# used to delete .old as a leftover and wipe the settings for good.
 	_write("[video]\nfov = 92.0\n")
 	Settings.load_values()
 	var saved := Settings.fov
-	check(is_equal_approx(saved, 92.0), "файл прочитан до симуляции краша (%.1f)" % saved)
+	check(is_equal_approx(saved, 92.0), "the file was read before simulating the crash (%.1f)" % saved)
 	check(DirAccess.rename_absolute(PATH_CFG, "user://settings.cfg.old") == OK,
-		"симуляция: цель ушла в тень")
-	check(not FileAccess.file_exists(PATH_CFG), "симуляция: settings.cfg отсутствует")
+		"simulation: the target moved to the shadow")
+	check(not FileAccess.file_exists(PATH_CFG), "simulation: settings.cfg is absent")
 	Settings.load_values()
-	check(FileAccess.file_exists(PATH_CFG), "тень .old вернула settings.cfg на место")
+	check(FileAccess.file_exists(PATH_CFG), "the .old shadow restored settings.cfg in place")
 	check(is_equal_approx(Settings.fov, saved),
-		"восстановленные значения целые (%.1f против %.1f)" % [Settings.fov, saved])
+		"the restored values are intact (%.1f vs %.1f)" % [Settings.fov, saved])
 	check(not FileAccess.file_exists("user://settings.cfg.old"),
-		"восстановление не оставило висящую тень")
+		"recovery left no dangling shadow")
 
 func _rebind_collision() -> void:
-	# конфликт двух НАЗНАЧЕННЫХ игроком биндов: второй забирает клавишу у первого
+	# conflict of two player-ASSIGNED binds: the second takes the key from the first
 	var k1 := InputEventKey.new(); k1.physical_keycode = KEY_G
 	var k2 := InputEventKey.new(); k2.physical_keycode = KEY_G
 	InputRouter.rebind("throttle", k1)
@@ -161,12 +161,12 @@ func _rebind_collision() -> void:
 			if e is InputEventKey and (e as InputEventKey).physical_keycode == KEY_G:
 				return true
 		return false
-	check(has_g.call("brake"), "G назначена тормозу")
+	check(has_g.call("brake"), "G assigned to brake")
 	check(not has_g.call("throttle"),
-		"G снята с газа: два игроцких назначения не делят одну клавишу")
-	# дефолтный конфликт остаётся возможным (модель замещения класса не выражает
-	# «клавиш нет вовсе»), поэтому проверяем лишь, что прежнее поведение целое:
-	# новое назначение принято, класс клавиш замещён одним событием
+		"G removed from throttle: two player bindings do not share one key")
+	# a default conflict remains possible (the class-substitution model does not express
+	# "there are no keys"), so we only check that the previous behavior is intact: the new
+	# binding is accepted, the key class is replaced by one event
 	var w := InputEventKey.new(); w.physical_keycode = KEY_H
 	InputRouter.rebind("handbrake", w)
 	var hk := 0
@@ -174,54 +174,54 @@ func _rebind_collision() -> void:
 		if e is InputEventKey:
 			hk += 1
 			check((e as InputEventKey).physical_keycode == KEY_H,
-				"у ручника осталась только назначенная клавиша")
-	check(hk == 1, "назначение поверх дефолта заместило класс клавиш (%d)" % hk)
+				"only the assigned key remains on handbrake")
+	check(hk == 1, "a binding over a default replaced the key class (%d)" % hk)
 	InputRouter.clear_binding("throttle")
 	InputRouter.clear_binding("brake")
 	InputRouter.clear_binding("handbrake")
 
 func _pad_device() -> void:
-	# device обязан переживать перезапуск. Без него бинд после рестарта становился
-	# «любым геймпадом», хотя в том же заезде принадлежал конкретному.
+	# device must survive a restart. Without it a bind became "any gamepad" after restart,
+	# though in the same run it belonged to a specific one.
 	var jb := InputEventJoypadButton.new()
 	jb.button_index = 3
 	jb.device = 1
 	InputRouter.rebind("throttle", jb)
 	Settings.save()
 	var cf := ConfigFile.new()
-	check(cf.load(PATH_CFG) == OK, "файл читается после привязки геймпада")
+	check(cf.load(PATH_CFG) == OK, "the file reads after the gamepad binding")
 	var tok := String(cf.get_value("keys", "throttle", ""))
-	check(tok.contains("@1"), "в файл записан номер геймпада (%s)" % tok)
+	check(tok.contains("@1"), "the gamepad number was written to the file (%s)" % tok)
 	InputRouter.reset_keys()
 	Settings.load_values()
 	var found := false
 	for e in InputMap.action_get_events("throttle"):
 		if e is InputEventJoypadButton and e.button_index == 3 and e.device == 1:
 			found = true
-	check(found, "привязка вернулась с тем же геймпадом (%s)" % str(InputMap.action_get_events("throttle")))
-	# старый формат обязан читаться как «любой», иначе файл игрока теряет бинды
+	check(found, "the binding came back with the same gamepad (%s)" % str(InputMap.action_get_events("throttle")))
+	# the old format must read as "any", otherwise the player's file loses binds
 	var legacy: InputEventJoypadButton = InputRouter._decode("b3")
 	check(legacy != null and legacy.device == -1,
-		"старый токен без device читается как любой геймпад")
+		"an old token without device reads as any gamepad")
 	var modern: InputEventJoypadMotion = InputRouter._decode("a0_50@2")
 	check(modern != null and modern.device == 2 and is_equal_approx(modern.axis_value, 0.5),
-		"ось с номером геймпада читается целиком")
-	# токен мог быть испорчен ручной правкой файла; бинд на несуществующую кнопку
-	# выглядит в настройках как «КНОПКА 999» и не нажимается никогда
+		"an axis with a gamepad number reads whole")
+	# the token could be mangled by a hand edit of the file; a bind to a nonexistent button
+	# shows in settings as "BUTTON 999" and is never pressable
 	for bad in ["b", "k0", "k-3", "kabc", "b-1", "bXX", "b1000", "a-1_50", "a1000_50",
 			"a0_5000", "a0_ab", "a0", "b3@-2", "b3@x", "q0_50"]:
-		check(InputRouter._decode(bad) == null, "мусорный токен %s биндом не становится" % bad)
+		check(InputRouter._decode(bad) == null, "garbage token %s does not become a bind" % bad)
 	check(InputRouter._decode("b%d" % (InputRouter.BUTTON_MAX + 1)) == null,
-		"кнопка за границей токена биндом не становится")
+		"a button past the token bound does not become a bind")
 	var last_button: InputEventJoypadButton = InputRouter._decode("b%d" % InputRouter.BUTTON_MAX)
 	check(last_button != null and last_button.button_index == InputRouter.BUTTON_MAX,
-		"последняя легальная кнопка читается (%s)" % str(last_button))
+		"the last legal button reads (%s)" % str(last_button))
 	var neg: InputEventJoypadMotion = InputEventJoypadMotion.new()
 	neg.axis = 1
 	neg.axis_value = -0.5
 	neg.device = 0
 	check(InputRouter._decode(InputRouter._encode(neg)) != null,
-		"отрицательное значение оси переживает запись и чтение")
+		"a negative axis value survives write and read")
 	InputRouter.clear_binding("throttle")
 	InputRouter.reset_keys()
 
@@ -237,10 +237,10 @@ func _respawn_state() -> void:
 	for i in 60:
 		await get_tree().physics_frame
 	Input.action_release("brake")
-	check(car._rev_lag > 0.0, "на затормозившей машине лаг заднего хода накоплен (%.2f)" % car._rev_lag)
+	check(car._rev_lag > 0.0, "on a braking car the reverse lag accumulated (%.2f)" % car._rev_lag)
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(0, 1.0, 0)))
 	check(is_equal_approx(car._rev_lag, 0.0) and is_equal_approx(car._hand_pedal, 0.0),
-		"рестарт обнулил лаг и давление ручника (%.2f / %.2f)" % [car._rev_lag, car._hand_pedal])
+		"restart zeroed the lag and the handbrake pressure (%.2f / %.2f)" % [car._rev_lag, car._hand_pedal])
 	g.queue_free()
 	for i in 6:
 		await get_tree().physics_frame

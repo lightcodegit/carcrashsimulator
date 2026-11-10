@@ -1,7 +1,7 @@
 extends Node3D
 var _f := 0
 var _max_x := -1e9
-var _shot: bool = DisplayServer.get_name() != "headless"   # скриншоты имеют смысл только с живым рендером
+var _shot: bool = DisplayServer.get_name() != "headless"   # screenshots only make sense with live rendering
 var gm: GameManager
 func _ready() -> void:
 	GameContext.select("sport", "speedway")
@@ -12,14 +12,15 @@ func _ready() -> void:
 func _physics_process(_dt: float) -> void:
 	_f += 1
 	if _f == 5: Input.action_press("throttle")
-	# Ждать frame_post_draw внутри физического тика можно только с живым рендером:
-	# в headless кадр не рисуется, корутина замирала посреди функции, и метрика
-	# врала (x_max=451 вместо 583 — это середина прыжка, а не финиш).
+	# Awaiting frame_post_draw inside a physics tick is only safe with live
+	# rendering: in headless no frame is drawn, the coroutine froze mid-function,
+	# and the metric lied (x_max=451 instead of 583 — that is mid-jump, not the finish).
 	if _shot and _f in [100, 420, 1000, 1690]:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("res://tests/out/s%d.png" % _f)
-	# максимум, а не текущий x: после удара о финишную стену машину отбрасывает,
-	# и она уезжает обратно — «доехала ли до финиша» по текущей координате не понять
+	# the maximum, not the current x: after the hit on the finish wall the car is
+	# thrown back and drives off again — "did it reach the finish" is not readable
+	# from the current coordinate
 	_max_x = maxf(_max_x, gm.car.chassis.global_position.x)
 	if _f == 1691:
 		var thru := 0

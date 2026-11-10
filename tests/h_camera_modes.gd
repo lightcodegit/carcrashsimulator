@@ -20,8 +20,8 @@ func _ready() -> void:
 	cam.make_current()
 
 func _physics_process(_dt: float) -> void:
-	# машина собирается в _ready через await: на реальном рендере это позже
-	# нужного кадра, и отсчёт ведём от её появления, а не от запуска сцены
+	# the car is built in _ready via await: on a live renderer that lands later
+	# than the needed frame, so count frames from its appearance, not scene start
 	if car == null: return
 	_frame += 1
 	if _frame == 30:

@@ -1,8 +1,8 @@
 extends Node3D
-# Стоимость вмятины и перемотки. Меряем не миллисекунды (они плавают), а число
-# пересборок меша: это то, что код действительно контролирует. Прежний плеер на
-# каждом шаге вперёд пересобирал кузов с нуля, и цена шага росла линейно числом
-# ударов: 64 вмятины = 284 мс на один перескок.
+# Cost of a dent and of scrubbing. We measure not milliseconds (they jitter) but the
+# number of mesh rebuilds: that is what the code actually controls. The old player
+# rebuilt the body from scratch on every step forward, so a step's price grew linearly
+# with the impact count: 64 dents = 284 ms for a single hop.
 var fails := 0
 var car: CarRig
 
@@ -20,24 +20,24 @@ func _ready() -> void:
 	var lp := Vector3(0.4, 0.2, 0.9)
 	var ld := Vector3(-1, 0, 0)
 
-	# 1) один удар = одна пересборка
+	# 1) one impact = one rebuild
 	body.reset()
 	body.rebuild_count = 0
 	for i in 8:
 		body.apply_impact_local(lp + Vector3(0.0, 0.0, float(i) * 0.07), ld, 120.0)
 	check(body.rebuild_count == 8,
-		"восемь ударов собрали меш восемь раз (факт %d)" % body.rebuild_count)
+		"eight impacts rebuilt the mesh eight times (actual %d)" % body.rebuild_count)
 
-	# 2) норма пересчитывается по грязным группам, а не по всем вершинам
+	# 2) normals are recomputed over dirty groups, not over all vertices
 	body.reset()
 	body.rebuild_count = 0
 	body.normal_passes = 0
 	body.apply_impact_local(lp, ld, 120.0)
 	check(body.normal_passes > 0 and body.normal_passes < body._verts.size() / 2,
-		"удар пересчитал нормали части вершин, а не всего кузова (%d из %d)" % [
+		"an impact recomputed normals of some vertices, not the whole body (%d of %d)" % [
 			body.normal_passes, body._verts.size()])
 
-	# 3) плеер: шаг вперёд стоит одну пересборку, а не сумму всех предыдущих
+	# 3) player: one step forward costs one rebuild, not the sum of all previous ones
 	var rec := ReplayRecorder.new()
 	add_child(rec)
 	rec.attach(car, null)
@@ -59,26 +59,26 @@ func _ready() -> void:
 		"nitro": 1.0, "hot": 0.0, "w": _four_wheels(),
 		"pr": PackedFloat32Array()})
 	body.reset()
-	check(pl.begin_at(0.0), "плеер открыл окно")
+	check(pl.begin_at(0.0), "the player opened the window")
 	pl.playing = false
 	body.rebuild_count = 0
 	for i in 6:
-		pl.scrub(4)          # шесть шагов по 4 кадра = курсор проходит ~6 событий
+		pl.scrub(4)          # six steps of 4 frames = the cursor crosses ~6 events
 	var forward := body.rebuild_count
-	# шесть шагов по 4 кадра пересекают ~24 события: цена = число пересечённых
-	# событий, а не сумма предыдущих (прежний код платил 4+8+12+16+20+24 = 64)
+	# six steps of 4 frames cross ~24 events: the price = the number of events
+	# crossed, not the sum of previous ones (the old code paid 4+8+12+16+20+24 = 64)
 	check(forward <= 30,
-		"шесть шагов вперёд собрали меш %d раз вместо суммы 1+2+..+N" % forward)
+		"six forward steps rebuilt the mesh %d times instead of the 1+2+..+N sum" % forward)
 
-	# 4) перемотка назад обязана вернуть ровно то же число вмятин
+	# 4) scrubbing back must restore exactly the same number of dents
 	var want := body.dent_count
 	pl.seek(0.0)
-	check(body.dent_count == 0, "мотка в начало окна стёрла вмятины (%d)" % body.dent_count)
+	check(body.dent_count == 0, "scrubbing to the window start cleared the dents (%d)" % body.dent_count)
 	pl.seek(1.0)
-	check(body.dent_count == want, "обратная перемотка вернула вмятины (%d против %d)" % [
+	check(body.dent_count == want, "the backward scrub restored the dents (%d vs %d)" % [
 		body.dent_count, want])
 
-	# 5) точечный пересчёт нормалей обязан совпасть с полным
+	# 5) the incremental normal pass must match the full one
 	body.reset()
 	for i in 12:
 		body.apply_impact_local(lp + Vector3(0.35, 0.2, -1.0 + float(i) * 0.12), ld, 150.0)
@@ -91,20 +91,20 @@ func _ready() -> void:
 	for i in body._verts.size():
 		worst = maxf(worst, full[i].distance_to(body._nrm[i]))
 	check(worst < 1e-4,
-		"точечные нормали совпали с полными: худшее расхождение %.6f" % worst)
+		"incremental normals match the full ones: worst diff %.6f" % worst)
 
-	# 6) кольцо держит длинную сессию: лимит событий не режет старые вмятины
+	# 6) the ring holds a long session: the event limit must not clip old dents
 	var big := ReplayRecorder.new()
 	add_child(big)
 	big.attach(car, null)
-	# путь игрока, а не запись в массив: лимит стоит в приёмнике удара
+	# the player's path, not an array append: the limit lives in the impact receiver
 	for i in ReplayRecorder.MAX_DENTS + 10:
 		big.sim_t = float(i)
 		big._on_impact(120.0, car.chassis.global_position + Vector3(0.5, 0.2, 0.0), Vector3.BACK)
 	check(big.dents.size() == ReplayRecorder.MAX_DENTS,
-		"кольцо ударов ограничено %d (факт %d)" % [ReplayRecorder.MAX_DENTS, big.dents.size()])
+		"the impact ring is capped at %d (actual %d)" % [ReplayRecorder.MAX_DENTS, big.dents.size()])
 	check(ReplayRecorder.MAX_DENTS >= 200,
-		"лимита хватает на длинную сессию без потери старых вмятин (%d)" % ReplayRecorder.MAX_DENTS)
+		"the limit covers a long session without losing old dents (%d)" % ReplayRecorder.MAX_DENTS)
 	print("ALL PASS" if fails == 0 else "FAILS %d" % fails)
 	get_tree().quit(0 if fails == 0 else 1)
 

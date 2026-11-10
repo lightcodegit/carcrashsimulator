@@ -1,6 +1,6 @@
 extends Node
-# Кадры меню и настроек на выбранном размере окна (размер ставим сами: cfg
-# перекрывает --resolution). Смотрим, не поехала ли раскладка без масштабирования.
+# Menu and settings frames at a chosen window size (we set the size ourselves: cfg
+# overrides --resolution). Checking whether the layout slips without scaling.
 
 var _f := 0
 var _stable := 0

@@ -22,12 +22,12 @@ func _ready() -> void:
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(0, 1.0, 0)))
 
 func _physics_process(_dt: float) -> void:
-	# машина собирается в _ready через await: на реальном рендере это позже
-	# нужного кадра, и отсчёт ведём от её появления, а не от запуска сцены
+	# the car is assembled in _ready via await: on a real renderer that lands later
+	# than the needed frame, so count from its appearance, not from scene start
 	if car == null: return
 	_frame += 1
 
-	# фаза 1: разгон 8 с (асимптотика тяги к vmax)
+	# phase 1: 8 s of acceleration (thrust asymptotics toward vmax)
 	if _frame == 5: Input.action_press("throttle")
 	if _frame == 485:
 		check(car.speed_kmh() > 0.7 * 160 and car.speed_kmh() < 1.1 * 160,
@@ -37,23 +37,24 @@ func _physics_process(_dt: float) -> void:
 		Input.action_release("throttle"); Input.action_press("brake")
 	if _frame == 546:
 		Input.action_release("brake")
-		# за секунду полного торможения шины держат ~1.2 g = ~43 км/ч. Прежняя проверка
-		# («ниже 90») пропускала и 2.7 g: машина вставала в одну точку, и игрок читал
-		# это как «мгновенно сбрасывает скорость». Теперь диапазон и есть требование.
+		# within one second of full braking the tires hold ~1.2 g = ~43 km/h. The old
+		# check («under 90») also passed 2.7 g: the car stopped on a dime, and the
+		# player read that as «instantly drops speed». Now the range is the requirement.
 		var lost := _v_brake - car.speed_kmh()
 		check(lost > 30.0 and lost < 62.0,
-			"торможение в покрышечном пределе: -%.0f км/ч за 1 с (%.1f g)" % [lost, lost / 3.6 / 9.81])
-	# фаза 2: рулёжка на средней скорости
+			"braking at the tire limit: -%.0f km/h in 1 s (%.1f g)" % [lost, lost / 3.6 / 9.81])
+	# phase 2: steering at mid speed
 	if _frame == 550: Input.action_press("steer_left")
 	if _frame == 590:
 		check(car.heading > deg_to_rad(12.0), "steered left (%.0f deg)" % rad_to_deg(car.heading))
 		Input.action_release("steer_left")
 	if _frame == 595: Input.action_press("throttle")
-	# фаза 3: ручник-дрифт. Разгоняемся и только потом дёргаем ручник без газа — так
-	# занос делают в жизни. Пик скольжения ищем по всему окну: в момент замера машина
-	# может уже довернуться, и мгновенная боковая скорость окажется почти нулевой.
+	# phase 3: handbrake drift. Accelerate first and only then yank the handbrake
+	# without throttle — that is how a drift is done in real life. The slip peak is
+	# taken over the whole window: at the sampled instant the car may have already
+	# rotated back, and the instantaneous lateral speed would be near zero.
 	if _frame == 780:
-		check(car.speed_kmh() > 70.0, "разогнались перед ручником (%.1f км/ч)" % car.speed_kmh())
+		check(car.speed_kmh() > 70.0, "up to speed before the handbrake (%.1f km/h)" % car.speed_kmh())
 		Input.action_release("throttle")
 		Input.action_press("handbrake"); Input.action_press("steer_right")
 	if _frame > 780 and _frame <= 840:
@@ -65,9 +66,9 @@ func _physics_process(_dt: float) -> void:
 			_max_slip_deg = maxf(_max_slip_deg, rad_to_deg(acos(clampf(vel.normalized().dot(fwd), -1.0, 1.0))))
 		_max_yaw = maxf(_max_yaw, absf(car.chassis.angular_velocity.y))
 	if _frame == 840:
-		check(_max_lat > 2.0, "ручник срывает машину в скольжение (пик %.1f м/с)" % _max_lat)
-		check(_max_slip_deg > 10.0, "ручник даёт угол заноса (пик %.1f°)" % _max_slip_deg)
-		check(_max_yaw > 0.8, "ручник доворачивает нос (пик %.2f рад/с)" % _max_yaw)
+		check(_max_lat > 2.0, "the handbrake breaks the car into a slide (peak %.1f m/s)" % _max_lat)
+		check(_max_slip_deg > 10.0, "the handbrake yields a drift angle (peak %.1f°)" % _max_slip_deg)
+		check(_max_yaw > 0.8, "the handbrake swings the nose around (peak %.2f rad/s)" % _max_yaw)
 		check(car.chassis.global_position.is_finite(), "no NaN trajectory")
 	if _frame == 860:
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)

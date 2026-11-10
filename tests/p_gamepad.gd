@@ -1,7 +1,8 @@
 extends Node3D
-# Что движок видит от живого геймпада: имя устройства, знает ли он его раскладку и
-# какими индексами приходят кнопки. Без этого спорить о том, что игрок называет
-# «кнопкой ручника», можно только гадать. Печатает только числа и строки.
+# What the engine sees from a live gamepad: device name, whether it knows the
+# button layout and which indices buttons arrive under. Without this, arguing
+# about what the player calls the "handbrake button" is only guesswork.
+# Prints numbers and strings only.
 var _f := 0
 var _seen := {}
 

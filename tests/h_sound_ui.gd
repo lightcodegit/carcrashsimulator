@@ -1,9 +1,9 @@
 extends Node
-# Вкладка ЗВУК: пять вкладок достижимы (в т.ч. кнопкой), каждая новая строка
-# существует, тумблеры пишут в Settings и доживают до перезагрузки файла,
-# картинка-пресеты от звука не меняются, а новые ряды растут ступенью 2× ровно
-# как остальной интерфейс (тот же контракт, что у h_uiscale: пересборка контролов
-# на новой ступени, а не перекраска старых).
+# SOUND tab: all five tabs are reachable (including by button), every new row
+# exists, toggles write into Settings and survive a file reload, picture presets
+# do not change audio, and the new rows grow at exactly the same 2× step as the
+# rest of the UI (same contract as h_uiscale: controls are rebuilt at the new
+# step, not old ones recolored).
 var _fails := 0
 var menu: SettingsMenu
 
@@ -26,18 +26,18 @@ func _ready() -> void:
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
-# A) шесть вкладок, ОБЩЕЕ — первая, ЗВУК — шестая, достижимы фокусом и кнопкой
+# A) six tabs, GENERAL is the first, SOUND the sixth, reachable via focus and button
 func _tabs() -> void:
-	check(menu._tabs_btn.size() == 6, "вкладок шесть (%d)" % menu._tabs_btn.size())
-	check(menu._pages.size() == 6, "страниц шесть (%d)" % menu._pages.size())
+	check(menu._tabs_btn.size() == 6, "six tabs (%d)" % menu._tabs_btn.size())
+	check(menu._pages.size() == 6, "six pages (%d)" % menu._pages.size())
 	menu._tabs_btn[5].grab_focus()
-	check(menu._tabs_btn[5].has_focus(), "вкладка ЗВУК берёт фокус")
+	check(menu._tabs_btn[5].has_focus(), "the SOUND tab takes focus")
 	menu._tabs_btn[5].pressed.emit()
 	check(menu._pages[5].visible and not menu._pages[0].visible,
-		"нажатие открывает шестую страницу")
+		"pressing opens the sixth page")
 	menu._tabs_btn[0].pressed.emit()
 	check(menu._pages[0].visible and not menu._pages[5].visible,
-		"возврат на первую страницу работает")
+		"returning to the first page works")
 
 func _find_check(key: String) -> CheckBox:
 	for n in menu._all_of("CheckBox"):
@@ -54,19 +54,19 @@ func _row_by_key(key: String) -> Control:
 		for c in n.get_children(): stack.append(c)
 	return null
 
-# B) все обещанные строки на месте; тумблеры и ползунки пишут в Settings
+# B) all promised rows are present; toggles and sliders write into Settings
 func _rows_and_settings() -> void:
-	# сортировка скрытой страницы откладывается до показа: меряем на видимой
+	# sorting of the hidden page is deferred until it is shown: measure on a visible one
 	menu._tabs_btn[5].pressed.emit()
 	await get_tree().process_frame
 	for key in ["audio_enabled", "vibration_enabled", "particles_enabled"]:
-		check(_row_by_key(key) != null, "строка-галка %s существует" % key)
-	check(menu._sliders.has("audio_volume"), "ползунок ОБЩАЯ ГРОМКОСТЬ существует")
-	check(menu._sliders.has("vibration_strength"), "ползунок СИЛА ВИБРАЦИИ существует")
-	# Подпись про железо обязана зависеть от железа, а не от того, как мы тестируем
-	# игру: «headless» в настройках — это заметка для разработчика, игроку она
-	# ничего не говорит. Проверка двусторонняя: без геймпада подсказка есть, с
-	# подключённым — её нет.
+		check(_row_by_key(key) != null, "checkbox row %s exists" % key)
+	check(menu._sliders.has("audio_volume"), "the MASTER VOLUME slider exists")
+	check(menu._sliders.has("vibration_strength"), "the VIBRATION STRENGTH slider exists")
+	# The hardware caption must depend on hardware, not on how we test the game:
+	# "headless" in settings is a developer note that tells the player nothing.
+	# The check is two-sided: without a gamepad the hint is present, with one
+	# connected it is not.
 	var pad_hint := false
 	var dev_noise := false
 	var stack: Array[Node] = [menu]
@@ -78,94 +78,94 @@ func _rows_and_settings() -> void:
 				pad_hint = true
 			if "headless" in t or "заглушк" in t: dev_noise = true
 		for c in n.get_children(): stack.append(c)
-	check(not dev_noise, "на вкладке нет заметок про метод тестирования (headless/заглушка)")
+	check(not dev_noise, "the tab has no notes about the testing method (headless/stub)")
 	check(pad_hint == Input.get_connected_joypads().is_empty(),
-		"подсказка про геймпад показывается ровно когда его нет (подключено %d, подсказка %s)" % [
+		"the gamepad hint shows exactly when none is connected (connected %d, hint %s)" % [
 			Input.get_connected_joypads().size(), pad_hint])
-	# язык — не про звук: строка живёт на первой вкладке ОБЩЕЕ, а на вкладке ЗВУК
-	# её быть не должно
+	# language is not about audio: the row lives on the first GENERAL tab, and the
+	# SOUND tab must not have it
 	var general_walk: Array[Node] = [menu]
 	var general_head := false
 	while not general_walk.is_empty():
 		var gn: Node = general_walk.pop_back()
 		if gn is Label and (gn as Label).text == I18n.t("ОБЩЕЕ"): general_head = true
 		for c in gn.get_children(): general_walk.append(c)
-	check(general_head, "вкладка ОБЩЕЕ существует")
+	check(general_head, "the GENERAL tab exists")
 	var lang_on_sound := false
 	var sound_walk: Array[Node] = [menu._pages[5]]
 	while not sound_walk.is_empty():
 		var sn: Node = sound_walk.pop_back()
 		if sn is Label and (sn as Label).text == I18n.t("ЯЗЫК"): lang_on_sound = true
 		for c in sn.get_children(): sound_walk.append(c)
-	check(not lang_on_sound, "на вкладке ЗВУК нет строки ЯЗЫК")
+	check(not lang_on_sound, "the SOUND tab has no LANGUAGE row")
 	var cb := _find_check("audio_enabled")
 	cb.button_pressed = false
-	check(not Settings.audio_enabled, "галка ЗВУК пишет audio_enabled=false")
+	check(not Settings.audio_enabled, "the SOUND checkbox writes audio_enabled=false")
 	cb.button_pressed = true
-	check(Settings.audio_enabled, "галка ЗВУК пишет audio_enabled=true")
+	check(Settings.audio_enabled, "the SOUND checkbox writes audio_enabled=true")
 	var vb := _find_check("vibration_enabled")
 	vb.button_pressed = false
-	check(not Settings.vibration_enabled, "галка ВИБРАЦИЯ пишет vibration_enabled=false")
+	check(not Settings.vibration_enabled, "the VIBRATION checkbox writes vibration_enabled=false")
 	var pb := _find_check("particles_enabled")
 	pb.button_pressed = false
-	check(not Settings.particles_enabled, "галка ЧАСТИЦЫ пишет particles_enabled=false")
-	# ползунок: значение в единицах настройки, refresh синхронизирует обратно
+	check(not Settings.particles_enabled, "the PARTICLES checkbox writes particles_enabled=false")
+	# slider: value in setting units, refresh syncs it back
 	var rec: Array = menu._sliders["audio_volume"]
 	(rec[0] as HSlider).value = 0.35
 	check(absf(Settings.audio_volume - 0.35) < 0.01,
-		"ползунок громкости пишет %.2f" % Settings.audio_volume)
+		"the volume slider writes %.2f" % Settings.audio_volume)
 	Settings.set_value("audio_volume", 0.8)
 	menu.refresh()
 	check(is_equal_approx(float(rec[0].value), 0.8),
-		"refresh возвращает ползунку 0.8 (%.2f)" % float(rec[0].value))
+		"refresh returns 0.8 to the slider (%.2f)" % float(rec[0].value))
 	pb.button_pressed = true
 	vb.button_pressed = true
 	Settings.reset()
 	menu.refresh()
 
-# C) значения доживают до перезагрузки файла и обратно
+# C) values survive a file reload and back
 func _persist() -> void:
 	Settings.set_value("audio_volume", 0.25)
 	Settings.set_value("vibration_strength", 0.6)
 	Settings.set_value("particles_enabled", false)
 	Settings.set_value("audio_enabled", false)
 	Settings.load_values()
-	check(absf(Settings.audio_volume - 0.25) < 0.01, "громкость перечитана (%.2f)" % Settings.audio_volume)
-	check(absf(Settings.vibration_strength - 0.6) < 0.01, "сила вибрации перечитана (%.2f)" % Settings.vibration_strength)
-	check(not Settings.particles_enabled and not Settings.audio_enabled, "выключенные галки перечитаны")
+	check(absf(Settings.audio_volume - 0.25) < 0.01, "volume reloaded (%.2f)" % Settings.audio_volume)
+	check(absf(Settings.vibration_strength - 0.6) < 0.01, "vibration strength reloaded (%.2f)" % Settings.vibration_strength)
+	check(not Settings.particles_enabled and not Settings.audio_enabled, "unchecked boxes reloaded")
 	menu.refresh()
-	check(not _find_check("particles_enabled").button_pressed, "галка после загрузки снята в UI")
+	check(not _find_check("particles_enabled").button_pressed, "the checkbox is unchecked in the UI after load")
 	Settings.reset()
 	menu.refresh()
 
-# D) пресеты картинки не ведают звука: трогание звуковых ключей пресет не сбрасывает,
-#    а сами пресеты остались теми же числами, что и до вкладки
+# D) picture presets know nothing of audio: touching audio keys does not reset the
+#    preset, and the presets themselves still hold the same numbers as before the tab
 func _presets_semantics() -> void:
 	Settings.apply_preset(1)
 	Settings.set_value("audio_enabled", false)
 	Settings.set_value("particles_enabled", false)
-	check(Settings.preset == 1, "звуковые ключи не сбрасывают отметку пресета (%d)" % Settings.preset)
+	check(Settings.preset == 1, "audio keys do not reset the preset mark (%d)" % Settings.preset)
 	Settings.apply_preset(3)
 	check(Settings.preset_name() == "КИНО" and is_equal_approx(Settings.glow_bloom, 0.35) \
-			and Settings.shadow_preset == 3, "КИНО остался КИНО (%s)" % Settings.preset_name())
-	check(not Settings.audio_enabled, "пресет картинки не трогает звук (%s)" % str(Settings.audio_enabled))
+			and Settings.shadow_preset == 3, "КИНО stayed КИНО (%s)" % Settings.preset_name())
+	check(not Settings.audio_enabled, "the picture preset does not touch audio (%s)" % str(Settings.audio_enabled))
 	Settings.apply_preset(1)
 	Settings.set_value("exposure", 1.7)
-	check(Settings.preset == Settings.PRESET_CUSTOM, "ручная правка картинки по-прежнему делает СВОЁ")
+	check(Settings.preset == Settings.PRESET_CUSTOM, "a manual picture tweak still switches to CUSTOM")
 	Settings.reset()
 
-# E) ступень 2× удваивает новые ряды (пересборка меню, как в h_uiscale), и
-#    ряды лежат внутри кадра. Headless-окно бывает нулевым: абсолютная проверка
-#    кадра делается только когда есть о чём говорить, относительная — всегда.
+# E) step 2× doubles the new rows (menu rebuild, as in h_uiscale), and the rows lie
+#    inside the frame. The headless window can be zero-sized: the absolute frame
+#    check is only made when there is something to say, the relative one — always.
 func _layout_and_scale() -> void:
 	var one := await _metrics_at_step(1)
 	var two := await _metrics_at_step(2)
 	check(one.size() >= 3 and two.size() == one.size(),
-		"замеры полны на обеих ступенях (%d/%d)" % [one.size(), two.size()])
+		"measurements are complete at both steps (%d/%d)" % [one.size(), two.size()])
 	for key in one:
 		check(is_equal_approx(float(two[key]), float(one[key]) * 2.0),
-			"%s: 2× = %s, ожидалось %s" % [key, str(two[key]), str(float(one[key]) * 2.0)])
-		check(float(one[key]) > 0.0, "%s: ступень 1× отдаёт ненулевой размер" % key)
+			"%s: 2× = %s, expected %s" % [key, str(two[key]), str(float(one[key]) * 2.0)])
+		check(float(one[key]) > 0.0, "%s: step 1× returns a nonzero size" % key)
 	UiTheme.force_step(0)
 
 func _metrics_at_step(step: int) -> Dictionary:
@@ -186,24 +186,24 @@ func _metrics_at_step(step: int) -> Dictionary:
 	for c in box.get_children():
 		if c is Label and (c as Label).text == I18n.t("ЗВУК И ВИБРАЦИЯ"):
 			out["head_font"] = (c as Label).get_theme_font_size("font_size")
-	# относительная геометрия: три новых ряда стоят в одной колонке друг под
-	# другом. В headless якорные панели схлопнуты в нулевой rect, поэтому
-	# абсолютные границы кадра здесь не мерило — мерило равенство колонки и рост
+	# relative geometry: the three new rows stand in one column under each other.
+	# In headless the anchored panels collapse into a zero rect, so absolute frame
+	# bounds are no measure here — what counts is column equality and ordering
 	var rows := []
 	for key in ["audio_enabled", "vibration_enabled", "particles_enabled"]:
 		var row := _menu_check(mm, key)
 		rows.append(row)
 		var rg: Rect2 = row.get_global_rect()
-		check(rg.size.y > 0.0, "%s: ряд имеет ненулевую высоту" % key)
+		check(rg.size.y > 0.0, "%s: the row has nonzero height" % key)
 	out["row_x"] = int(rows[0].get_global_position().x)
 	var col_ok := true
 	for r in rows:
 		if not is_equal_approx((r as Control).get_global_position().x, float(out["row_x"])): col_ok = false
-	check(col_ok, "ряды ЗВУК стоят в одну колонку")
+	check(col_ok, "the SOUND rows stand in one column")
 	var y0: float = (rows[0] as Control).get_global_position().y
 	var y1: float = (rows[1] as Control).get_global_position().y
 	var y2: float = (rows[2] as Control).get_global_position().y
-	check(y0 < y1 and y1 < y2, "галки идут сверху вниз по порядку таблицы")
+	check(y0 < y1 and y1 < y2, "the checkboxes go top to bottom in table order")
 	mm.close()
 	mm.queue_free()
 	await get_tree().process_frame

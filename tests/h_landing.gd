@@ -1,14 +1,15 @@
 extends Node3D
-# Жалоба: «когда машина приземляется куда сильно, то у ней очень много теряется скорости».
-# Причина найдена замером: хода подвески на жёсткую посадку не хватает, рама садится на
-# коллайдер, и тормозит её дальше уже он, а не резина. Проверка падает, если гидроупор
-# (BUMP_DAMP в CarRig) убрать: см. сравнение в README.
+# Report: "when the car lands really hard, it loses a huge amount of speed".
+# The cause was found by measurement: suspension travel is not enough for a hard landing,
+# the frame settles onto its collider, and from then on it is that collider braking the
+# car, not the tyres. The check fails if the bump stop (BUMP_DAMP in CarRig) is removed:
+# see the comparison in the README.
 const KMPS := 3.6
 const DROPS := [5.5, 8.0, 12.0]
 const SPEEDS := [200.0, 280.0]
-# пороги из замера С упором (ухудшение без него — в скобках):
-const PEAK_MAX := 85.0     # км/ч в секунду (без упора 106)
-const LOSS_MAX := 6.0      # км/ч за первые 5 тиков посадки (без упора 7.2)
+# thresholds from the measurement WITH the bump stop (the degradation without it is in brackets):
+const PEAK_MAX := 85.0     # km/h per second (106 without the stop)
+const LOSS_MAX := 6.0      # km/h over the first 5 landing ticks (7.2 without the stop)
 const WINDOW := 4
 
 var car: CarRig
@@ -33,8 +34,8 @@ func _ready() -> void:
 		for v in SPEEDS:
 			await _drop(float(h), float(v))
 	check(_cases >= DROPS.size() * SPEEDS.size(),
-		"тест не пустой: посадок измерено %d" % _cases)
-	print("худшая посадка: пик %.0f км/ч/с, потеря за 5 тиков %.2f км/ч (пороги %.0f и %.1f)" % [
+		"the test is not empty: landings measured %d" % _cases)
+	print("worst landing: peak %.0f km/h/s, loss over 5 ticks %.2f km/h (thresholds %.0f and %.1f)" % [
 		_worst_peak, _worst_loss, PEAK_MAX, LOSS_MAX])
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
@@ -43,7 +44,7 @@ func _drop(h: float, kmh: float) -> void:
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(20.0, 1.0, 0)))
 	for _i in 6:
 		await get_tree().physics_frame
-	# respawn сам ставит машину на высоту покоя, поэтому высоту падения задаём напрямую
+	# respawn itself puts the car at its ride height, so the drop height is set directly
 	var p0 := car.chassis.global_position
 	car.chassis.global_position = Vector3(p0.x, p0.y + h, p0.z)
 	car.chassis.reset_physics_interpolation()
@@ -68,7 +69,7 @@ func _drop(h: float, kmh: float) -> void:
 			lt = 0
 			break
 	if not air or v0 == 0.0:
-		print("PARTIAL: падение %.1f м @%.0f: полёт или касание не пойманы" % [h, kmh])
+		print("PARTIAL: drop %.1f m @%.0f: the flight or the touch-down was not caught" % [h, kmh])
 		return
 	for _i in 120:
 		await get_tree().physics_frame
@@ -81,7 +82,7 @@ func _drop(h: float, kmh: float) -> void:
 	_cases += 1
 	_worst_peak = maxf(_worst_peak, peak)
 	_worst_loss = maxf(_worst_loss, loss5)
-	print("падение %.1f м @%.0f км/ч: касание при vy=%.1f, пик %.0f км/ч/с (%.1f g), потеря за 5 тиков %.2f км/ч" % [
+	print("drop %.1f m @%.0f km/h: touch-down at vy=%.1f, peak %.0f km/h/s (%.1f g), loss over 5 ticks %.2f km/h" % [
 		h, kmh, vy0, peak, peak / 3.6 / 9.81, loss5])
-	check(peak < PEAK_MAX, "посадка %.1f м @%.0f тормозит в пределах сцепления (%.0f км/ч/с)" % [h, kmh, peak])
-	check(loss5 < LOSS_MAX, "посадка %.1f м @%.0f не съедает скорость за первые тики (%.2f км/ч)" % [h, kmh, loss5])
+	check(peak < PEAK_MAX, "the landing from %.1f m @%.0f brakes within grip (%.0f km/h/s)" % [h, kmh, peak])
+	check(loss5 < LOSS_MAX, "the landing from %.1f m @%.0f does not eat speed over the first ticks (%.2f km/h)" % [h, kmh, loss5])

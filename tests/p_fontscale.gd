@@ -1,7 +1,7 @@
 extends Node
-# Чистый эксперимент по шрифту: плоская тёмная подложка + подпись. Никакого 3D
-# фона, который мог бы испортить мерку краёв. Мериём один и тот же логический
-# прямоугольник при разном screen transform.
+# Clean font experiment: a flat dark backdrop plus a caption. No 3D background
+# that could spoil the edge measurement. The same logical rectangle is measured
+# under different screen transforms.
 
 const TEXT := "ЩУК 0123 ПИВО-НАСТРОЙКИ"
 const LOGICAL := Rect2i(40, 60, 640, 120)
@@ -87,7 +87,7 @@ func _report(want: Vector2i) -> void:
 				hard += 1
 			elif d[m] > 0.05:
 				soft += 1
-		var line := "%s | кадр=%dx%d | p99=%.4f max=%.4f | резких=%d мягких=%d" % [
+		var line := "%s | frame=%dx%d | p99=%.4f max=%.4f | hard=%d soft=%d" % [
 			tag, tex.get_width(), tex.get_height(), d[int(n * 0.99)], d[n - 1], hard, soft]
 		print(line)
 		var f := FileAccess.open("res://tests/out/font_matrix.txt", FileAccess.READ_WRITE)

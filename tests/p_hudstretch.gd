@@ -1,5 +1,5 @@
 extends Node
-# Боевой HUD на выбранном размере окна при 2D 1:1: спидометр, панели, журнал.
+# The live HUD at a chosen window size with 2D 1:1: speedometer, panels, log.
 
 var _f := 0
 var _stable := 0

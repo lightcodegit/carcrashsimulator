@@ -1,12 +1,12 @@
 extends Node3D
-# Реплей удара. Два курса: голый харнес (кольцо кадров, горизонт, события ударов и
-# точность проигрывания до последнего кадра) и живая сцена GameManager (меню паузы,
-# кнопки полосы, Esc, рестарт и возврат живого состояния).
+# Crash replay. Two tracks: the bare harness (frame ring, horizon, impact events and
+# playback accuracy down to the last frame) and the live GameManager scene (pause menu,
+# bar buttons, Esc, restart and restoration of live state).
 #
-# Главный признак, что реплей НЕ пересимулирует: позу машина берёт из кадра кольца,
-# а не из физики. В живой сцене мир стоит на паузе (ни одного шага симуляции), и
-# recorder за это время не дописывает ни кадра — обе проверки падают, если плеер
-# начнёт считать сам или если пауза не заморозит запись.
+# Key sign that the replay does NOT re-simulate: the car pose comes from ring frames,
+# not from physics. In the live scene the world is paused (zero simulation steps) and the
+# recorder appends not a single frame meanwhile — both checks fail if the player starts
+# computing on its own or if the pause does not freeze recording.
 var _fails := 0
 var car: CarRig
 var rec: ReplayRecorder
@@ -56,15 +56,15 @@ func _ready() -> void:
 
 	rec = ReplayRecorder.new()
 	add_child(rec)
-	rec.attach(car, null)          # без сцены: паузу харнес моделирует сам
+	rec.attach(car, null)          # no scene: the harness simulates the pause itself
 	player = ReplayPlayer.new()
 	add_child(player)
 	player.setup(rec, car, null)
 	rec.player = player
 	_guard_validation()
 
-# Регресс на дыру валидации ленты (#2) и падение frame_at на пустом кольце (#3).
-# Проверяем на реальном пустом рекордере до начала живых стадий.
+# Regression for the tape-validation hole (#2) and frame_at crashing on an empty ring (#3).
+# Checked on a real empty recorder before the live stages begin.
 func _mkframe(with_nitro: bool, with_hot: bool) -> Dictionary:
 	var b := PackedFloat32Array(); b.resize(9)
 	for i in 9: b[i] = float(i)
@@ -76,13 +76,13 @@ func _mkframe(with_nitro: bool, with_hot: bool) -> Dictionary:
 
 func _guard_validation() -> void:
 	check(ReplayRecorder._frames_valid([_mkframe(true, true)]),
-		"полный кадр с nitro и hot принимается")
+		"a full frame with nitro and hot is accepted")
 	check(not ReplayRecorder._frames_valid([_mkframe(false, true)]),
-		"кадр без nitro отклоняется: иначе _apply читает a.nitro и падает в реплее")
+		"a frame without nitro is rejected: otherwise _apply reads a.nitro and crashes in replay")
 	check(not ReplayRecorder._frames_valid([_mkframe(true, false)]),
-		"кадр без hot отклоняется: иначе _apply читает a.hot и падает в реплее")
+		"a frame without hot is rejected: otherwise _apply reads a.hot and crashes in replay")
 	check(rec.frame_at(0.0) == {},
-		"frame_at на пустом кольце отдаёт {}, а не индексирует frames[0]")
+		"frame_at on an empty ring returns {}, it does not index frames[0]")
 
 func _physics_process(_dt: float) -> void:
 	_ticks += 1
@@ -98,33 +98,33 @@ func _drive(on: bool) -> void:
 	if on: Input.action_press("throttle")
 	else: Input.action_release("throttle")
 
-# ── 1. кольцо: частота, горизонт, память ────────────────────────────────────
+# ── 1. ring: rate, horizon, memory ────────────────────────────────────
 func _ring() -> void:
 	if _ticks == 2:
 		_drive(true)
 		_t0 = rec.sim_t
 		return
 	if _ticks == 62:
-		# секунда физики = ровно RATE кадров и ровно 1 с симуляции
+		# one second of physics = exactly RATE frames and exactly 1 s of simulation
 		check(absf(rec.sim_t - (_t0 + 1.0)) < 0.05,
-			"секунда симуляции считается физическими тиками (%.3f)" % (rec.sim_t - _t0))
+			"a simulation second is counted by physics ticks (%.3f)" % (rec.sim_t - _t0))
 		check(absf(rec.count() - ReplayRecorder.RATE) <= 2,
-			"кадров в секунду ровно %d (%d)" % [int(ReplayRecorder.RATE), rec.count()])
+			"frames per second are exactly %d (%d)" % [int(ReplayRecorder.RATE), rec.count()])
 		return
 	if _ticks == 1202:
 		var span := rec.window_end() - rec.window_start()
 		check(rec.count() == ReplayRecorder.MAX_FRAMES,
-			"кольцо заполнено и не растёт дальше (%d из %d)" % [rec.count(), ReplayRecorder.MAX_FRAMES])
+			"the ring is full and does not grow further (%d of %d)" % [rec.count(), ReplayRecorder.MAX_FRAMES])
 		check(span <= ReplayRecorder.HORIZON_S + 0.15 and span >= ReplayRecorder.HORIZON_S - 0.6,
-			"окно реплея держит ровно %.0f с (%.2f)" % [ReplayRecorder.HORIZON_S, span])
+			"the replay window holds exactly %.0f s (%.2f)" % [ReplayRecorder.HORIZON_S, span])
 		var bytes := rec.bytes_used()
 		check(bytes > 0 and bytes < 4_000_000,
-			"окно в 10 с весит %.0f КБ и не раздувается" % (bytes / 1024.0))
-		print("bench: окно %d кадров = %.1f КБ, sim_t=%.2f" % [rec.count(), bytes / 1024.0, rec.sim_t])
+			"the 10 s window weighs %.0f KB and does not bloat" % (bytes / 1024.0))
+		print("bench: window %d frames = %.1f KB, sim_t=%.2f" % [rec.count(), bytes / 1024.0, rec.sim_t])
 		_phase = "impact"
 		_f = _ticks
 
-# ── 2. удар пишется событием, а не переписывается с нуля ────────────────────
+# ── 2. the impact is written as an event, not rewritten from scratch ─────────
 func _impact_stage() -> void:
 	if _ticks == _f + 2:
 		_drive(false)
@@ -133,66 +133,66 @@ func _impact_stage() -> void:
 		car.chassis.reset_physics_interpolation()
 		return
 	if _ticks != _f + 40: return
-	check(rec.dents.size() >= 1, "удар записан как событие (%d)" % rec.dents.size())
+	check(rec.dents.size() >= 1, "the impact was recorded as an event (%d)" % rec.dents.size())
 	var lt := rec.last_impact_t()
 	check(lt >= rec.window_start() and lt <= rec.window_end(),
-		"момент удара внутри окна (%.2f против [%.2f..%.2f])" % [lt, rec.window_start(), rec.window_end()])
+		"the impact moment is inside the window (%.2f vs [%.2f..%.2f])" % [lt, rec.window_start(), rec.window_end()])
 	var d: Dictionary = rec.dents[rec.dents.size() - 1]
 	check(d.lp is Vector3 and absf(d.ld.length() - 1.0) < 0.01,
-		"событие хранит точку и единичное направление в пространстве кузова (|n|=%.4f)" % d.ld.length())
+		"the event stores a point and a unit direction in body space (|n|=%.4f)" % d.ld.length())
 	_phase = "exact"
 	_f = _ticks
 
-# ── 3. точность проигрывания: поза из кадра, возврат состояния ───────────────
+# ── 3. playback accuracy: pose from the frame, state restoration ────────────
 func _exact_stage() -> void:
 	if _ticks != _f + 4: return
 	var tf_before := car.chassis.global_transform
 	var dents_before := car.body.dent_count
-	check(player.begin_at(rec.window_end() - 2.0), "плеер открыл окно за 2 с до конца")
-	check(car.replaying, "CarRig переведён в режим проигрывания")
-	# сравниваем ровно с кадром: между кадрами плеер blend-ит, и расхождение
-	# в полметра на 600 км/ч — это интерполяция, а не ошибка
+	check(player.begin_at(rec.window_end() - 2.0), "the player opened the window 2 s before the end")
+	check(car.replaying, "CarRig switched into replay mode")
+	# compare exactly against a frame: between frames the player blends, and half a meter
+	# of drift at 600 km/h is interpolation, not an error
 	var k: int = rec.count() - 20
 	var ft: float = float(rec.frames[k].t)
 	player.seek(ft)
 	var fr: Dictionary = rec.frame_at(ft)
 	var fp: PackedFloat32Array = fr.p
 	var got := car.chassis.global_transform.origin
-	check(absf(float(fr.t) - ft) < 1e-6, "мотка к кадру %.3f попала в тот же кадр" % ft)
+	check(absf(float(fr.t) - ft) < 1e-6, "seek to frame %.3f landed on the same frame" % ft)
 	check(got.distance_to(Vector3(fp[0], fp[1], fp[2])) < 1e-3,
-		"поза кадра отдана дословно (%.5f м расхождения)" %
+		"the frame pose is delivered verbatim (%.5f m of drift)" %
 		got.distance_to(Vector3(fp[0], fp[1], fp[2])))
 	check(absf(car.speed_kmh() - float(fr.kmh)) < 0.05,
-		"скорость на полосе = скорость из кадра (%.2f против %.2f)" % [car.speed_kmh(), float(fr.kmh)])
+		"speed on the bar = speed from the frame (%.2f vs %.2f)" % [car.speed_kmh(), float(fr.kmh)])
 	var before := car.chassis.global_position
 	player.scrub(-1)
 	var prev: PackedFloat32Array = rec.frames[k - 1].p
 	check(absf(player.cursor - (ft - 1.0 / ReplayRecorder.RATE)) < 1e-6,
-		"шаг назад сдвинул курсор ровно на кадр (%.5f против %.5f)" % [
+		"one step back moved the cursor by exactly one frame (%.5f vs %.5f)" % [
 			player.cursor, ft - 1.0 / ReplayRecorder.RATE])
 	check(car.chassis.global_position.distance_to(Vector3(prev[0], prev[1], prev[2])) < 0.02,
-		"шаг назад = предыдущий кадр кольца (%.5f м)" %
+		"one step back = the previous ring frame (%.5f m)" %
 		car.chassis.global_position.distance_to(Vector3(prev[0], prev[1], prev[2])))
-	check(car.chassis.global_position != before, "шаг назад реально сдвинул машину")
+	check(car.chassis.global_position != before, "stepping back actually moved the car")
 	if dents_before > 0:
 		player.seek(rec.window_start())
 		check(car.body.dent_count == 0,
-			"мотка к началу окна даёт кузов без вмятин этого окна (было %d)" % dents_before)
+			"seeking to the window start gives a body without this window's dents (was %d)" % dents_before)
 		player.seek(rec.window_end())
 		check(car.body.dent_count >= 1,
-			"перемотка к концу окна вернула вмятины (%d)" % car.body.dent_count)
+			"seeking to the window end brought the dents back (%d)" % car.body.dent_count)
 	player.end()
-	check(not car.replaying, "плеер снял режим проигрывания")
+	check(not car.replaying, "the player cleared the replay mode")
 	var d0 := car.chassis.global_transform.origin.distance_to(tf_before.origin)
-	check(d0 < 1e-4, "выход из реплея вернул живую позу точно (%.5f м)" % d0)
+	check(d0 < 1e-4, "exiting the replay restored the live pose exactly (%.5f m)" % d0)
 	check(car.body.dent_count == dents_before,
-		"выход вернул кузов в состояние входа (%d против %d)" % [car.body.dent_count, dents_before])
+		"exit restored the body to the entry state (%d vs %d)" % [car.body.dent_count, dents_before])
 	check(absf(car.chassis.global_transform.origin.y - tf_before.origin.y) < 1e-4,
-		"возврат не уронил и не поднял машину (%.4f)" % car.chassis.global_transform.origin.y)
+		"the restore neither dropped nor lifted the car (%.4f)" % car.chassis.global_transform.origin.y)
 	_phase = "scrub"
 	_f = _ticks
 
-# ── 4. recorder молчит, пока идёт повтор ────────────────────────────────────
+# ── 4. the recorder stays silent while playback runs ────────────────────────
 func _scrub_stage() -> void:
 	if _sub == 0:
 		_drive(true)
@@ -206,20 +206,20 @@ func _scrub_stage() -> void:
 		if not ok:
 			print("dbg begin: active=%s count=%d window=[%.2f..%.2f]" % [
 				player.active, rec.count(), rec.window_start(), rec.window_end()])
-		check(ok, "второй вход открылся")
+		check(ok, "the second entry opened")
 		player.playing = true
-		player.rate_i = 3          # ×2: пусть крутит как умеет
+		player.rate_i = 3          # ×2: let it spin as it can
 		_sub = 2
 		_sub_at = _ticks
 		return
 	if _sub == 2 and _ticks == _sub_at + 240:
 		_sub = 3
 		check(rec.sim_t == _t_snap,
-			"во время проигрывания recorder не пишет ни кадра (sim_t %.3f против %.3f)" % [rec.sim_t, _t_snap])
+			"while playing the recorder writes not a single frame (sim_t %.3f vs %.3f)" % [rec.sim_t, _t_snap])
 		check(rec.count() == _n_snap,
-			"кольцо не выросло во время реплея (%d против %d)" % [rec.count(), _n_snap])
+			"the ring did not grow during the replay (%d vs %d)" % [rec.count(), _n_snap])
 		check(player.cursor > rec.window_end() - 0.5,
-			"плеер продвинулся сам, без физического тика (%.2f)" % player.cursor)
+			"the player advanced on its own, without a physics tick (%.2f)" % player.cursor)
 		player.end()
 		return
 	if _sub == 3:
@@ -230,14 +230,14 @@ func _scrub_stage() -> void:
 		_gm = load("res://scenes/game.tscn").instantiate()
 		add_child(_gm)
 		_gm_f = 0
-# ── 5. живой путь: меню паузы → реплей → выход ──────────────────────────────
+# ── 5. the live path: pause menu → replay → exit ────────────────────────────
 func _game_stage() -> void:
 	_gm_f += 1
 	if _gm_f == 30:
 		check(_gm.replay != null and _gm.replay_player != null,
-			"GameManager собрал recorder и плеер")
+			"GameManager built the recorder and the player")
 		check(_gm.replay.player == _gm.replay_player,
-			"recorder подключён к плееру: повтор сам себя не пишет")
+			"the recorder is wired to the player: a replay does not record itself")
 		Input.action_press("throttle")
 	if _gm_f == 150:
 		Input.action_release("throttle")
@@ -246,10 +246,10 @@ func _game_stage() -> void:
 		_gm.car.chassis.reset_physics_interpolation()
 	if _gm_f == 175:
 		check(_gm.replay.dents.size() >= 1,
-			"жёсткая посадка записана как удар (%d)" % _gm.replay.dents.size())
+			"the hard landing was recorded as an impact (%d)" % _gm.replay.dents.size())
 		_gm._set_paused(true)
 		var btn := _gm.hud.pause_button("РЕПЛЕЙ УДАРА")
-		check(btn != null, "в меню паузы есть пятая строка «РЕПЛЕЙ УДАРА»")
+		check(btn != null, "the pause menu has a fifth row «РЕПЛЕЙ УДАРА»")
 		if btn == null:
 			_finish(); return
 		_entry_tf = _gm.car.chassis.global_transform
@@ -259,68 +259,68 @@ func _game_stage() -> void:
 		_sim_t_at_entry = _gm.replay.sim_t
 		btn.pressed.emit()
 	if _gm_f == 180:
-		check(_gm.replay_player.active, "РЕПЛЕЙ открыл проигрывание")
-		check(_gm.is_frozen(), "на реплее мир заморожен")
-		check(_gm.hud.replay_ui_visible(), "полоса реплея видна")
-		check(not _gm.hud._pause_panel.visible, "карточка паузы спрятана, мир виден")
-		check(_gm.car.replaying, "машина рисуется из плеера")
+		check(_gm.replay_player.active, "РЕПЛЕЙ started playback")
+		check(_gm.is_frozen(), "the world is frozen during the replay")
+		check(_gm.hud.replay_ui_visible(), "the replay bar is visible")
+		check(not _gm.hud._pause_panel.visible, "the pause card is hidden, the world is visible")
+		check(_gm.car.replaying, "the car is rendered from the player")
 	if _gm_f == 210:
 		var lt := _gm.replay.last_impact_t()
 		var c := _gm.replay_player.cursor
 		check(c >= lt - 1.6 and c <= lt + 0.5,
-			"реплей стартовал у последнего удара (курсор %.2f, удар %.2f)" % [c, lt])
-		check(_gm.replay_player.rate() == 0.25, "повтор идёт в ×0.25")
+			"the replay started at the last impact (cursor %.2f, impact %.2f)" % [c, lt])
+		check(_gm.replay_player.rate() == 0.25, "playback runs at ×0.25")
 		_gm.hud.replay_button("ШАГ ▶").pressed.emit()
 		_gm.hud.replay_button("БЫСТРЕЕ").pressed.emit()
 	if _gm_f == 212:
 		check(absf(_gm.replay_player.rate() - 0.5) < 1e-6,
-			"«БЫСТРЕЕ» подняло скорость до ×0.5 (%.2f)" % _gm.replay_player.rate())
+			"«БЫСТРЕЕ» raised the speed to ×0.5 (%.2f)" % _gm.replay_player.rate())
 		_gm.hud.replay_button("◀ ШАГ").pressed.emit()
 	if _gm_f == 214:
-		check(not _gm.replay_player.playing, "шаг не возобновляет проигрывание")
+		check(not _gm.replay_player.playing, "stepping does not resume playback")
 		_gm.hud.replay_button("ПАУЗА/ПУСК").pressed.emit()
 	if _gm_f == 216:
-		check(_gm.replay_player.playing, "«ПАУЗА/ПУСК» на остановленном запускает снова")
+		check(_gm.replay_player.playing, "«ПАУЗА/ПУСК» while stopped starts playback again")
 		_gm.hud.replay_button("ПАУЗА/ПУСК").pressed.emit()
 	if _gm_f == 218:
-		check(not _gm.replay_player.playing, "тот же клик ставит на паузу")
+		check(not _gm.replay_player.playing, "the same click pauses again")
 		check(_gm.replay.sim_t == _sim_t_at_entry,
-			"recorder на живом реплее молчит (%.3f против %.3f)" % [_gm.replay.sim_t, _sim_t_at_entry])
+			"the recorder is silent during the live replay (%.3f vs %.3f)" % [_gm.replay.sim_t, _sim_t_at_entry])
 		_gm.hud.replay_button("ВЫХОД").pressed.emit()
 	if _gm_f == 222:
-		check(not _gm.replay_player.active, "выход завершил реплей")
-		check(not _gm.is_frozen(), "мир снова идёт")
-		check(not _gm.hud.replay_ui_visible(), "полоса реплея скрыта после выхода")
+		check(not _gm.replay_player.active, "exit finished the replay")
+		check(not _gm.is_frozen(), "the world runs again")
+		check(not _gm.hud.replay_ui_visible(), "the replay bar is hidden after exit")
 		var d := _gm.car.chassis.global_transform.origin.distance_to(_entry_tf.origin)
-		check(d < 0.05, "поза после выхода совпала с позами входа (%.4f м)" % d)
+		check(d < 0.05, "the pose after exit matches the entry poses (%.4f m)" % d)
 		check(_gm.car.chassis.linear_velocity.distance_to(_entry_lin) < 0.5,
-			"возврат не обнулил скорость машины (%.2f против %.2f)" %
+			"the restore did not zero the car's speed (%.2f vs %.2f)" %
 			[_gm.car.chassis.linear_velocity.length(), _entry_lin.length()])
 		check(_gm.car.body.dent_count == _entry_dents,
-			"кузов вернулся в состояние входа (%d против %d)" % [_gm.car.body.dent_count, _entry_dents])
+			"the body returned to the entry state (%d vs %d)" % [_gm.car.body.dent_count, _entry_dents])
 		check(absf(_gm.car.body.max_depth - _entry_depth) < 1e-3,
-			"глубина вмятины та же, что до реплея (%.4f против %.4f)" %
+			"the dent depth is the same as before the replay (%.4f vs %.4f)" %
 			[_gm.car.body.max_depth, _entry_depth])
 	if _gm_f == 250:
 		_gm._set_paused(true)
 		_gm.hud.pause_button("РЕПЛЕЙ УДАРА").pressed.emit()
 	if _gm_f == 254:
-		check(_gm.replay_player.active, "второй вход в реплей открылся")
+		check(_gm.replay_player.active, "the second entry into the replay opened")
 		_gm._unhandled_input(_act("pause"))
 	if _gm_f == 258:
-		check(not _gm.replay_player.active, "Esc вышел из реплея в заезд")
-		check(not _gm.is_frozen(), "после Esc мир размяк")
+		check(not _gm.replay_player.active, "Esc left the replay back into the run")
+		check(not _gm.is_frozen(), "after Esc the world unfroze")
 		_gm._set_paused(true)
 		_gm.hud.pause_button("РЕПЛЕЙ УДАРА").pressed.emit()
 	if _gm_f == 262:
 		_gm._unhandled_input(_act("respawn"))
 	if _gm_f == 266:
-		check(not _gm.replay_player.active, "R во время реплея выходит из повтора")
-		# окно началось заново: до респауна оно было полным (200 кадров), а после
-		# рестарта не успело наполниться и до секунды
+		check(not _gm.replay_player.active, "R during the replay exits the playback")
+		# the window restarted: before respawn it was full (200 frames), after the
+		# restart it had no time to fill even a second
 		check(_gm.replay.count() < int(ReplayRecorder.RATE),
-			"рестарт обнулил окно: повтора через телепорт нет (%d кадров)" % _gm.replay.count())
-		check(not _gm.is_frozen(), "после R заезд продолжается")
+			"the restart reset the window: no replay through a teleport (%d frames)" % _gm.replay.count())
+		check(not _gm.is_frozen(), "after R the run continues")
 		_finish()
 
 func _finish() -> void:

@@ -1,7 +1,7 @@
 extends Node
 
-# Хост: окно-«редактор», в которое мы посадим игру через --wid.
-# Пишет свой нативный хендл в файл и живёт заданное число кадров.
+# Host: an "editor" window the game is embedded into via --wid.
+# Writes its native handle to a file and lives for a fixed number of frames.
 
 const OUT := "res://tests/out/embed_host.txt"
 const LIFE := 400

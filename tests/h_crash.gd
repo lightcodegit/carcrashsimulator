@@ -1,6 +1,6 @@
 extends Node3D
-# Краш-сценарий: седан разгоняется в бетонную стену. Проверяет регистрацию удара,
-# остановку, появление и сохранение вмятин, непроходимость стены и стоимость удара.
+# Crash scenario: a sedan accelerates into a concrete wall. Checks impact registration,
+# stopping, dents appearing and persisting, wall solidity and the cost of an impact.
 var _fails := 0
 var _frame := 0
 var car: CarRig
@@ -28,43 +28,43 @@ func _ready() -> void:
 	car.impact.connect(func(s: float, _p: Vector3, _n: Vector3) -> void: _impacts.append(s))
 
 func _physics_process(_dt: float) -> void:
-	# машина собирается в _ready через await: на реальном рендере это позже
-	# нужного кадра, и отсчёт ведём от её появления, а не от запуска сцены
+	# the car is built in _ready via await: on a live renderer that lands later
+	# than the needed frame, so count frames from its appearance, not scene start
 	if car == null: return
 	_frame += 1
 	if _frame == 5: Input.action_press("throttle")
 	if _frame == 750:
 		Input.action_release("throttle")
 		var b := car.body
-		check(_impacts.size() > 0, "удар зарегистрирован (%s)" % str(_impacts))
+		check(_impacts.size() > 0, "impact registered (%s)" % str(_impacts))
 		check(_impacts.size() > 0 and _impacts[0] > 40.0 and _impacts[0] < 170.0,
-			"скорость удара правдоподобна (%s)" % str(_impacts))
-		check(car.speed_kmh() < 8.0, "машина остановилась (%.1f км/ч)" % car.speed_kmh())
-		check(car.chassis.global_position.x < WALL_X, "рама не вошла в стену (%.2f)" % car.chassis.global_position.x)
-		check(b.dent_count > 0, "вмятины появились (%d)" % b.dent_count)
+			"impact speed plausible (%s)" % str(_impacts))
+		check(car.speed_kmh() < 8.0, "the car came to a stop (%.1f km/h)" % car.speed_kmh())
+		check(car.chassis.global_position.x < WALL_X, "chassis did not enter the wall (%.2f)" % car.chassis.global_position.x)
+		check(b.dent_count > 0, "dents appeared (%d)" % b.dent_count)
 		_def_at_crash = b.deformation()
-		check(_def_at_crash > 0.5, "кузов деформирован заметно (%.2f м)" % _def_at_crash)
+		check(_def_at_crash > 0.5, "body visibly deformed (%.2f m)" % _def_at_crash)
 		check(b.max_depth > 0.05 and b.max_depth < b.height * 0.45,
-			"глубина вмятины в пределах кузова (%.3f м при высоте %.2f)" % [b.max_depth, b.height])
+			"dent depth within body bounds (%.3f m at height %.2f)" % [b.max_depth, b.height])
 		var thru := 0; var below := 0; var bad := 0
 		for i in b.vertex_count():
 			var w := b.vertex_world(i)
 			if not w.is_finite(): bad += 1
 			if w.x > WALL_X + 0.6: thru += 1
 			if w.y < -0.05: below += 1
-		check(bad == 0, "все вершины конечны (%d)" % bad)
-		check(thru == 0, "кузов не прошёл сквозь стену (%d)" % thru)
-		check(below == 0, "кузов не ушёл под пол (%d)" % below)
+		check(bad == 0, "all vertices finite (%d)" % bad)
+		check(thru == 0, "body did not pass through the wall (%d)" % thru)
+		check(below == 0, "body did not sink under the floor (%d)" % below)
 		pass
 	if _frame == 1250:
 		var b := car.body
 		check(absf(b.deformation() - _def_at_crash) < 1e-6,
-			"вмятины не заживают (%.4f -> %.4f)" % [_def_at_crash, b.deformation()])
-		check(car.speed_kmh() < 4.0, "машина стоит (%.1f км/ч)" % car.speed_kmh())
-		# Стоимостью удара считаем пересборку меша кузова. Мерить её межфрейдовым таймером
-		# нельзя: на фоновой нагрузке вылетало ложно (61–83 мс на «максимальном кадре» при
-		# реальной пересборке в единицы миллисекунд). Берём медиану трёх ударов и в самом
-		# конце — чтобы лишняя вмятина не мешала проверке «вмятины не заживают».
+			"dents do not heal (%.4f -> %.4f)" % [_def_at_crash, b.deformation()])
+		check(car.speed_kmh() < 4.0, "the car is stationary (%.1f km/h)" % car.speed_kmh())
+		# The cost of an impact is measured by rebuilding the body mesh. Timing it with an
+		# inter-frame clock is unreliable: under background load it false-fired (61–83 ms on a
+		# "max frame" while the real rebuild takes a few milliseconds). Take the median of three
+		# hits, and at the very end — so an extra dent does not disturb the "dents do not heal" check.
 		var costs: Array[float] = []
 		for i in 3:
 			var t0 := Time.get_ticks_usec()
@@ -72,8 +72,8 @@ func _physics_process(_dt: float) -> void:
 			costs.append(float(Time.get_ticks_usec() - t0) / 1000.0)
 		costs.sort()
 		_impact_ms = costs[1]
-		check(_impact_ms < 40.0, "пересборка кузова после удара (%.2f мс, все %s)" % [_impact_ms, str(costs)])
-		print("CRASH impacts=%s dents=%d depth=%.3f м deform=%.2f м удар=%.2f мс" % [
+		check(_impact_ms < 40.0, "body rebuild after impact (%.2f ms, all %s)" % [_impact_ms, str(costs)])
+		print("CRASH impacts=%s dents=%d depth=%.3f m deform=%.2f m impact=%.2f ms" % [
 			str(_impacts), b.dent_count, b.max_depth, b.deformation(), _impact_ms])
 		print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 		get_tree().quit(0 if _fails == 0 else 1)

@@ -1,8 +1,8 @@
 extends Node
-# Торможение: связка «педаль + ручник» обязана быть сильнее каждой педали по
-# отдельности (раньше при зажатом ручнике служебный тормоз выбрасывался, и вместе
-# они тормозили ХУЖЕ, чем одна педаль), а остановившаяся машина с зажатой S —
-# сначала стоять, и только потом давать задний ход.
+# Braking: the "pedal + handbrake" combo must be stronger than either pedal alone
+# (earlier, with the handbrake held the service brake was dropped, and together
+# they braked WORSE than the pedal alone), and a stopped car with S held must
+# first stay put, and only then start reversing.
 var _fails := 0
 var gm: GameManager
 var _f := 0
@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 	_last = p
 	var v := car.speed_kmh()
 	if _f > 3000:
-		check(false, "таймаут прогона в фазе %s" % _phase)
+		check(false, "run timeout in phase %s" % _phase)
 		_finish()
 		return
 	match _phase:
@@ -67,20 +67,20 @@ func _physics_process(delta: float) -> void:
 		"bh":
 			if v <= 3.0:
 				var d_bh := _d - _d0
-				print("пути: педаль %.1f м, педаль+ручник %.1f м" % [_d_brake, d_bh])
+				print("distances: pedal %.1f m, pedal+handbrake %.1f m" % [_d_brake, d_bh])
 				check(d_bh < _d_brake * 0.9,
-					"связка сильнее педали одной (%.1f против %.1f м)" % [d_bh, _d_brake])
+					"the combo is stronger than the pedal alone (%.1f vs %.1f m)" % [d_bh, _d_brake])
 				_stop_all()
 				_phase = "hold"
 				_d0 = _f
 		"hold":
-			# с зажатой S на полной остановке: первые 0.3 с машина не отъезжает назад,
-			# к 1.2 с задний ход уже включился
+			# with S held at a full stop: for the first 0.3 s the car must not creep back,
+			# by 1.2 s reversing must have engaged
 			if _f == int(_d0 + 18): _v_hold = car.chassis.linear_velocity.dot(gm.car.forward())
 			if _f == int(_d0 + 72):
 				_v_rev = car.chassis.linear_velocity.dot(gm.car.forward())
-				check(_v_hold > -0.5, "сразу после остановки S держит, а не толкает назад (%.2f м/с)" % _v_hold)
-				check(_v_rev < -0.5, "после удержания S даёт задний ход (%.2f м/с)" % _v_rev)
+				check(_v_hold > -0.5, "right after stopping S holds instead of pushing back (%.2f m/s)" % _v_hold)
+				check(_v_rev < -0.5, "after the hold S engages reverse (%.2f m/s)" % _v_rev)
 				_finish()
 			Input.action_press("brake")
 

@@ -1,11 +1,11 @@
 extends Node3D
-# Следы резины: полоса появляется только там, где колесо реально скользит.
-# A) прямолинейный разгон — следов нет
-# B) занос на ручнике — следы есть, лежат на земле, ширина и длина в пределах пятна
-# C) отпустил ручник — сцепление вернулось, следы перестали расти
-# D) респавн обрывает полосу: нет мазка через всю карту от места аварии до старта
-# E) кольцо перезаписывает самые старые слоты и не растёт
-# F) GameManager подключает SkidMarks к живой машине
+# Tire marks: a strip appears only where a wheel actually slides.
+# A) straight acceleration — no marks
+# B) handbrake drift — marks exist, lie on the ground, width and length within the contact patch
+# C) handbrake released — grip returned, marks stopped growing
+# D) respawn breaks the strip: no smear across the whole map from the crash site to the start
+# E) the ring overwrites the oldest slots and does not grow
+# F) GameManager attaches SkidMarks to the live car
 const SLOTS_HALF := SkidMarks.SLOTS / 2
 
 var _fails := 0
@@ -47,27 +47,27 @@ func _physics_process(_dt: float) -> void:
 	match _phase:
 		"A":
 			if _ticks == 90:
-				check(skid.marks_drawn() == 0, "A: прямолинейный разгон без следов (%d)" % skid.marks_drawn())
-				check(car.speed_kmh() > 30.0, "A: машина разогналась (%.1f км/ч)" % car.speed_kmh())
+				check(skid.marks_drawn() == 0, "A: straight acceleration leaves no marks (%d)" % skid.marks_drawn())
+				check(car.speed_kmh() > 30.0, "A: the car accelerated (%.1f km/h)" % car.speed_kmh())
 				Input.action_press("handbrake")
 				Input.action_press("steer_left")
 				_enter("B")
 		"B":
 			if _ticks == 60:
 				check(skid.marks_drawn() - _marks_at_phase > 30,
-					"B: занос на ручнике оставил след (%d сегментов)" % (skid.marks_drawn() - _marks_at_phase))
+					"B: the handbrake drift left marks (%d segments)" % (skid.marks_drawn() - _marks_at_phase))
 				_check_geometry()
 				Input.action_release("handbrake")
 				Input.action_release("steer_left")
 				_enter("C")
 		"C":
-			# занос гасится ESP не мгновенно: сначала даём сцеплению вернуться, и только
-			# потом требуем, чтобы следы перестали расти вовсе
+			# the drift is killed by ESP not instantly: first let the grip return, and only
+			# then demand the marks stop growing altogether
 			if _ticks == 90:
 				_marks_settled = skid.marks_drawn()
 			if _ticks == 180:
 				check(skid.marks_drawn() == _marks_settled,
-					"C: после возврата сцепления следы не растут (%d за 1.5 с)" % (skid.marks_drawn() - _marks_settled))
+					"C: marks do not grow after grip returns (%d in 1.5 s)" % (skid.marks_drawn() - _marks_settled))
 				_marks_before_respawn = skid.marks_drawn()
 				car.respawn(Transform3D(Basis.IDENTITY, Vector3(400, 1.0, 200)))
 				skid.respawn()
@@ -75,8 +75,8 @@ func _physics_process(_dt: float) -> void:
 		"D":
 			if _ticks == 60:
 				check(skid.marks_drawn() == _marks_before_respawn,
-					"D: респавн не прочертил полосу через карту (%d → %d)" % [_marks_before_respawn, skid.marks_drawn()])
-				check(car.speed_kmh() > 15.0, "D: после респавна машина снова в движении (%.1f км/ч)" % car.speed_kmh())
+					"D: respawn did not draw a strip across the map (%d → %d)" % [_marks_before_respawn, skid.marks_drawn()])
+				check(car.speed_kmh() > 15.0, "D: the car moves again after respawn (%.1f km/h)" % car.speed_kmh())
 				_marks_at_drift = skid.marks_drawn()
 				Input.action_press("handbrake")
 				Input.action_press("steer_left")
@@ -84,12 +84,12 @@ func _physics_process(_dt: float) -> void:
 		"E":
 			if _ticks == 8:
 				var drawn := skid.marks_drawn() - _marks_at_drift
-				check(drawn > 0, "D: занос после респавна снова чертит (%d)" % drawn)
+				check(drawn > 0, "D: the drift after respawn draws again (%d)" % drawn)
 				var here := car.chassis.global_position
 				for k in drawn:
 					var t := skid.segment((_marks_at_drift + k) % SkidMarks.SLOTS)
 					var flat := Vector2(t.origin.x - here.x, t.origin.z - here.z).length()
-					check(flat < 10.0, "D: новый след у машины, а не у старой точки (%.1f м)" % flat)
+					check(flat < 10.0, "D: the new mark is by the car, not at the old spot (%.1f m)" % flat)
 				Input.action_release("handbrake")
 				Input.action_release("steer_left")
 				Input.action_release("throttle")
@@ -98,19 +98,19 @@ func _physics_process(_dt: float) -> void:
 			if _ticks == 5:
 				_check_ring()
 				var live := skid.marks_live()
-				check(live > 0, "F: до истечения срока полосы живые (%d)" % live)
-				# 1 секунда игрового времени — и след обязан исчезнуть сам
+				check(live > 0, "F: strips are alive before expiry (%d)" % live)
+				# 1 second of game time — and the mark must vanish on its own
 				Settings.skid_life = 1.0
 				_enter("G")
 		"G":
 			if _ticks == 120:
 				check(skid.marks_live() == 0,
-					"G: срок вышел — колец живых не осталось (%d)" % skid.marks_live())
+					"G: lifetime expired — no live rings left (%d)" % skid.marks_live())
 				var seen := 0
 				for i in SkidMarks.SLOTS:
 					if skid.segment(i).basis.get_scale().length() > 0.001: seen += 1
-				check(seen == 0, "G: исчезнувшие полосы правда скрыты, а не перезаписаны (%d)" % seen)
-				# 0 = «не исчезают»: старое поведение кольца оставляем проверяемым
+				check(seen == 0, "G: vanished strips are really hidden, not overwritten (%d)" % seen)
+				# 0 = "never expire": keep the ring's old behavior checkable
 				Settings.skid_life = 0.0
 				car.respawn(Transform3D(Basis.IDENTITY, Vector3(-20, 1.0, 0)))
 				Input.action_press("throttle")
@@ -121,20 +121,20 @@ func _physics_process(_dt: float) -> void:
 				Input.action_press("steer_left")
 			if _ticks == 165:
 				var drawn := skid.marks_live()
-				check(drawn > 0, "H: без срока годности полосы рисуются (%d)" % drawn)
+				check(drawn > 0, "H: with no expiry strips are drawn (%d)" % drawn)
 				Input.action_release("handbrake")
 				Input.action_release("steer_left")
 				Input.action_release("throttle")
 			if _ticks == 400:
 				check(skid.marks_live() > 0,
-					"H: со сроком 0 полосы не исчезают (%d живых через 4 с)" % skid.marks_live())
+					"H: with lifetime 0 strips never vanish (%d alive after 4 s)" % skid.marks_live())
 				Settings.skid_life = 30.0
 				_check_manager()
 				print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 				get_tree().quit(0 if _fails == 0 else 1)
 
-# Каждый сегмент — плоская полоса на уровне земли: выше она зависнет над полотном,
-# ниже — провалится в асфальт и пропадёт.
+# Each segment is a flat strip at ground level: higher it hangs above the road,
+# lower it sinks into asphalt and disappears.
 func _check_geometry() -> void:
 	var seen := 0
 	var widest := 0.0
@@ -150,23 +150,23 @@ func _check_geometry() -> void:
 		longest = maxf(longest, absf(s.z))
 		highest = maxf(highest, absf(t.origin.y))
 		farthest = maxf(farthest, t.origin.distance_to(_spawn))
-	check(seen > 30, "B: сегментов на земле (%d)" % seen)
-	check(is_equal_approx(widest, SkidMarks.WIDTH), "B: ширина равна пятну контакта (%.3f)" % widest)
+	check(seen > 30, "B: segments on the ground (%d)" % seen)
+	check(is_equal_approx(widest, SkidMarks.WIDTH), "B: width equals the contact patch (%.3f)" % widest)
 	check(longest >= SkidMarks.MIN_LEN and longest <= SkidMarks.MAX_LEN + SkidMarks.WIDTH + 1e-4,
-		"B: длина сегмента в пределах (%.3f)" % longest)
-	# высота покоя подвески равна радиусу колеса с погрешностью колебаний, поэтому допуск
-	check(highest <= SkidMarks.LIFT + 0.05, "B: полоса лежит на земле (%.4f м)" % highest)
-	check(farthest < 200.0, "B: следы рядом с траекторией (%.1f м)" % farthest)
+		"B: segment length within limits (%.3f)" % longest)
+	# the suspension rest height equals the wheel radius within oscillation error, hence the tolerance
+	check(highest <= SkidMarks.LIFT + 0.05, "B: the strip lies on the ground (%.4f m)" % highest)
+	check(farthest < 200.0, "B: marks near the trajectory (%.1f m)" % farthest)
 
-# Кольцо фиксированного размера: synthetic-сегменты с шагом 1 м занимают все слоты,
-# поэтому старые следы заноса обязаны исчезнуть, а число инстансов — не вырасти.
+# A fixed-size ring: synthetic segments with a 1 m step fill every slot, so the old drift
+# marks must disappear and the instance count must not grow.
 func _check_ring() -> void:
 	var before := skid.marks_drawn()
 	for k in SkidMarks.SLOTS + 7:
 		skid._put(Vector3(float(k), 0.0, -100.0), Vector3.FORWARD, 0.1, 1.0)
-	check(skid.marks_drawn() == before + SkidMarks.SLOTS + 7, "E: счётчик растёт за пределами кольца")
+	check(skid.marks_drawn() == before + SkidMarks.SLOTS + 7, "E: the counter grows beyond the ring")
 	check(skid.multimesh.instance_count == SkidMarks.SLOTS,
-		"E: число инстансов фиксировано (%d)" % skid.multimesh.instance_count)
+		"E: the instance count is fixed (%d)" % skid.multimesh.instance_count)
 	var used := 0
 	var fresh := 0
 	for i in SkidMarks.SLOTS:
@@ -174,25 +174,25 @@ func _check_ring() -> void:
 		if t.basis.get_scale().length() < 0.001: continue
 		used += 1
 		if is_equal_approx(t.origin.z, -100.0) and t.origin.x > float(SLOTS_HALF): fresh += 1
-	check(used == SkidMarks.SLOTS, "E: кольцо перезаписало все слоты (%d)" % used)
-	check(fresh >= SLOTS_HALF, "E: самые старые следы вытеснены новыми (%d)" % fresh)
+	check(used == SkidMarks.SLOTS, "E: the ring overwrote every slot (%d)" % used)
+	check(fresh >= SLOTS_HALF, "E: the oldest marks were evicted by new ones (%d)" % fresh)
 
-# Интеграция: GameManager сам создаёт SkidMarks, даёт ему машину и держит слоты пустыми.
+# Integration: GameManager creates SkidMarks itself, gives it the car, and keeps the slots empty.
 func _check_manager() -> void:
 	GameContext.select("sport", "arena")
 	var gm: GameManager = load("res://scenes/game.tscn").instantiate()
 	add_child(gm)
-	check(gm.skid != null, "F: GameManager создаёт SkidMarks")
-	check(gm.skid.get_parent() == gm, "F: следы живут в мире игры")
-	check(gm.skid.multimesh != null and gm.skid.multimesh.instance_count == SkidMarks.SLOTS, "F: кольцо выделено")
-	check(gm.skid.multimesh.use_colors, "F: насыщенность следа задаётся цветом инстанса")
-	check(gm.skid.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "F: следы не отбрасывают тень")
-	check(gm.car.wheel_count() == 4, "F: у машины четыре колеса (%d)" % gm.car.wheel_count())
+	check(gm.skid != null, "F: GameManager creates SkidMarks")
+	check(gm.skid.get_parent() == gm, "F: marks live in the game world")
+	check(gm.skid.multimesh != null and gm.skid.multimesh.instance_count == SkidMarks.SLOTS, "F: the ring is allocated")
+	check(gm.skid.multimesh.use_colors, "F: mark intensity is set by the instance color")
+	check(gm.skid.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "F: marks cast no shadow")
+	check(gm.car.wheel_count() == 4, "F: the car has four wheels (%d)" % gm.car.wheel_count())
 	var hidden := true
 	for i in SkidMarks.SLOTS:
 		if gm.skid.segment(i).basis.get_scale().length() >= 0.001:
 			hidden = false
 			break
-	check(hidden, "F: до заноса все слоты пусты")
-	check(gm.skid.marks_drawn() == 0, "F: на старте следов нет (%d)" % gm.skid.marks_drawn())
+	check(hidden, "F: all slots are empty before the drift")
+	check(gm.skid.marks_drawn() == 0, "F: no marks at the start (%d)" % gm.skid.marks_drawn())
 	gm.queue_free()

@@ -1,9 +1,9 @@
 extends Node3D
-# Доводка материалов: Kenney отдаёт плоский диффуз (roughness 1, metallic 0, без
-# specular), из-за чего асфальт выглядит бумагой, а кузова в тени чернеют. Проверяем,
-# что после Materials.apply_tree у дорожных поверхностей появились процедурные карты
-# шероховатости и нормалей, пятнистость крупных поверхностей во втором UV-наборе,
-# у припаркованных машин — лак, а у процедурных коробок MapDB — зерно бетона.
+# Material finishing: Kenney ships a flat diffuse (roughness 1, metallic 0, no
+# specular), which makes the asphalt look like paper and the bodies go black in shade.
+# We check that after Materials.apply_tree the road surfaces gained procedural
+# roughness and normal maps, large surfaces gained mottling in the second UV set,
+# parked cars gained clearcoat, and MapDB's procedural boxes gained concrete grain.
 var _fails := 0
 var _road := 0
 var _road_pbr := 0
@@ -43,8 +43,9 @@ func _scan(n: Node) -> void:
 	for c in n.get_children():
 		_scan(c)
 
-# Пятнистость обязана жить во втором UV-наборе: в первом уже мелкое зерно, и общий
-# масштаб превратил бы либо зерно в пятна, либо пятна в пыль.
+# The mottling must live in the second UV set: the first one already carries the fine
+# grain, and one shared scale would turn either the grain into blotches or the blotches
+# into dust.
 func _has_detail(mat: StandardMaterial3D) -> bool:
 	return mat.detail_enabled \
 		and mat.detail_albedo != null \
@@ -57,7 +58,7 @@ func _mat_of(mi: MeshInstance3D, i: int) -> StandardMaterial3D:
 	var mat: Material = over if over != null else mi.mesh.surface_get_material(i)
 	return mat as StandardMaterial3D
 
-# Припаркованная машина — та же краска, что и у игрока: лак вместо голого диффуза.
+# A parked car carries the same paint as the player's: clearcoat instead of a bare diffuse.
 func _scan_car(n: Node) -> void:
 	var found := false
 	var clear := false
@@ -89,28 +90,28 @@ func _ready() -> void:
 		_scan(root)
 		for c in get_tree().get_nodes_in_group(MapDefs.GROUP_PARKED):
 			_scan_car(c)
-		check(_road > 10, "%s: дорожные поверхности найдены (%d)" % [id, _road])
-		check(_road_pbr == _road, "%s: у всего асфальта есть карты шероховатости и нормалей (%d из %d)" % [id, _road_pbr, _road])
-		check(_road_detail == _road, "%s: асфальт пятнистый, а не плоский (%d из %d)" % [id, _road_detail, _road])
-		check(_flat == 0, "%s: не осталось плоского диффуза roughness=1 (%d)" % [id, _flat])
-		check(_boxes > 0 and _boxes_pbr == _boxes, "%s: процедурные коробки с зерном бетона (%d из %d)" % [id, _boxes_pbr, _boxes])
-		check(_boxes_detail == _boxes, "%s: бетон пятнистый (%d из %d)" % [id, _boxes_detail, _boxes])
+		check(_road > 10, "%s: road surfaces found (%d)" % [id, _road])
+		check(_road_pbr == _road, "%s: all asphalt has roughness and normal maps (%d of %d)" % [id, _road_pbr, _road])
+		check(_road_detail == _road, "%s: the asphalt is mottled, not flat (%d of %d)" % [id, _road_detail, _road])
+		check(_flat == 0, "%s: no flat roughness=1 diffuse is left (%d)" % [id, _flat])
+		check(_boxes > 0 and _boxes_pbr == _boxes, "%s: procedural boxes with concrete grain (%d of %d)" % [id, _boxes_pbr, _boxes])
+		check(_boxes_detail == _boxes, "%s: the concrete is mottled (%d of %d)" % [id, _boxes_detail, _boxes])
 		_grass_seen += _grass
 		if _grass > 0:
-			check(_grass_detail == _grass, "%s: трава с проплешинами (%d из %d)" % [id, _grass_detail, _grass])
+			check(_grass_detail == _grass, "%s: the grass has bald patches (%d of %d)" % [id, _grass_detail, _grass])
 		if id == "town":
-			check(_cars >= 6, "%s: припаркованные машины найдены (%d)" % [id, _cars])
-			check(_cars == _cars_clear, "%s: у всех припаркованных машин есть лак (%d из %d)" % [id, _cars_clear, _cars])
+			check(_cars >= 6, "%s: parked cars found (%d)" % [id, _cars])
+			check(_cars == _cars_clear, "%s: every parked car has clearcoat (%d of %d)" % [id, _cars_clear, _cars])
 		root.queue_free()
 		await get_tree().process_frame
 	_check_detail_image()
-	# пропущенная ветка не оставила бы следа, если травы нет ни на одной карте
-	check(_grass_seen > 0, "трава попадала в проверку хотя бы на одной карте (%d)" % _grass_seen)
+	# a skipped branch would leave no trace if no map had grass at all
+	check(_grass_seen > 0, "grass was covered by the check on at least one map (%d)" % _grass_seen)
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
-# Сама карта пятна обязана быть настоящей: постоянный цвет или полностью непрозрачная
-# текстура закрасили бы всю карту в один тон, и тесты на material это бы пропустили.
+# The detail map itself must be real: a constant colour or a fully opaque texture would
+# paint the whole map in one tone, and the material checks above would miss it.
 func _check_detail_image() -> void:
 	for key in ["road", "grass", "grey"]:
 		var spec: Dictionary = Materials.DETAIL[key]
@@ -128,7 +129,7 @@ func _check_detail_image() -> void:
 				lo = minf(lo, c.a)
 				hi = maxf(hi, c.a)
 				if c.a < 0.02: clear += 1
-		# пятно обязано доходить почти до вершины градиента и опускаться до нуля:
-		# иначе шум вырожден и поверхность снова плоская
-		check(hi > peak * 0.9 and lo < 0.02, "%s: альфа пятна меняется (%.2f..%.2f при вершине %.2f)" % [key, lo, hi, peak])
-		check(clear > total / 10, "%s: базовый цвет автора проглядывает (%d из %d)" % [key, clear, total])
+		# the blotch has to reach almost to the top of the gradient and drop to zero:
+		# otherwise the noise is degenerate and the surface is flat again
+		check(hi > peak * 0.9 and lo < 0.02, "%s: the blotch alpha varies (%.2f..%.2f against a peak of %.2f)" % [key, lo, hi, peak])
+		check(clear > total / 10, "%s: the author's base colour shows through (%d of %d)" % [key, clear, total])

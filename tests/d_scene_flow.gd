@@ -1,7 +1,7 @@
 extends SceneTree
-# Переходы между сценами: зажатые клавиши не должны переезжать в новый заезд,
-# а возврат в меню — оставлять дерево приостановленным.
-# Прогон: godot --headless --path . --fixed-fps 60 --script res://tests/d_scene_flow.gd
+# Scene transitions: held keys must not travel into a new run, and returning to the
+# menu must not leave the tree paused.
+# Run: godot --headless --path . --fixed-fps 60 --script res://tests/d_scene_flow.gd
 var _f := 0
 var _fails := 0
 
@@ -23,18 +23,18 @@ func _process(_d: float) -> bool:
 			change_scene_to_file("res://scenes/game.tscn")
 		30:
 			var gm = current_scene.get_children()[0] if current_scene.get_child_count() else null
-			check(current_scene.scene_file_path == "res://scenes/game.tscn", "игра загрузилась")
+			check(current_scene.scene_file_path == "res://scenes/game.tscn", "game loaded")
 			Input.action_press("throttle")
 			Input.action_press("handbrake")
 		40:
-			check(_held() == "throttle handbrake ", "условие: клавиши удержаны (%s)" % _held())
+			check(_held() == "throttle handbrake ", "precondition: keys are held (%s)" % _held())
 			change_scene_to_file("res://scenes/main_menu.tscn")
 		60:
-			check(_held() == "throttle handbrake ", "меню не отжимает клавиши само — проверка на входе в игру")
+			check(_held() == "throttle handbrake ", "the menu does not release keys itself — check on game entry")
 			change_scene_to_file("res://scenes/game.tscn")
 		95:
-			check(_held() == "", "новый заезд начинается без удерживаемых клавиш (%s)" % _held())
-			check(not paused, "после возврата из меню дерево не приостановлено")
+			check(_held() == "", "a new run starts with no held keys (%s)" % _held())
+			check(not paused, "after returning from the menu the tree is not paused")
 			print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 			quit(0 if _fails == 0 else 1)
 			return true

@@ -1,21 +1,22 @@
 extends Node3D
-# Жалоба: «машина рандомно на каких-то объектах резко снижает скорость». Резкое торможение
-# само по себе не ошибка — ошибка, когда оно случается БЕЗ столкновения: едешь по своей
-# полосе, ни во что не вписываешься, а скорость пропадает. Поэтому проверка едет по живым
-# картам ровно и на каждом скачке торможения спрашивает у физического мира, кто в этом
-# виноват: чужое тело (стена, отбойник, сбитый бачок) — это авария, её меряют h_crash и h_handling;
-# воздух (прыжок и посадка) — это h_landing и h_slope_land; а если машина на всех колёсах на дороге
-# и ни за что не держится, торможение выше порога — тот самый баг.
+# Complaint: "the car randomly slows down hard on some objects". Hard braking by
+# itself is not the bug — the bug is when it happens WITHOUT a collision: you drive
+# your lane, hit nothing, yet the speed vanishes. So the check runs dead straight over
+# the live maps, and at every braking jump it asks the physics world who is to blame:
+# a foreign body (wall, barrier, knocked-over barrel) is a crash — measured by
+# h_crash and h_handling; air (a jump and its landing) is h_landing and h_slope_land;
+# but if the car is on all four wheels on the road holding onto nothing, braking above
+# the threshold is exactly that bug.
 #
-# Мерим ГОРИЗОНТАЛЬНУЮ потерю: посадка после прыжка меняет |v| за счёт вертикали, и по
-# полному вектору прыжок не отличить от удара о невидимую стену. Продольная скорость — то,
-# что игрок читает как «машина потеряла скорость».
+# We measure the HORIZONTAL loss: a jump landing changes |v| via the vertical, and on
+# the full vector a jump is indistinguishable from hitting an invisible wall. Longitudinal
+# speed is what the player reads as "the car lost speed".
 
 const KMPS := 3.6
-const WINDOW := 4            # тиков, за которые мерим замедление — как в детекторе удара
-const THRESH := 60.0         # км/ч/с (~1.7 g): горизонтальное торможение без столкновения
-const TICKS := 1200          # на карте: 20 с хода, чтобы успеть и трамплины, и бугры
-const SPEED := 200.0         # км/ч на входе: разгон держим газом, торможение — только дорога
+const WINDOW := 4            # ticks over which we measure deceleration — as in the impact detector
+const THRESH := 60.0         # km/h/s (~1.7 g): horizontal braking without a collision
+const TICKS := 1200          # per map: 20 s of driving, enough to reach both the jumps and the bumps
+const SPEED := 200.0         # km/h at entry: keep accelerating with throttle; braking should come only from the road
 
 var _fails := 0
 var _events := 0
@@ -35,19 +36,19 @@ func _ready() -> void:
 	await get_tree().process_frame
 	for id in MapDB.ids():
 		await _sweep(id)
-	check(_ticks >= 4000, "тест не пустой: проехано %d тиков" % _ticks)
-	# Покрытие по картам считается по фактическим тикам, а не по числу итераций
-	# цикла: счётчик, растущий один раз на id из того же списка, ничего не проверяет.
+	check(_ticks >= 4000, "the test is not empty: drove %d ticks" % _ticks)
+	# Map coverage is counted by actual ticks, not by loop iterations:
+	# a counter incremented once per id from the same list checks nothing.
 	for id in MapDB.ids():
 		var t := int(_seen.get(id, 0))
-		# Замер по картам: arena/speedway/circuit/endless дают полные 1200 тиков,
-		# bigcity 1065, town 301 — там машина уходит за границы полигона и скуп
-		# обрывается. Порог 120 (2 с наблюдения) оставляет от этого запаса двойной
-		# запас и всё ещё ловит карту, которая не проехалась вовсе.
-		check(t >= 120, "карта %s проехана с замерами (%d тиков)" % [id, t])
-	print("тикачей %d, скачков ≥ %.0f км/ч/с: %d, из них объяснённых: %d" % [
+		# Per-map baseline: arena/speedway/circuit/endless give the full 1200 ticks,
+		# bigcity 1065, town 301 — there the car leaves the polygon bounds and the sweep
+		# cuts short. A threshold of 120 (2 s of observation) keeps twice that headroom
+		# and still catches a map that was never driven at all.
+		check(t >= 120, "map %s driven with measurements (%d ticks)" % [id, t])
+	print("ticks %d, braking jumps ≥ %.0f km/h/s: %d, of which explained: %d" % [
 		_ticks, THRESH, _events, _explained])
-	print("тики по картам: %s" % str(_seen))
+	print("ticks per map: %s" % str(_seen))
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)
 
@@ -63,7 +64,7 @@ func _sweep(id: String) -> void:
 	add_child(gm)
 	for _i in 30:
 		await get_tree().physics_frame
-	gm._endless = false        # лента «бесконечности» переставляется, координаты уплывают
+	gm._endless = false        # the "endless" strip reshuffles, coordinates drift
 	_ground = _ground_bodies()
 	gm.car.respawn(gm._spawn)
 	for _i in 25:
@@ -77,13 +78,13 @@ func _sweep(id: String) -> void:
 		_ticks += 1
 		_seen[_map] = int(_seen.get(_map, 0)) + 1
 		var p := gm.car.chassis.global_position
-		# GameManager телепортирует машину на спавн, если та вылетела за границу: заезд
-		# окончен, дальше мерить нечего
+		# GameManager teleports the car to spawn if it left the bounds: the run
+		# is over, there is nothing left to measure
 		if p.distance_to(prev) > 12.0: break
 		prev = p
 		var v: Vector3 = gm.car.chassis.linear_velocity
-		# торможение считаем по горизонтали: вертикаль при посадке меняется, а «скорость
-		# машины» для игрока — это продольный ход
+		# compute braking on the horizontal plane: the vertical changes on landing, and
+		# "car speed" for the player is the longitudinal travel
 		var flat := Vector3(v.x, 0.0, v.z)
 		_hist.append(flat)
 		while _hist.size() > WINDOW + 1: _hist.pop_front()
@@ -98,27 +99,27 @@ func _sweep(id: String) -> void:
 		if air > 0 or crash != "":
 			_explained += 1
 			continue
-		var why := ("%s x=%.0f z=%.0f: горизонтальное торможение %.0f км/ч/с (%.1f g) при %.0f км/ч "
-			+ "на всех колёсах, рама ни за что не держится — дорога сама съедает скорость") % [
+		var why := ("%s x=%.0f z=%.0f: horizontal braking %.0f km/h/s (%.1f g) at %.0f km/h "
+			+ "on all wheels, the chassis holds onto nothing — the road itself eats the speed") % [
 				_map, p.x, p.z, d, d / 3.6 / 9.81, gm.car.speed_kmh()]
 		check(false, why)
 	Input.action_release("throttle")
 	gm.queue_free()
 
-# Рама касается тела, которое не является дорожной плитой? Это и есть столкновение.
-# get_colliding_bodies() для этого не годится: список контактов VehicleBody3D даёт не всё
-# (замер: торможение 7 g у торцовой стены speedway с пустым списком), поэтому спрашиваем
-# физический мир прямым запросом формы вокруг рамы.
+# Does the chassis touch a body that is not a road slab? That is the collision.
+# get_colliding_bodies() will not do: the VehicleBody3D contact list is incomplete
+# (measured: 7 g braking at the speedway end wall with an empty list), so we ask the
+# physics world directly with a shape query around the chassis.
 func _foreign() -> String:
 	var col := _col_shape()
 	if col == null: return ""
 	var q := PhysicsShapeQueryParameters3D.new()
 	q.set_shape(col.shape)
 	q.transform = gm.car.chassis.global_transform * col.transform
-	# 0.6 м, а не контакт в ноль: сбитый отбойник улетает из-под рамы за тот же тик, и
-	# проверка, которая смотрит только текущее пересечение, остаётся без виноватого
-	# (замер speedway x=576: минус 4.6 м/с за тик — это разгон пяти отбойников по 25 кг,
-	# а не дорога; к следующему тику они уже вне рамы).
+	# 0.6 m, not a zero-contact query: a knocked barrier flies out from under the chassis
+	# within the same tick, and a check looking only at the current intersection is left
+	# without a culprit (measured speedway x=576: minus 4.6 m/s in one tick is five 25 kg
+	# barriers accelerating — not the road; by the next tick they are already outside the chassis).
 	q.margin = 0.6
 	q.collision_mask = gm.car.chassis.collision_mask
 	q.exclude = [gm.car.chassis.get_rid()]
@@ -135,8 +136,8 @@ func _col_shape() -> CollisionShape3D:
 		if cs != null and cs.shape != null: return cs
 	return null
 
-# Плиты пола: длинные плоские коробки — у MapDB каждая плита со своим телом. Горки и
-# бугры ставят свои trimesh-тела; их считаем препятствиями, на них тормозить можно (h_ramp_run).
+# Floor slabs: long flat boxes — in MapDB each slab has its own body. Ramps and
+# bumps place their own trimesh bodies; we count those as obstacles, braking on them is allowed (h_ramp_run).
 func _ground_bodies() -> Array:
 	var out: Array = []
 	for c in gm.get_children():
@@ -151,8 +152,9 @@ func _ground_bodies() -> Array:
 					out.append(sb)
 	return out
 
-# Курс машины, а не ось X её рамки: VehicleBody3D смотрит носом в +Z (YAW_OFFSET в CarRig),
-# и если задать скорость по X, машина едет боком, шины скребут асфальт, и тест ловит
-# торможение, которого игрок не видит (замер: 68 «необъяснённых» скачков на 5831 тике).
+# The car's heading, not its frame's X axis: VehicleBody3D points its nose at +Z
+# (YAW_OFFSET in CarRig), and setting the velocity along X makes the car drive sideways,
+# the tyres scrub the asphalt, and the test catches braking the player never sees
+# (measured: 68 "unexplained" jumps over 5831 ticks).
 func _forward() -> Vector3:
 	return gm.car._flat_forward()

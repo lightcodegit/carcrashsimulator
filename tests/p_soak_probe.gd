@@ -1,6 +1,6 @@
 extends Node3D
-# Soak-проба: ищем прогрессирующее замедление — узлы, объекты физики, память
-# и wall-clock темп тиков на длинной гонке по «бесконечности».
+# Soak probe: hunting progressive slowdown — nodes, physics objects, memory and
+# the wall-clock tick rate over a long run on the endless map.
 var gm: GameManager
 var f := 0
 var t0 := 0

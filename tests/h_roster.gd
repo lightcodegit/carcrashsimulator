@@ -1,11 +1,11 @@
 extends Node3D
-# Ездовой тест ПО ВСЕМ машинам. Новый кузов обязан ехать сразу: он может быть растянут
-# (лимузин), без паспортного потолка (бесконечность) или с другой геометрией колёс — и
-# именно тогда чаще всего ломается посадка (луч подвески висит над полом), масштаб
-# модели или узел кузова, на котором мнутся вмятины. Проверка перебирает VehicleDB.ids(),
-# поэтому добавить машину — значит автоматически добавить её в этот тест.
+# A driving test over ALL cars. A new body must drive right away: it may be stretched
+# (limousine), have no spec top speed (endless) or different wheel geometry — and that
+# is exactly when seating (suspension ray hanging above the floor), model scale, or the
+# body node where dents are pressed usually break. The check iterates VehicleDB.ids(),
+# so adding a car automatically adds it to this test.
 
-const HOLD := 180            # тиков газа (3 с)
+const HOLD := 180            # throttle ticks (3 s)
 
 var _fails := 0
 var car: CarRig
@@ -32,38 +32,38 @@ func _drive(id: String) -> void:
 	var p := VehicleDB.get_params(id)
 	car.build(p, get_world_3d())
 	await get_tree().physics_frame
-	check(car.body != null and car.body.body != null, "%s: у кузова есть узел 'body' — вмятины будут" % id)
-	check(car.wheel_count() == 4, "%s: четыре колеса (%d)" % [id, car.wheel_count()])
+	check(car.body != null and car.body.body != null, "%s: the body has a 'body' node — dents will work" % id)
+	check(car.wheel_count() == 4, "%s: four wheels (%d)" % [id, car.wheel_count()])
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(0, 1.0, 0)))
 	for _i in 20:
 		await get_tree().physics_frame
 	var rest_y := car.chassis.global_position.y
 	check(rest_y > p.wheel_r * 0.7 and rest_y < p.wheel_r * 1.9,
-		"%s: машина сидит на колёсах, а не висит и не легла на кузов (y=%.2f, радиус %.2f)" % [
+		"%s: the car sits on its wheels, neither hanging nor lying on the body (y=%.2f, radius %.2f)" % [
 			id, rest_y, p.wheel_r])
 	Input.action_press("throttle")
 	for _i in HOLD:
 		await get_tree().physics_frame
 	Input.action_release("throttle")
 	var v := car.speed_kmh()
-	# Ожидаем не «60 км/ч у всех», а 70% от идеального разгона при постоянном ускорении:
-	# кривая тяги и сопротивление воздуха съедают треть, и у медленной машины цель должна
-	# быть ниже, чем у быстрой, — иначе тест был бы проверкой «самая быстрая проходит».
+	# Expect not "60 km/h for everyone" but 70% of the ideal constant-acceleration run:
+	# the torque curve and air drag eat a third, and a slow car's target must be lower
+	# than a fast one's — otherwise the test would be a check of "the fastest passes".
 	var ideal := 3.6 * p.accel_max * (HOLD / 60.0)
 	var target := minf(ideal * 0.7, p.vmax_kmh * 0.9)
-	print("%-10s за 3 с: %.0f км/ч (цель %.0f), путь %.0f м, кузов y=%.2f, крен %.0f°" % [
+	print("%-10s in 3 s: %.0f km/h (target %.0f), path %.0f m, body y=%.2f, roll %.0f°" % [
 		id, v, target, car.chassis.global_position.x, car.chassis.global_position.y,
 		rad_to_deg(asin(clampf(car.chassis.global_basis.x.y, -1.0, 1.0)))])
-	check(v >= target, "%s: разгоняется хотя бы до %.0f км/ч (разгон %.1f м/с²)" % [id, target, p.accel_max])
-	# треть пути при постоянном ускорении — запас на кривую тяги и воздух
+	check(v >= target, "%s: accelerates at least to %.0f km/h (accel %.1f m/s²)" % [id, target, p.accel_max])
+	# a third of the path at constant acceleration — margin for the torque curve and drag
 	var way_min := 0.35 * 0.5 * (ideal / 3.6) * (HOLD / 60.0)
 	check(car.chassis.global_position.x > way_min,
-		"%s: проехала %.0f м, а не стояла на месте (ждали больше %.0f м)" % [
+		"%s: drove %.0f m instead of standing still (expected more than %.0f m)" % [
 			id, car.chassis.global_position.x, way_min])
-	check(car.chassis.global_position.y < 2.0, "%s: не улетела с земли (y=%.2f)" % [
+	check(car.chassis.global_position.y < 2.0, "%s: did not fly off the ground (y=%.2f)" % [
 		id, car.chassis.global_position.y])
-	check(absf(car.chassis.global_basis.x.y) < 0.35, "%s: едет на колёсах, не на боку" % id)
-	# руль: короткое движение должно повернуть (и у длинной машины тоже)
+	check(absf(car.chassis.global_basis.x.y) < 0.35, "%s: drives on wheels, not on its side" % id)
+	# steering: a short input must turn the car (even a long one)
 	var yaw0 := car.heading
 	Input.action_press("throttle")
 	Input.action_press("steer_left")
@@ -72,4 +72,4 @@ func _drive(id: String) -> void:
 	Input.action_release("steer_left")
 	Input.action_release("throttle")
 	var dyaw := rad_to_deg(angle_difference(car.heading, yaw0))
-	check(absf(dyaw) > 6.0, "%s: слушается руля (%.1f° за 0.75 с)" % [id, dyaw])
+	check(absf(dyaw) > 6.0, "%s: obeys the steering (%.1f° in 0.75 s)" % [id, dyaw])

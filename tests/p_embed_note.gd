@@ -1,6 +1,6 @@
 extends Node
-# Кадрирует вкладку ГРАФИКА при встроенном запуске: подпись про редакторское окно
-# должна влезать целиком и стоять ровно под своим заголовком.
+# Frames the GRAPHICS tab during an embedded run: the note about the editor
+# window must fit in full and sit directly under its own heading.
 
 var _f := 0
 var mm: Node3D

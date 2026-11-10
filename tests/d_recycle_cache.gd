@@ -1,7 +1,7 @@
 extends SceneTree
-# Кэш лент «бесконечности» живёт между сборками карты. Проверка: после recycle все
-# запомненные узлы принадлежат ТЕКУЩЕМУ корню, иначе переставка уезжала бы в
-# уже освобождённую карту.
+# The "endless" ribbon cache lives across map builds. Check: after recycle every
+# remembered node belongs to the CURRENT root, otherwise the reposition would move
+# into an already freed map.
 func _initialize() -> void:
 	var fails := 0
 	for i in 3:
@@ -23,10 +23,10 @@ func _initialize() -> void:
 					if p == root: reaches = true; break
 					p = p.get_parent()
 				if not reaches: foreign += 1
-		print("прогон %d: лент %d, освобождённых %d, чужих %d" % [i, MapCircuit.rc_lines.size(), stale, foreign])
-		# пустой кэш — это не «грязно», а нечего проверять
+		print("run %d: ribbons %d, freed %d, foreign %d" % [i, MapCircuit.rc_lines.size(), stale, foreign])
+		# an empty cache is not "dirty", it is nothing to check
 		if MapCircuit.rc_lines.size() < 3:
-			print("FAIL: прогон %d: лент %d, переставка не собралась" % [i, MapCircuit.rc_lines.size()])
+			print("FAIL: run %d: %d ribbons, the reposition did not build" % [i, MapCircuit.rc_lines.size()])
 			fails += 1
 		if stale + foreign > 0: fails += 1
 		root.free()

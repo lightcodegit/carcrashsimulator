@@ -1,7 +1,7 @@
 extends SceneTree
-# Процедурный микшер (чистый DSP, без AudioServer): конечность на ядовитых входах,
-# тишина без источников, монотонность RMS по оборотам, соответствие частоты вспышек
-# оборотам, затухание удара, рост скольжения, граница [-1,1] и детерминизм.
+# Procedural mixer (pure DSP, no AudioServer): finiteness on poison inputs,
+# silence without sources, RMS monotonicity over rpm, flash frequency matching
+# rpm, impact decay, skid growth, the [-1,1] bound and determinism.
 
 var _fails := 0
 
@@ -40,7 +40,7 @@ func _initialize() -> void:
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	quit(0 if _fails == 0 else 1)
 
-# INF/NAN/отрицательные/запредельные входы не должны отравить ни один отсчёт.
+# INF/NAN/negative/extreme inputs must not poison a single sample.
 func _poison() -> void:
 	var m := _silence()
 	m.set_engine(INF, NAN)
@@ -48,14 +48,14 @@ func _poison() -> void:
 	m.set_nitro(true)
 	m.trigger_impact(NAN)
 	var a := m.produce_block(4096)
-	check(a.size() == 4096, "ядовитые входы: блок заданной длины (%d)" % a.size())
-	check(_all_finite(a), "ядовитые входы: все отсчёты конечны")
-	check(_peak(a) <= 1.0 + 1e-9, "ядовитые входы: выход в границе (%.3f)" % _peak(a))
+	check(a.size() == 4096, "poison inputs: block of requested length (%d)" % a.size())
+	check(_all_finite(a), "poison inputs: all samples finite")
+	check(_peak(a) <= 1.0 + 1e-9, "poison inputs: output within bound (%.3f)" % _peak(a))
 	m.set_engine(1e12, 50.0)
 	m.trigger_impact(1e9)
 	var b := m.produce_block(2048)
-	check(_all_finite(b) and _peak(b) <= 1.0 + 1e-9, "запредельный rpm: конечность и граница (%.3f)" % _peak(b))
-	check(m.produce_block(-5).is_empty() and m.produce_block(0).is_empty(), "нулевой/отрицательный заказ — пустой блок")
+	check(_all_finite(b) and _peak(b) <= 1.0 + 1e-9, "extreme rpm: finiteness and bound (%.3f)" % _peak(b))
+	check(m.produce_block(-5).is_empty() and m.produce_block(0).is_empty(), "zero/negative request — empty block")
 
 func _silence_and_bounds() -> void:
 	var m := _silence()
@@ -63,10 +63,10 @@ func _silence_and_bounds() -> void:
 	m.set_skid(0.0)
 	m.set_nitro(false)
 	var a := m.produce_block(4410)
-	check(_peak(a) < 0.001, "без источников — тишина (пик %.6f)" % _peak(a))
+	check(_peak(a) < 0.001, "no sources — silence (peak %.6f)" % _peak(a))
 
-# RMS растёт с оборотами: больше вспышек в секунду — больше энергии в блоке.
-# Меряем на длинных блоках (0.5 с), чтобы фаза вспышек успела усредниться.
+# RMS grows with rpm: more flashes per second — more energy in the block.
+# Measured on long blocks (0.5 s) so the flash phase has time to average out.
 func _rpm_monotonic() -> void:
 	var prev := 0.0
 	var first := -1.0
@@ -78,23 +78,23 @@ func _rpm_monotonic() -> void:
 			m.set_engine(rpm, 1.0)
 			rms = maxf(rms, _rms(m.produce_block(22050)))
 		print("rpm=%.0f rms=%.4f" % [rpm, rms])
-		check(rms > 0.001, "rpm %.0f: двигатель не молчит (%.4f)" % [rpm, rms])
+		check(rms > 0.001, "rpm %.0f: engine is not silent (%.4f)" % [rpm, rms])
 		if first < 0.0: first = rms
-		check(rms > prev, "rpm %.0f: RMS больше предыдущего (%.4f > %.4f)" % [rpm, rms, prev])
+		check(rms > prev, "rpm %.0f: RMS greater than previous (%.4f > %.4f)" % [rpm, rms, prev])
 		prev = rms
 
-# Ожиданное число вспышек за блок = rpm/60 × цилиндров/2; счётчик микшера обязан
-# совпасть с целым числом периодов (блок — ровно секунда).
+# Expected flash count per block = rpm/60 × cylinders/2; the mixer counter must
+# match a whole number of periods (the block is exactly one second).
 func _firing_hz() -> void:
 	for rpm in [1200.0, 1800.0, 3000.0]:
 		var m := _silence()
 		m.set_engine(rpm, 1.0)
 		var want_hz: float = float(rpm) / 60.0 * AudioMixer.CYL / 2.0
-		check(is_equal_approx(m.firing_hz(), want_hz), "firing_hz=%.1f при rpm=%.0f (ждали %.1f)" % [m.firing_hz(), rpm, want_hz])
+		check(is_equal_approx(m.firing_hz(), want_hz), "firing_hz=%.1f at rpm=%.0f (expected %.1f)" % [m.firing_hz(), rpm, want_hz])
 		var n := m.produce_block(44100).size()
-		check(n == 44100, "секундный блок отдан целиком (%d)" % n)
-		print("rpm=%.0f: вспышек за секунду %d (ждали %.0f)" % [rpm, m.firings_last_block, want_hz])
-		check(absf(float(m.firings_last_block) - want_hz) <= 1.0, "вспышек за блок %.0f±1 (счётчик %d)" % [want_hz, m.firings_last_block])
+		check(n == 44100, "one-second block delivered in full (%d)" % n)
+		print("rpm=%.0f: flashes per second %d (expected %.0f)" % [rpm, m.firings_last_block, want_hz])
+		check(absf(float(m.firings_last_block) - want_hz) <= 1.0, "flashes per block %.0f±1 (counter %d)" % [want_hz, m.firings_last_block])
 
 func _impact() -> void:
 	var quiet := _silence()
@@ -103,20 +103,20 @@ func _impact() -> void:
 	m.trigger_impact(120.0)
 	var hit := m.produce_block(4410)
 	var p1 := _peak(hit)
-	check(p1 > p0 + 0.05, "удар 120 км/ч громче тишины (%.3f против %.6f)" % [p1, p0])
-	check(p1 <= 1.0 + 1e-9, "удар в границе [-1,1] (%.3f)" % p1)
+	check(p1 > p0 + 0.05, "120 km/h impact louder than silence (%.3f vs %.6f)" % [p1, p0])
+	check(p1 <= 1.0 + 1e-9, "impact within bound [-1,1] (%.3f)" % p1)
 	var prev := p1
 	for k in 4:
 		var a := m.produce_block(4410)
 		var p := _peak(a)
-		check(p < prev, "удар затухает (шаг %d: %.3f < %.3f)" % [k, p, prev])
+		check(p < prev, "impact decays (step %d: %.3f < %.3f)" % [k, p, prev])
 		prev = p
 	var slow := _silence()
 	var fast := _silence()
 	slow.trigger_impact(20.0)
 	fast.trigger_impact(190.0)
 	check(_peak(fast.produce_block(4410)) > _peak(slow.produce_block(4410)),
-		"пиковый удар громче слабого")
+		"peak impact louder than the weak one")
 
 func _skid() -> void:
 	var m := _silence()
@@ -125,8 +125,8 @@ func _skid() -> void:
 	m.set_skid(0.9)
 	var r1 := 0.0
 	for k in 4: r1 = _rms(m.produce_block(4410))
-	check(r1 > r0 + 0.002, "скольжение добавляет энергию (%.4f против %.6f)" % [r1, r0])
-	check(_peak(m.produce_block(4410)) <= 1.0 + 1e-9, "скольжение в границе")
+	check(r1 > r0 + 0.002, "skid adds energy (%.4f vs %.6f)" % [r1, r0])
+	check(_peak(m.produce_block(4410)) <= 1.0 + 1e-9, "skid within bound")
 
 func _nitro() -> void:
 	var m := _silence()
@@ -135,11 +135,11 @@ func _nitro() -> void:
 	m.set_nitro(true)
 	var r1 := 0.0
 	for k in 4: r1 = _rms(m.produce_block(4410))
-	check(r1 > r0 + 0.002, "реактивная струя слышна (%.4f против %.6f)" % [r1, r0])
+	check(r1 > r0 + 0.002, "jet exhaust is audible (%.4f vs %.6f)" % [r1, r0])
 
-# Тот же путь на двух экземплярах с одним фиксированным seed — бит-в-бит тот же
-# сигнал. reset() возвращает шумовой генератор к заводскому seed, поэтому тесты
-# воспроизводимы без явной передачи числа.
+# The same path on two instances with one fixed seed — bit-for-bit the same
+# signal. reset() returns the noise generator to its factory seed, so the tests
+# are reproducible without passing a number explicitly.
 func _determinism() -> void:
 	var a := _silence()
 	var b := _silence()
@@ -151,7 +151,7 @@ func _determinism() -> void:
 	if same:
 		for i in x.size():
 			if x[i] != y[i]: same = false; break
-	check(same, "два экземпляра на одном заводском seed: блоки совпали бит в бит")
+	check(same, "two instances on the same factory seed: blocks matched bit for bit")
 	var c := _silence()
 	c.set_engine(NAN, 0.8)
-	check(_all_finite(c.produce_block(1000)), "NAN-вход после сброса остаётся конечным")
+	check(_all_finite(c.produce_block(1000)), "NAN input after reset stays finite")

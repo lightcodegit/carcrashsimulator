@@ -57,7 +57,7 @@ func _initialize() -> void:
 			else:
 				protected_uv += 1
 				check(result.get_pixelv(pixel) == original.get_pixelv(pixel), id + " window/light/trim UV protected")
-			# слой теперь общий: R — множитель металла, G — множитель лака
+			# the layer is shared now: R — metallic multiplier, G — clearcoat multiplier
 			for pair in [[mat.metallic_texture, mat.metallic, 0.8, 0.15, 0], [mat.roughness_texture, mat.roughness, 0.7, 0.28, 1]]:
 				var image: Image = pair[0].get_image()
 				var px := image.get_pixel(int(uv.x * image.get_width()), int(uv.y * image.get_height()))

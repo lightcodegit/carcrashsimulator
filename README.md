@@ -34,10 +34,11 @@ Screenshots are copies from the game repository:
 cp ../carcrashsimulator/docs/images/*.jpg assets/
 ```
 
-The version and the download links live in `index.html` (hero button,
-download plates) and in the `dossier-i18n.js` dictionary — keep them in sync with
-the `v*` tag in the game repository. Benchmark numbers come from the
-Performance section of the game README (`PRESETS` in `dossier.js`).
+The version lives in `index.html` (hero button, download heading) and in the
+`dossier-i18n.js` dictionary — sync it with the `v*` tag in the game
+repository. The download plates always point at the Releases page, not a
+pinned version. Benchmark numbers come from the Performance section of the
+game README (`PRESETS` in `dossier.js`).
 
 ## Preview
 

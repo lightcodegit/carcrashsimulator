@@ -9,6 +9,16 @@ workflow refuses to publish a tag that does not match it.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+---
+
+## [v0.1.2] - 2026-11-10
+
+### Added
+
 - New **Void** map: an infinite flat plane in all directions with no walls or objects; the floor follows the car on both axes.
 
 
@@ -53,6 +63,8 @@ workflow refuses to publish a tag that does not match it.
   were drawn straight onto the gauge with a raw Russian literal, so the language
   switch never repainted them and they stayed Cyrillic in English mode. `h_i18n`
   gains a source scan so custom-drawn UI text cannot bypass the catalog again.
+
+---
 
 ## [v0.1.1] - 2026-11-09
 
@@ -105,16 +117,7 @@ workflow refuses to publish a tag that does not match it.
 - The photo and replay bars fit their buttons: both panels were shorter than
   the button rows and the buttons hung out of the panel.
 
-### Added (post-release feature batch)
-
-- A gamepad connect/disconnect toast in the HUD: vibration and bindings
-  going live are visible to the player.
-- The OS window title carries the version from project.godot.
-- SHOT on the replay bar: the current replay frame is saved into
-  `user://photos/replay_NNNN.png` with its own numbering series.
-- The replay tape is saved to disk on replay exit
-  (`user://replays/last_<map>.replay`) and can be loaded back from the
-  replay bar (LAST RUN) — same map only, fully validated on load.
+---
 
 ## [v0.1.0] - 2026-11-08
 

@@ -94,11 +94,9 @@ function tick() {
 }
 requestAnimationFrame(tick);
 
+// The slider and the fill sit on the same 0..OVERLOAD scale, so the thumb
+// always mirrors the fill.
 function syncRange() {
-  const [lo, hi] = msBounds(preset);
-  rangeEl.min = lo.toFixed(1);
-  rangeEl.max = hi.toFixed(1);
-  rangeEl.step = "0.1";
   rangeEl.value = ms.toFixed(1);
 }
 

@@ -708,6 +708,75 @@ section .lede, .dark .lede { color: var(--soft); }
 .totop:hover { color: var(--hot-deep); }
 
 /* ============================================================
+   MOTION — progress bar, staggered hero, heading wipes, micro-hovers
+   ============================================================ */
+
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  background: linear-gradient(90deg, var(--hot-deep), var(--hot));
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* staggered hero entrance */
+.hero .kicker.reveal { transition-delay: 0.05s; }
+.hero .hero-copy .display.reveal { transition-delay: 0.12s; }
+.hero .lede.reveal { transition-delay: 0.2s; }
+.hero .cta-row.reveal { transition-delay: 0.28s; }
+.hero .spec.reveal { transition-delay: 0.36s; }
+.hero .evidence.reveal { transition-delay: 0.44s; }
+
+/* section headings sweep in under their own clip */
+.sec-head .display.reveal {
+  opacity: 1;
+  transform: none;
+  transition: clip-path 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+  clip-path: inset(0 100% 0 0);
+}
+.sec-head .display.reveal.visible { clip-path: inset(0 0 0 0); }
+
+/* hover micro-motion */
+.log-row h3, .log-row .idx { transition: color 0.2s ease; }
+.log-row:hover h3 { color: var(--hot-deep); }
+.log-row:hover .idx { color: var(--hot); }
+
+.shot { overflow: hidden; }
+.evidence { overflow: hidden; }
+.shot img, .evidence img { transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.shot:hover img, .evidence:hover img { transform: scale(1.03); }
+
+.plate .dln { transition: transform 0.2s ease; }
+.plate:hover .dln { transform: translateX(5px); }
+
+.presets button { transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, transform 0.15s ease; }
+.presets button:hover { transform: translateY(-1px); }
+.presets button:active { transform: translateY(1px); }
+
+.tape:hover .tape-track { animation-play-state: paused; }
+
+.spec-row { transition: background 0.2s ease; }
+.spec-row:nth-child(odd):hover { background: #fff3ea; }
+.spec-row:nth-child(even):hover { background: #fff3ea; }
+
+/* sheen across the solid button on hover */
+.btn.solid { position: relative; overflow: hidden; }
+.btn.solid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+  transform: translateX(-130%);
+}
+.btn.solid:hover::after {
+  transform: translateX(130%);
+  transition: transform 0.7s ease;
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 

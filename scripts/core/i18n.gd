@@ -43,7 +43,8 @@ const EN := {
 	"БЕЗ ПОТОЛКА": "NO LIMIT",
 	"БЕСКОНЕЧНОСТЬ": "ENDLESS",
 	"ПУСТОТА": "VOID",
-	"ВОID_DESC": "Бесконечное полотно во все стороны — ровная плоскость без стен и объектов.",
+	"Бесконечное полотно во все стороны — ровная плоскость без стен и объектов.":
+		"An endless canvas in every direction — a flat plane with no walls or objects.",
 	"БОЛЬШОЙ ГОРОД": "BIG CITY",
 	"БЫСТРЕЕ": "FASTER",
 	"В ГЛАВНОЕ МЕНЮ": "MAIN MENU",

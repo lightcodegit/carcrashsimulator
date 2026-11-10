@@ -60,7 +60,8 @@ func _build_loading() -> void:
 	_loading_ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_loading_ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	box.add_child(_loading_ring)
-	var cap := UiTheme.label("ЗАГРУЗКА", 16, UiTheme.AMBER, 700, true)
+	var cap := UiTheme.label("", 16, UiTheme.AMBER, 700, true)
+	I18n.bind(cap, "ЗАГРУЗКА")
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(cap)
 

@@ -50,13 +50,10 @@ const msEl = el("b-ms"), fpsEl = el("b-fps"), nameEl = el("b-name"),
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const msAt = (p, s) => PRESETS[p].ms0 * (0.61 + 0.39 * Math.pow(s / 0.7, 2));
-const scaleFor = (p, v) =>
-  clamp(0.7 * Math.sqrt(Math.max(0, (v / PRESETS[p].ms0 - 0.61) / 0.39)), 0.5, 1);
-const msBounds = p => [msAt(p, 0.5), Math.min(msAt(p, 1.0), OVERLOAD)];
 
 let preset = 1;   // MEDIUM by default, like the game
-let ms = 13.7;    // slider value, milliseconds
-let scale = 0.7;  // derived render scale
+let scale = 0.7;  // the slider's render scale, 0.5..1.0
+let ms = msAt(preset, scale); // derived frame cost
 
 let shownMs = ms, shownFps = 1000 / ms;
 function tick() {
@@ -75,7 +72,7 @@ function tick() {
   meterEl.classList.toggle("over", over && !REDUCED);
   msEl.parentElement.classList.toggle("over", over || ms > BUDGET);
 
-  // fill and thumb share the same 0..OVERLOAD scale
+  // the fill is a readout: the cost drawn on the 0..OVERLOAD instrument scale
   fillEl.style.width = clamp(ms / OVERLOAD * 100, 0, 100).toFixed(1) + "%";
 
   const d = dict();
@@ -94,12 +91,6 @@ function tick() {
 }
 requestAnimationFrame(tick);
 
-// The slider and the fill sit on the same 0..OVERLOAD scale, so the thumb
-// always mirrors the fill.
-function syncRange() {
-  rangeEl.value = ms.toFixed(1);
-}
-
 function syncName() {
   const d = dict();
   nameEl.textContent = d[PRESETS[preset].key];
@@ -109,20 +100,22 @@ function syncName() {
   });
 }
 
+function syncRange() {
+  rangeEl.value = String(Math.round(scale * 100));
+}
+
+// Preset = composition; scale is carried over as the user left it.
 function setPreset(p) {
   preset = p;
-  const [lo, hi] = msBounds(p);
-  ms = clamp(msAt(p, scale), lo, hi); // keep the render scale when switching
-  syncRange();
+  ms = msAt(p, scale);
   syncName();
 }
 
 rangeEl.addEventListener("input", () => {
-  const [lo, hi] = msBounds(preset);
-  ms = clamp(+rangeEl.value, lo, hi);
-  scale = scaleFor(preset, ms);
-  syncRange();
+  scale = clamp(+rangeEl.value, 50, 100) / 100;
+  ms = msAt(preset, scale);
 });
+
 qBtns.forEach((b, j) => b.addEventListener("click", () => setPreset(j)));
 
 // Called by i18n.js after a language switch.

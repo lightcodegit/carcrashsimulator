@@ -145,16 +145,20 @@
             <span class="mono gauge-label" data-i18n="bench_r1">Effect composition</span>
             <span class="readout mono big"><span id="b-ms">13.7</span><small>ms</small></span>
           </div>
-          <div class="meter">
+          <div class="meter" aria-label="Frame cost, milliseconds">
             <i class="meter-fill" id="b-fill"></i>
             <u class="meter-budget mono" title="60 Hz">16.7</u>
-            <input type="range" id="b-ms-range" min="0" max="33.4" step="0.1" value="13.7" aria-label="Frame cost, milliseconds">
           </div>
 
           <div class="gauge-row sub">
             <span class="mono gauge-label" data-i18n="bench_r2">Render scale</span>
             <span class="mono scale-readout" id="b-scale-readout">70%</span>
           </div>
+          <div class="scale-meter">
+            <input type="range" id="b-ms-range" min="50" max="100" step="1" value="70" aria-label="Render scale, percent">
+          </div>
+          <div class="scale-ends mono" aria-hidden="true"><span>50%</span><span>100%</span></div>
+
           <div class="gauge-row sub">
             <span class="mono gauge-label" data-i18n="bench_r3">Resulting frame rate</span>
             <span class="readout mono"><span id="b-fps">73</span><small>fps</small></span>

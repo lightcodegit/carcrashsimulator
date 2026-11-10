@@ -17,6 +17,8 @@
   <a href="https://godotengine.org/download/archive/"><img src="https://img.shields.io/badge/Godot-4.7.2%20stable-F0795A" alt="Godot 4.7.2"></a>
 </p>
 
+<p align="center">🌐 <b>English</b> · <a href="README.ru.md">Русский</a></p>
+
 # Car Crash Simulator
 
 **A 3D crash sandbox built on Godot 4.7.** Speed up, crash and watch the car body

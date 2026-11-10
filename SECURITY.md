@@ -1,5 +1,7 @@
 # Security
 
+> 🌐 This page in other languages: **English** · [Русский](SECURITY.ru.md)
+
 ## The threat model in two paragraphs
 
 The game runs offline: there is no networking, accounts, servers or telemetry

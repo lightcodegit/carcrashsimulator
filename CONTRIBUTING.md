@@ -1,5 +1,7 @@
 # How to help
 
+> 🌐 This page in other languages: **English** · [Русский](CONTRIBUTING.ru.md)
+
 The project is Godot 4.7.2 (standard, **not** .NET), GL Compatibility, GDScript.
 The product and the game numbers are described in `README.md`, which is the
 source of truth; this file is how work on the code is organized. The rules here
@@ -163,8 +165,7 @@ contributors (for example, `horizon-rust/horizon`) and are adapted to our size.
   `> 🤖 Opened by <login>'s AI agent (<tool, model>), not by <login> personally.`
   (`<login>` is the account that opened the PR, `gh api user --jq .login`); in
   issues — "Filed by …", in reviews — "Review by …", every comment starts with
-  `🤖 Agent:`. The commit carries `Co-Authored-By:` for the agent that wrote
-  it. Write only on behalf of the person you are working for.
+  `🤖 Agent:`. Write only on behalf of the person you are working for.
 - **Check what is already being done.** Before starting:
   `gh pr list --state open --search <area>` and open issues; do not duplicate
   someone else's work. A taken task is one assigned to someone or marked as in

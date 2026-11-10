@@ -1,7 +1,7 @@
 # Car Crash Simulator — site
 
 The landing page for GitHub Pages. Plain static files, no build step:
-`index.html` + `style.css` + `i18n.js` + `main.js` + assets.
+`index.html` + `dossier.css` + `dossier-i18n.js` + `dossier.js` + assets.
 
 The visual language is a "crash dossier": warm paper, ink, one signal-orange
 accent, hazard stripes and mono labels styled like a crash-test report — the
@@ -13,12 +13,12 @@ benchmark section flips to the dark instrument panel.
   numbered crash log, the interactive frame-cost instrument (dark),
   an evidence board of screenshots, open-source stats, the default
   controls table, download and requirements.
-- `style.css` — the design system: paper theme, Archivo (display) and
+- `dossier.css` — the design system: paper theme, Archivo (display) and
   JetBrains Mono (labels), prefers-reduced-motion respected.
-- `i18n.js` — the full EN/RU dictionary; the language is switchable on the
+- `dossier-i18n.js` — the full EN/RU dictionary; the language is switchable on the
   fly and stored in `localStorage` (`ccs-lang`). Every string on the page
   is checked in here.
-- `main.js` — reveal-on-scroll, the sticky header state, the ticker tape
+- `dossier.js` — reveal-on-scroll, the sticky header state, the ticker tape
   and the benchmark instrument: the slider drives the frame cost, the
   render scale is derived from it (the `p_perf` measurements, live
   rendering at 1600×900 on Intel HD 630).
@@ -35,9 +35,9 @@ cp ../carcrashsimulator/docs/images/*.jpg assets/
 ```
 
 The version and the download links live in `index.html` (hero button,
-download plates) and in the `i18n.js` dictionary — keep them in sync with
+download plates) and in the `dossier-i18n.js` dictionary — keep them in sync with
 the `v*` tag in the game repository. Benchmark numbers come from the
-Performance section of the game README (`PRESETS` in `main.js`).
+Performance section of the game README (`PRESETS` in `dossier.js`).
 
 ## Preview
 
@@ -56,7 +56,7 @@ To update the published copy:
 
 ```sh
 git clone --branch gh-pages https://github.com/lightcodegit/carcrashsimulator gh-pages-work
-cp -r index.html style.css i18n.js main.js assets gh-pages-work/
+cp -r index.html dossier.css dossier-i18n.js dossier.js assets gh-pages-work/
 cd gh-pages-work
 git add -A && git commit -m "site: redesign" && git push
 ```

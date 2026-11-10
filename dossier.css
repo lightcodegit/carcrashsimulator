@@ -278,12 +278,12 @@ section .lede, .dark .lede { color: var(--soft); }
 /* evidence photo */
 
 .evidence {
-  margin: clamp(36px, 5vw, 64px) 0 0;
+  display: block;
+  margin: clamp(36px, 5vw, 64px) 0 clamp(34px, 5vw, 58px);
   border: 1px solid var(--line-strong);
-  border-bottom: 0;
   background: #fff;
   padding: 10px 10px 0;
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: var(--radius);
 }
 .evidence img { border: 1px solid var(--line); }
 .evidence figcaption {
@@ -563,7 +563,7 @@ section .lede, .dark .lede { color: var(--soft); }
 
 #open { border-bottom: 1px solid var(--line); }
 
-#controls .wrap { margin-top: clamp(44px, 6vw, 72px); }
+#open #controls { margin-top: clamp(44px, 6vw, 72px); }
 
 .ctrl-board {
   border: 1px solid var(--line-strong);

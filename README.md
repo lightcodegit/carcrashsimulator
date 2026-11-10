@@ -36,15 +36,15 @@
 
 Everything listed below ships in the current release.
 
-| | Feature | Details |
-|:--:|---|---|
-| 💥 | **Deformation** | Body vertices shift along the velocity-loss vector: head-on, side, and rear impacts crumple their own panel. Dents accumulate and are cleared on restart. |
-| 🚗 | **5 cars** | From a heavy pickup to the *Endless* car with no speed cap. Each car has its own top speed, mass, acceleration, and nitro with a tank and exhaust flame. |
-| 🗺️ | **6 maps** | Test arena, town with parked cars, drag strip with a finish wall, kilometre race loop, endless tile strip, and a big city with districts. |
-| 🎬 | **Replay & photo mode** | Replay the last 10 seconds with stepping and playback speed. Free camera with zoom and PNG screenshots. |
-| 🔧 | **Garage** | Suspension stiffness, dampers, thrust, brakes, grip, nitro tank, and body paint in any color. Profiles are stored per car. |
-| 🔊 | **Sound & vibration** | Engine, tire squeal, impact, and nitro are synthesized by a DSP mixer. Gamepads vibrate on impacts and slides. |
-| ⚙️ | **Settings & i18n** | Image presets plus individual graphics options, slow-mo, and camera settings. English/Russian UI, switchable on the fly. Every action is rebindable (key/button/axis) — keyboard and gamepad stored separately, modifiers are part of the binding. |
+| Feature | Details |
+|:--:|---|
+| **Deformation** | Body vertices shift along the velocity-loss vector: head-on, side, and rear impacts crumple their own panel. Dents accumulate and are cleared on restart. |
+| **5 cars** | From a heavy pickup to the *Endless* car with no speed cap. Each car has its own top speed, mass, acceleration, and nitro with a tank and exhaust flame. |
+| **6 maps** | Test arena, town with parked cars, drag strip with a finish wall, kilometre race loop, endless tile strip, and a big city with districts. |
+| **Replay & photo mode** | Replay the last 10 seconds with stepping and playback speed. Free camera with zoom and PNG screenshots. |
+| **Garage** | Suspension stiffness, dampers, thrust, brakes, grip, nitro tank, and body paint in any color. Profiles are stored per car. |
+| **Sound & vibration** | Engine, tire squeal, impact, and nitro are synthesized by a DSP mixer. Gamepads vibrate on impacts and slides. |
+| **Settings & i18n** | Image presets plus individual graphics options, slow-mo, and camera settings. English/Russian UI, switchable on the fly. Every action is rebindable (key/button/axis) — keyboard and gamepad stored separately, modifiers are part of the binding. |
 
 <table>
   <tr>

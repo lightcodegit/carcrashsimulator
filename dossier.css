@@ -232,12 +232,6 @@ section .lede, .dark .lede { color: var(--soft); }
 }
 
 .hero .display .h1b { color: var(--hot); }
-.hero .display .star {
-  color: var(--hot);
-  font-size: 0.55em;
-  vertical-align: 0.5em;
-  font-stretch: 100%;
-}
 
 .hero-copy .lede { margin: 26px 0 30px; }
 
@@ -396,7 +390,7 @@ section .lede, .dark .lede { color: var(--soft); }
 .gauge-label { color: var(--dark-soft); }
 .gauge-row.sub + .gauge-row.sub { margin-top: 8px; }
 
-.readout { font-size: 15px; font-weight: 700; color: var(--paper); }
+.readout { font-size: 15px; font-weight: 700; color: var(--paper); letter-spacing: normal; }
 .readout.big { font-size: clamp(30px, 4.4vw, 46px); line-height: 1; }
 .readout small {
   font-size: 0.4em;
@@ -434,22 +428,22 @@ section .lede, .dark .lede { color: var(--soft); }
 .meter-budget {
   position: absolute;
   left: 50%;
-  top: -20px;
   transform: translateX(-50%);
+  top: -21px;
   font-size: 10px;
   color: var(--dark-soft);
-  border-bottom: 2px dashed var(--dark-soft);
-  padding-bottom: 2px;
   text-decoration: none;
 }
-.meter-budget::after {
+.meter::before {
   content: "";
   position: absolute;
   left: 50%;
-  top: calc(100% + 22px);
-  width: 1px;
-  height: 22px;
-  background: var(--dark-soft);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(243, 241, 236, 0.55);
+  z-index: 2;
 }
 
 .meter input[type="range"] {

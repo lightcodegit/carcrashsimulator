@@ -7,9 +7,15 @@ workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
+### Added
+
+- New **Void** map: an infinite flat plane in all directions with no walls or objects; the floor follows the car on both axes.
+
+
 ### Changed
 
-- The endless strip keeps 6 km of road in play (was 1.8 km): the ribbon
+- The endless strip keeps 6 km of road in play (was 1.8 km): the ribbon- Heavy scenes render more efficiently: endless-strip barriers, lights, and billboards use visibility ranges, and small static city props (benches, bins, picnic tables, fountains, planters) are culled at distance with shadows disabled where appropriate.
+
   stretches 5.9 km ahead of the car, so the horizon reads as an endless road
   even at 671 km/h — 31 seconds of road ahead. Billboards and light poles
   now line the whole first stretch. The simulation cost stays at 1.4 ms per

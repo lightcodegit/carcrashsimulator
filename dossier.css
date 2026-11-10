@@ -446,7 +446,16 @@ section .lede, .dark .lede { color: var(--soft); }
   z-index: 2;
 }
 
-.meter input[type="range"] {
+/* the render-scale slider: its own track, both ends reachable */
+.scale-meter {
+  position: relative;
+  height: 40px;
+  margin-top: 14px;
+  background: #131218;
+  border: 1px solid var(--dark-line);
+  border-radius: var(--radius);
+}
+.scale-meter input[type="range"] {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -456,7 +465,7 @@ section .lede, .dark .lede { color: var(--soft); }
   background: transparent;
   cursor: ew-resize;
 }
-.meter input[type="range"]::-webkit-slider-thumb {
+.scale-meter input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 14px;
@@ -466,13 +475,20 @@ section .lede, .dark .lede { color: var(--soft); }
   border: 2px solid var(--dark);
   box-shadow: 0 0 0 1px var(--paper);
 }
-.meter input[type="range"]::-moz-range-thumb {
+.scale-meter input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 34px;
   border-radius: 3px;
   background: #fff;
   border: 2px solid var(--dark);
   box-shadow: 0 0 0 1px var(--paper);
+}
+.scale-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--dark-soft);
 }
 
 .verdict {

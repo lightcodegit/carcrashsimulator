@@ -64,7 +64,7 @@ const I18N = {
     v_fit: m => "fits 60 Hz — " + m + " fps",
     v_drop: m => "drops to 30 Hz — " + m + " fps",
     v_gpu: "needs a discrete GPU",
-    scale_lbl: p => "render scale " + p + "%",
+    scale_lbl: p => p + "%",
     p0: "LOW", p1: "MEDIUM", p2: "HIGH", p3: "FILM",
 
     scr_kick: "Section 03 — evidence board",
@@ -179,7 +179,7 @@ const I18N = {
     v_fit: m => "укладывается в 60 Гц — " + m + " fps",
     v_drop: m => "падает до 30 Гц — " + m + " fps",
     v_gpu: "нужна дискретная видеокарта",
-    scale_lbl: p => "масштаб рендера " + p + "%",
+    scale_lbl: p => p + "%",
     p0: "НИЗКИЙ", p1: "СРЕДНИЙ", p2: "ВЫСОКИЙ", p3: "ФИЛЬМ",
 
     scr_kick: "Раздел 03 — доска улик",

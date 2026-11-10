@@ -19,9 +19,9 @@ benchmark section flips to the dark instrument panel.
   fly and stored in `localStorage` (`ccs-lang`). Every string on the page
   is checked in here.
 - `dossier.js` — reveal-on-scroll, the sticky header state, the ticker tape
-  and the benchmark instrument: the slider drives the frame cost, the
-  render scale is derived from it (the `p_perf` measurements, live
-  rendering at 1600×900 on Intel HD 630).
+  and the benchmark instrument: the slider drives the render scale (50–100%),
+  the frame cost is derived from the preset's measured composition (the
+  `p_perf` measurements, live rendering at 1600×900 on Intel HD 630).
 - `assets/` — screenshots (copies from the game repository's
   `docs/images/`), the game emblem (`logo.svg`, from
   `assets/ui/logo_emblem.svg`) and the favicon.

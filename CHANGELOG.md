@@ -23,6 +23,10 @@ workflow refuses to publish a tag that does not match it.
   first one. Godot's event default `device` is 0, so with two gamepads the
   second one could not drive the car on factory bindings while vibration
   still reached it through `pad_index()`.
+- A key assignment that conflicts with another action's binding now ends the
+  capture cell instead of leaving it in "press a key" mode, where the next
+  press silently rebound the action again. Mouse events are no longer
+  swallowed by the interceptor: clicking another cell retargets the capture.
 
 ---
 

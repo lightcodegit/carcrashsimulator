@@ -298,6 +298,18 @@ func _build_menu() -> void:   # called from _ready, so await is not needed here
 	menu._input(esc)
 	check(not menu.capturing() and menu.is_open(), "5: Esc during capture cancels the capture but not the screen")
 	menu._end_capture()
+	# An assignment that conflicts with a factory binding (W is throttle) ends
+	# the capture: the assignment already happened, and the cell must not stay
+	# in "PRESS A KEY…" while the next press silently rebinds it again.
+	menu._begin_capture("brake")
+	var clash := InputEventKey.new()
+	clash.physical_keycode = KEY_W
+	clash.pressed = true
+	menu._input(clash)
+	check(not menu.capturing(), "5: a conflicting assignment ends the capture")
+	check("W" in InputRouter.describe("brake"), "5: the conflicting binding was recorded (%s)" % InputRouter.describe("brake"))
+	check(not InputRouter.describe("brake").contains("CTRL"), "5: only W was taken")
+	InputRouter.clear_binding("brake")
 	# outside capture Esc closes the screen, handled by _unhandled_input already
 	var esc2 := InputEventKey.new()
 	esc2.physical_keycode = KEY_ESCAPE

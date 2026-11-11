@@ -567,11 +567,14 @@ func _end_capture() -> void:
 	refresh()
 
 # Пока ждём назначение, событие перехватываем ДО обработки GUI: кнопка остаётся в
-# фокусе, а Enter и Space — это ещё и ui_accept, иначе назначенный пробел нажимал
-# бы кнопку снова и захват никогда бы не закончился.
+# focus, and Enter and Space are also ui_accept, otherwise an assigned space
+# would press the button again and the capture would never end. Mouse events
+# are not bindings: a click on another cell retargets the capture instead of
+# dying in the interceptor.
 func _input(event: InputEvent) -> void:
 	if _capturing == "": return
 	if not event.is_pressed() or _is_echo(event): return
+	if event is InputEventMouseButton or event is InputEventMouseMotion: return
 	_take(event)
 	get_viewport().set_input_as_handled()
 
@@ -623,10 +626,14 @@ func _take(event: InputEvent) -> void:
 	var taken := InputRouter.find_owner(mapped, _capturing)
 	if taken != "":
 		# событие осталось у другого действия по умолчанию: предупреждаем, а не
-		# отказываем — иначе игрок не понял бы, почему газ и тормоз жмутся вместе
+		# reject it — otherwise the player would not see why gas and brake both fire.
+		# The capture ENDS here: the assignment already happened, and without closing
+		# the cell would stay in "PRESS A KEY…" mode while the next press silently
+		# overwrote the binding again. The warning is set after _end_capture: it
+		# clears the label with an empty string.
+		_end_capture()
 		_capture_label.text = I18n.t("Клавиша уже есть у «%s» — назначена всё равно") % \
 			I18n.t(String(ACTION_NAMES.get(taken, taken.to_upper())))
-		refresh()
 		return
 	_end_capture()
 

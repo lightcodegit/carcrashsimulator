@@ -19,6 +19,10 @@ workflow refuses to publish a tag that does not match it.
   (`CarRig.replay_hot`, filled by the player) instead of the tank level: by
   the end of a run the tank is almost never empty, so the ring glowed for the
   whole replay as if the boost was active, which the recording never had.
+- Factory gamepad bindings answer any pad (`device = -1`) instead of only the
+  first one. Godot's event default `device` is 0, so with two gamepads the
+  second one could not drive the car on factory bindings while vibration
+  still reached it through `pad_index()`.
 
 ---
 

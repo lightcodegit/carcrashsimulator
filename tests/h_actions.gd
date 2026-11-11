@@ -15,5 +15,11 @@ func _physics_process(_dt: float) -> void:
 		elif e is InputEventJoypadButton or e is InputEventJoypadMotion: pads += 1
 	check(keys >= 1, "handbrake has a key binding (%d)" % keys)
 	check(pads >= 1, "handbrake has a gamepad binding (%d)" % pads)
+	# Factory pad bindings mean "any gamepad" (-1). The event default device is
+	# 0, and without an explicit -1 a second connected pad would not drive the car.
+	for action in InputRouter.DEFAULTS:
+		for e in InputMap.action_get_events(action):
+			if e is InputEventJoypadButton or e is InputEventJoypadMotion:
+				check(e.device == -1, "%s: factory pad binding answers any device (-1), got %d" % [action, e.device])
 	print("ALL PASS" if _fails == 0 else "FAILS %d" % _fails)
 	get_tree().quit(0 if _fails == 0 else 1)

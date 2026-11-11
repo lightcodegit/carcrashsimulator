@@ -113,10 +113,15 @@ func _joy_event(jd: Array) -> InputEvent:
 	if jd[0] == "button":
 		var b := InputEventJoypadButton.new()
 		b.button_index = jd[1]
+		# Factory bindings answer ANY gamepad. The event default device is 0, i.e.
+		# "first pad only": without -1 a second connected gamepad could not drive the
+		# car on factory bindings, even though vibration went to it (pad_index()).
+		b.device = -1
 		return b
 	var m := InputEventJoypadMotion.new()
 	m.axis = jd[1]
 	m.axis_value = jd[2]
+	m.device = -1
 	return m
 
 static func _same_event(a: InputEvent, b: InputEvent) -> bool:

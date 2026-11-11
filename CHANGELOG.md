@@ -5,7 +5,7 @@ versions follow [semantic versioning](https://semver.org/). The version number
 lives in `project.godot` (`application/config/version`), and the release
 workflow refuses to publish a tag that does not match it.
 
-## [Unreleased]
+## [v0.1.3] - 2026-11-11
 
 ### Fixed
 

@@ -27,6 +27,10 @@ workflow refuses to publish a tag that does not match it.
   capture cell instead of leaving it in "press a key" mode, where the next
   press silently rebound the action again. Mouse events are no longer
   swallowed by the interceptor: clicking another cell retargets the capture.
+- Photo mode numbers a new snapshot after the highest existing `photo_NNNN`
+  file instead of the file count, so deleting a middle snapshot no longer
+  makes the next shot silently overwrite a newer one (replay snapshots
+  already counted this way).
 
 ---
 

@@ -226,11 +226,15 @@ func _grab() -> Image:
 	return tex.get_image()
 
 func _existing_count() -> int:
+	# The HIGHEST existing file number, not the file count: after deleting a
+	# middle snapshot (photo_0003) a count-based counter would roll back, and the
+	# next shot would silently overwrite an existing one with a higher number.
 	var d := DirAccess.open(SAVE_DIR)
 	if d == null: return 0
 	var n := 0
 	for f in d.get_files():
-		if f.begins_with("photo_") and f.ends_with(".png"): n += 1
+		if f.begins_with("photo_") and f.ends_with(".png"):
+			n = maxi(n, int(f.trim_prefix("photo_").trim_suffix(".png")))
 	return n
 
 func last_path() -> String: return _path

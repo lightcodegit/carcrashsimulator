@@ -184,6 +184,9 @@ static func has_tape(map_id: String) -> bool:
 static func tape_at(path: String) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null: return {}
+	# A size cap, like settings.cfg and the garage have: get_var reads the whole
+	# file, and a gigabyte one would eat memory before any structure check.
+	if f.get_length() > MAX_TAPE_BYTES: return {}
 	var v: Variant = f.get_var()
 	# get_var без allow_objects не создаёт произвольные объекты, но файл — это
 	# всё ещё структура из сети недоверенных дисков: мусорные размеры падали бы
@@ -192,12 +195,14 @@ static func tape_at(path: String) -> Dictionary:
 	if not (v.get("frames", []) is Array) or not (v.get("dents", []) is Array): return {}
 	if (v["frames"] as Array).size() > MAX_SAVED_FRAMES: return {}
 	if not _frames_valid(v["frames"]): return {}
-	for d in v["dents"]:
-		if not (d is Dictionary) or not d.has("t") or not d.has("lp") or not d.has("ld") or not d.has("kmh"): return {}
+	if not _dents_valid(v["dents"]): return {}
 	return v
 
 # Лента валидна, если каждый кадр несёт правильные размеры массивов: транспорт
 # дальше читает a.p/b/w напрямую, и короткий массив — script error посреди реплея.
+# Numbers must be finite: NaN passes an "is float" check and then breaks the
+# index_at binary search (comparisons with NaN are always false) and spreads
+# INF across poses.
 static func _frames_valid(list: Array) -> bool:
 	for f in list:
 		if not (f is Dictionary): return false
@@ -206,12 +211,40 @@ static func _frames_valid(list: Array) -> bool:
 		if not (f.get("b", []) is PackedFloat32Array) or (f["b"] as PackedFloat32Array).size() != 9: return false
 		if not (f.get("w", []) is PackedFloat32Array) or (f["w"] as PackedFloat32Array).size() % 4 != 0: return false
 		if not (f.get("pr", []) is PackedFloat32Array) or (f["pr"] as PackedFloat32Array).size() % 13 != 0: return false
+		# Finiteness comes after types and sizes: no access to a foreign key
+		if not _finite_all(f["p"]) or not _finite_all(f["b"]) or not _finite_all(f["w"]) or not _finite_all(f["pr"]): return false
 		if not (f["hot"] is float) or not (f["nitro"] is float) or not (f["kmh"] is float) or not (f["t"] is float): return false
+		if not (is_finite(float(f["hot"])) and is_finite(float(f["nitro"]))
+				and is_finite(float(f["kmh"])) and is_finite(float(f["t"]))): return false
+	return true
+
+static func _finite_all(arr: Variant) -> bool:
+	if not (arr is PackedFloat32Array): return false
+	for v in (arr as PackedFloat32Array):
+		if not is_finite(v): return false
+	return true
+
+# Dents hit harder than frames: apply_impact_local expects Vector3 in typed
+# parameters, and a foreign type (a string from a hand edit) is a script error
+# mid-replay. Type, size and finiteness are checked here, once at the input.
+static func _dents_valid(list: Array) -> bool:
+	if list.size() > MAX_DENTS: return false
+	for d in list:
+		if not (d is Dictionary) or not d.has("t") or not d.has("lp") or not d.has("ld") or not d.has("kmh"): return false
+		if not ((d["lp"] is Vector3) and (d["ld"] is Vector3)): return false
+		if not ((d["t"] is float) and (d["kmh"] is float)): return false
+		if not (is_finite(float(d["t"])) and is_finite(float(d["kmh"]))): return false
+		var lp: Vector3 = d["lp"]
+		var ld: Vector3 = d["ld"]
+		if not (lp.is_finite() and ld.is_finite()): return false
 	return true
 
 # Потолок сохранённой ленты: вдвое больше игрового окна (20 Гц × 10 с). Куски
 # больше — либо мусор, либо попытка выесть память загрузкой гигабайт массивов.
 const MAX_SAVED_FRAMES := 400
+# File size cap: an honest tape is a few megabytes (the flat prop list in a
+# frame is the worst case); the cap is seven times larger for headroom.
+const MAX_TAPE_BYTES := 16 * 1024 * 1024
 
 func save_to(path: String) -> bool:
 	if frames.is_empty(): return false
@@ -234,10 +267,12 @@ func adopt_tape(tape: Dictionary) -> bool:
 	if int(tape.get("version", 0)) != 1: return false
 	if tape.get("map", "") != GameContext.map_id: return false
 	if not (tape.get("frames", []) is Array) or (tape["frames"] as Array).is_empty(): return false
+	if (tape["frames"] as Array).size() > MAX_SAVED_FRAMES: return false
 	if not _frames_valid(tape["frames"]): return false
 	if not (tape.get("dents", []) is Array): return false
-	for d in tape["dents"]:
-		if not (d is Dictionary) or not d.has("t") or not d.has("lp") or not d.has("ld") or not d.has("kmh"): return false
+	if not _dents_valid(tape["dents"]): return false
+	var sim: Variant = tape.get("sim_t", 0.0)
+	if not (sim is float) or not is_finite(float(sim)): return false
 	frames = (tape["frames"] as Array).duplicate()
 	dents = (tape.get("dents", []) as Array).duplicate()
 	sim_t = float(tape.get("sim_t", 0.0))

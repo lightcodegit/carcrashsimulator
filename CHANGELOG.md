@@ -5,6 +5,19 @@ versions follow [semantic versioning](https://semver.org/). The version number
 lives in `project.godot` (`application/config/version`), and the release
 workflow refuses to publish a tag that does not match it.
 
+## [Unreleased]
+
+### Fixed
+
+- Replay tape parsing is hardened to the same standard as the settings and
+  garage files: a 16 MB file size cap, finite numbers everywhere (NaN passed
+  the `is float` check and then broke the frame-time binary search in
+  `index_at`), dents validated by type and value (a foreign `lp` type was a
+  script error inside the typed `apply_impact_local` mid-replay), and frame
+  and dent count caps enforced in `adopt_tape` too.
+
+---
+
 ## [v0.1.2] - 2026-11-10
 
 ### Added

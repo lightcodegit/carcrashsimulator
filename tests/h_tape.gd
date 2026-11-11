@@ -44,6 +44,15 @@ func _ready() -> void:
 	check(not gm2.replay.adopt_tape(bad_len), "a short basis is not accepted")
 	var bad_dent := tape.duplicate(true); bad_dent["dents"] = [{"t": 1.0}]
 	check(not gm2.replay.adopt_tape(bad_dent), "a dent without lp/ld is not accepted")
+	# A foreign lp type is not "junk in a field" but a script error inside the
+	# typed apply_impact_local mid-replay: the validator must reject it upfront.
+	var bad_dent_type := tape.duplicate(true)
+	bad_dent_type["dents"] = [{"t": 1.0, "lp": "oops", "ld": Vector3(), "kmh": 1.0}]
+	check(not gm2.replay.adopt_tape(bad_dent_type), "a dent with a foreign lp type is not accepted")
+	# NaN passes an "is float" check and breaks the binary search on frame time.
+	var bad_nan := tape.duplicate(true)
+	(bad_nan["frames"] as Array)[0]["t"] = NAN
+	check(not gm2.replay.adopt_tape(bad_nan), "a frame with NaN time is not accepted")
 
 	# same map: adoption and playback with dents
 	check(gm2.replay.adopt_tape(tape), "the same map's tape was accepted")

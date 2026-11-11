@@ -9,9 +9,6 @@ var _loading_ring: TextureRect
 var _loading_hide_ready := false
 var _loading_until_ms := 0
 
-# Автозагрузки ниже по списку (Settings) уже прочитали settings.cfg к этому
-# моменту: восстанавливаем последний выбор машины и карты. Мусорные id из
-# чужого файла отсеет select — до car.build они не доживают.
 func _ready() -> void:
 	# Автозагрузки ниже по списку (Settings) уже прочитали settings.cfg к этому
 	# моменту: восстанавливаем последний выбор машины и карты. Мусорные id из

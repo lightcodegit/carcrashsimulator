@@ -172,6 +172,10 @@ func _apply_render() -> void:
 		camera.fov = Settings.fov
 		camera.apply_settings()
 	hud.set_fps_visible(Settings.show_fps)
+	# The run summary on the pause card is a composed string, not a binding:
+	# without this it never repainted on a live language switch (settings are
+	# opened from the pause too).
+	if _paused: hud.set_run_stats(run_summary())
 	_apply_audio()
 
 # Всё немое доводится до звука и до частиц отсюда: та же точка Settings.changed.

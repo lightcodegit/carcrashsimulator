@@ -31,6 +31,9 @@ workflow refuses to publish a tag that does not match it.
   file instead of the file count, so deleting a middle snapshot no longer
   makes the next shot silently overwrite a newer one (replay snapshots
   already counted this way).
+- The pause run summary repaints on a live language switch: it is a composed
+  string, not a bound label, and settings — where the language lives — can be
+  opened from the pause.
 
 ---
 

@@ -699,7 +699,10 @@ func _process(dt: float) -> void:
 	var kmh := _car.speed_kmh()
 	_gauge.speed = kmh
 	_gauge.nitro = _car.nitro_fraction()
-	_gauge.nitro_hot = _car.nitro_active if not _car.replaying else (_car.replay_nitro > 0.001)
+	# On a replay the boost flag comes from the recorded hot flag, not the tank
+	# level: by the end of a run the tank is almost never empty, and the ring
+	# would burn through the whole replay, which the recording never had.
+	_gauge.nitro_hot = _car.nitro_active if not _car.replaying else _car.replay_hot
 	_gauge.queue_redraw()
 	# На реплее перегрузку не считаем: это производная по реальному времени кадра,
 	# а проигрывание идёт в ×0.25 — из него получилось бы другое g, чем было в заезде,

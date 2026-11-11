@@ -15,6 +15,10 @@ workflow refuses to publish a tag that does not match it.
   `index_at`), dents validated by type and value (a foreign `lp` type was a
   script error inside the typed `apply_impact_local` mid-replay), and frame
   and dent count caps enforced in `adopt_tape` too.
+- The nitro gauge on a replay burns from the recorded boost flag
+  (`CarRig.replay_hot`, filled by the player) instead of the tank level: by
+  the end of a run the tank is almost never empty, so the ring glowed for the
+  whole replay as if the boost was active, which the recording never had.
 
 ---
 

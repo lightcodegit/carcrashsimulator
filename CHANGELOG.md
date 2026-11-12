@@ -9,6 +9,14 @@ workflow refuses to publish a tag that does not match it.
 
 ### Fixed
 
+- The HUD reads correctly on the large UI step again (4K screens, issue #10):
+  panels doubled with the step, but the labels inside stayed in raw pixels —
+  text was squashed against the panel edge and the accent rules crossed it.
+  Every inner position, the scale bars and the debug overlay now scale with
+  the UI step, and `h_hud_layout` runs its geometry checks on a 3200×1800
+  second pass asserting each panel child lands at exactly 2× its step-1
+  offset, so an unscaled element cannot slip through again.
+
 - The OPEN FOLDER action in the gallery stays disabled while `user://photos`
   does not exist: on a fresh profile (no shot ever taken) the action used to
   silently fail.

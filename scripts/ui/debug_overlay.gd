@@ -28,9 +28,11 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
-	position = Vector2(24, 196)
+	# Позиция и размер — в дизайн-пикселях через ступень: иначе на второй ступени
+	# оверлей оставался полуметровым окном в углу и наезжал на панели HUD (issue #10).
+	position = Vector2(UiTheme.fx(24), UiTheme.fx(196))
 	custom_minimum_size = Vector2(UiTheme.fx(372), UiTheme.fx(236))
-	size = Vector2(372, 236)
+	size = Vector2(UiTheme.fx(372), UiTheme.fx(236))
 	var panel := Panel.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.add_theme_stylebox_override("panel", UiTheme.panel_style())

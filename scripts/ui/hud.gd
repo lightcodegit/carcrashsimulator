@@ -121,8 +121,8 @@ var _paused_ui := false
 var _deform_full := 0.25
 # Порядок строк telemetry-панели: заголовок, линейка акцента, две строки показаний,
 # потом две подписанные шкалы. Все отступы кратны 6 px — панель читается колонкой.
-var _deform_area := Rect2(14, 112, 272, 6)
-var _slip_area := Rect2(14, 152, 272, 6)
+var _deform_area := Rect2(UiTheme.fx(14), UiTheme.fx(112), UiTheme.fx(272), UiTheme.fx(6))
+var _slip_area := Rect2(UiTheme.fx(14), UiTheme.fx(152), UiTheme.fx(272), UiTheme.fx(6))
 var _pause_panel: Control
 var _pause_label: Label
 var _run_stats: Label
@@ -186,7 +186,11 @@ func _style(sb_corner := 10) -> StyleBoxFlat:
 
 func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE, weight := 500) -> Label:
 	var l := Label.new()
-	l.position = pos
+	# Позиция приходит в дизайн-пикселях и масштабируется здесь: раньше метки
+	# стояли в сырых пикселях, панели удваивались ступенью, а текст — нет —
+	# на второй ступени (4K-экраны) текст сминался у края, и линейки ложились
+	# поверх него (issue #10).
+	l.position = Vector2(UiTheme.fx(pos.x), UiTheme.fx(pos.y))
 	l.add_theme_font_override("font", UiTheme.sans_font(weight))
 	l.add_theme_font_size_override("font_size", UiTheme.px(size_px))
 	l.add_theme_color_override("font_color", color)
@@ -273,7 +277,7 @@ func _build_telemetry(root: Control) -> void:
 	_deform_bg = ColorRect.new()
 	_deform_bg.color = Color(1, 1, 1, 0.09)
 	_deform_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_deform_bg.position = _deform_area.position - Vector2(1, 1)
+	_deform_bg.position = _deform_area.position - Vector2(UiTheme.fx(1), UiTheme.fx(1))
 	_deform_bg.size = _deform_area.size + Vector2(2, 2)
 	panel.add_child(_deform_bg)
 	panel.move_child(_deform_fill, panel.get_child_count() - 1)
@@ -286,7 +290,7 @@ func _build_telemetry(root: Control) -> void:
 	_slip_bg = ColorRect.new()
 	_slip_bg.color = Color(1, 1, 1, 0.09)
 	_slip_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_slip_bg.position = _slip_area.position - Vector2(1, 1)
+	_slip_bg.position = _slip_area.position - Vector2(UiTheme.fx(1), UiTheme.fx(1))
 	_slip_bg.size = _slip_area.size + Vector2(2, 2)
 	panel.add_child(_slip_bg)
 	panel.move_child(_slip_fill, panel.get_child_count() - 1)
@@ -723,13 +727,13 @@ func _process(dt: float) -> void:
 		_v_deform.text = "%d%%" % int(round(t * 100.0))
 		if absf(d - _deform) > 1e-4:
 			_deform = d
-			_deform_fill.size.x = maxf(0.0, (_deform_bg.size.x - 2.0) * t)
+			_deform_fill.size.x = maxf(0.0, (_deform_bg.size.x - UiTheme.fx(2)) * t)
 			_deform_fill.color = OK.lerp(WARN, clampf(t * 2.0, 0.0, 1.0)).lerp(BAD, clampf((t - 0.6) / 0.4, 0.0, 1.0))
 	# Индикатор сцепления: полоса показывает, сколько шины ещё держат, и краснеет
 	# раньше, чем занос становится виден по следам резины.
 	var grip := 1.0 - _car.slip
 	_v_grip.text = "%d%%" % int(round(clampf(grip, 0.0, 1.0) * 100.0))
-	_slip_fill.size.x = maxf(0.0, (_slip_bg.size.x - 2.0) * grip)
+	_slip_fill.size.x = maxf(0.0, (_slip_bg.size.x - UiTheme.fx(2)) * grip)
 	_slip_fill.color = BAD.lerp(WARN, clampf(grip * 2.0, 0.0, 1.0)).lerp(OK, clampf((grip - 0.5) * 2.0, 0.0, 1.0))
 	if _tip_label.visible and _tip_until > 0 and Time.get_ticks_msec() > _tip_until:
 		_tip_label.visible = false

@@ -28,6 +28,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # Esc и «в меню» должны работать и на паузе
 	GameContext.loading_hide()   # сцена собрана: загрузочный экран больше не нужен
 	TimeScale.set_hold(false)     # слоу-мо не должно переезжать в новый заезд
+	Stats.add_run()
 	_setup_env()
 	var m: Dictionary = MapDB.build(GameContext.map_id)
 	_spawn = m.spawn
@@ -128,6 +129,7 @@ func _ready() -> void:
 	_start_ms = Time.get_ticks_msec()
 	_release_inputs()
 	_apply_render()
+	photo.shot_saved.connect(func(_p: String, _i: int) -> void: Stats.add_shot())
 	# главное меню держит 3D-масштаб окна в 1.0 (витрина обязана быть резкой) —
 	# на заезд возвращаем игровую настройку
 	Settings.apply_window()
@@ -284,12 +286,18 @@ func _setup_env() -> void:
 func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 	_crashes += 1
 	_top_crash = maxf(_top_crash, speed_kmh)
+	Stats.add_impact(speed_kmh)
 	hud.log_impact(speed_kmh)
 	hud.set_crash_stats(_crashes, _top_crash)
 	camera.add_trauma(clampf(speed_kmh / 160.0, 0.12, 0.55))
 
 func _physics_process(dt: float) -> void:
 	if _paused: return
+	# Lifetime statistics: only the live world feeds it — pause, replay and photo
+	# mode all hold the same _paused and never reach the counters.
+	Stats.add_time(dt)
+	Stats.add_distance(car.chassis.linear_velocity.length() * dt)
+	Stats.add_speed(car.speed_kmh())
 	if _endless:
 		# плиты переставляем каждый физический кадр: дешёвая проверка концев лент
 		# ничего не стоит, а телепорты размазываются по кадрам вместо пакета
@@ -407,6 +415,7 @@ func _replay_shot() -> void:
 	if img.save_png(path) != OK:
 		hud.show_tip(I18n.t("СНИМОК НЕ ПОЛУЧИЛСЯ: НЕТ ПРАВА ЗАПИСИ"))
 		return
+	Stats.add_shot()
 	hud.show_tip(I18n.fmt("СНИМОК РЕПЛЕЯ: %s", [path.replace("user://", "")]))
 
 func _on_joy_changed(connected: bool, _index: int, _name: String) -> void:
@@ -551,6 +560,7 @@ func _restart_map() -> void:
 	_set_paused(false)
 
 func _to_menu() -> void:
+	Stats.save()   # the run is over: commit lifetime numbers without waiting for the debounce
 	get_tree().paused = false
 	_paused = false
 	GameContext.loading_show()

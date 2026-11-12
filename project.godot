@@ -22,6 +22,7 @@ TimeScale="*res://scripts/autoload/TimeScale.gd"
 InputRouter="*res://scripts/autoload/InputRouter.gd"
 Settings="*res://scripts/autoload/Settings.gd"
 GameContext="*res://scripts/autoload/GameContext.gd"
+Stats="*res://scripts/autoload/Stats.gd"
 
 [display]
 

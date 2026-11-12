@@ -204,6 +204,10 @@ func _physics_process(dt: float) -> void:
 func _update_scrape(dt: float) -> void:
 	_scrape_gap = maxf(_scrape_gap - dt, 0.0)
 	_spark_gap = maxf(_spark_gap - dt, 0.0)
+	# Flash-reduction mode: the scraper produces no sparks at all, and the hold
+	# counter does not accumulate — otherwise the first extinguished tick counted
+	# as contact waiting for its turn.
+	if Settings.flash_reduction: return
 	if _car.speed_kmh() < SCRAPE_MIN_KMH:
 		_scrape_hold = 0.0
 		return
@@ -260,8 +264,12 @@ func _on_impact(speed_kmh: float, point: Vector3, _normal: Vector3) -> void:
 	_spark_gap = 0.08
 	_sparks.global_position = point
 	_dust.global_position = point
-	_sparks.amount = int(clampf(speed_kmh * 0.4, 12.0, 64.0))
 	_dust.amount = int(clampf(speed_kmh * 0.22, 8.0, 40.0))
-	for p in [_sparks, _dust]:
-		p.emitting = false
-		p.emitting = true
+	# Dust is not a flash (grey, does not blink): under flash reduction it stays,
+	# while the sudden bright spark burst is extinguished entirely.
+	_dust.emitting = false
+	_dust.emitting = true
+	if Settings.flash_reduction: return
+	_sparks.amount = int(clampf(speed_kmh * 0.4, 12.0, 64.0))
+	_sparks.emitting = false
+	_sparks.emitting = true

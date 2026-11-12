@@ -42,6 +42,8 @@ const CHECKS := [
 	["audio_enabled", "ЗВУК ВКЛЮЧЁН", 0],
 	["vibration_enabled", "ВИБРАЦИЯ ГЕЙМПАДА", 0],
 	["particles_enabled", "ЧАСТИЦЫ (ДЫМ, ИСКРЫ, ПЫЛЬ)", 0],
+	["flash_reduction", "МЕНЬШЕ ВСПЫШЕК (ИСКРЫ)", 0],
+	["ui_big", "БОЛЬШОЙ ИНТЕРФЕЙС", 0],
 ]
 # [ключ, заголовок, мин, макс, шаг, формат, множитель показа, режим].
 # Камера (fov/shake/slowmo) — настройки вида, а не «расширенная графика»: живут на
@@ -329,13 +331,22 @@ func _camera_page(box: VBoxContainer) -> void:
 	for key in CAMERA_KEYS:
 		box.add_child(_row_for(String(key)))
 
-# ---- вкладка ОБЩЕЕ: язык и настройки, не привязанные к картинке или звуку ----
+# ---- вкладка ОБЩЕЕ: язык, доступность и настройки, не привязанные к картинке ----
 func _general_page(box: VBoxContainer) -> void:
 	box.add_child(UiTheme.label("ОБЩЕЕ", 30, Color.WHITE, 800))
 	box.add_child(_sep())
 	box.add_child(_spacer(8))
 	box.add_child(_section_head("ЯЗЫК"))
 	box.add_child(_language_row())
+	box.add_child(_spacer(14))
+	box.add_child(_section_head("ДОСТУПНОСТЬ"))
+	box.add_child(_row_for("flash_reduction"))
+	box.add_child(_row_for("ui_big"))
+	# Ступень растёт целыми шагами и применяется при построении экрана — честнее
+	# предупредить, чем оставить игрока с наполовину выросшим интерфейсом.
+	box.add_child(UiTheme.label(
+		"Ступень интерфейса применяется при построении экрана: в меню — сразу, в заезде — после возврата в меню",
+		14, UiTheme.DIM))
 
 # ---- вкладка ЗВУК: звук, вибрация, частицы -----------------------------------
 # Тот же язык строк, что у ГРАФИКИ: строки берутся из CHECKS/SLIDERS, поэтому

@@ -93,6 +93,18 @@ func _ready() -> void:
 	for l in mm._panel.find_children("*", "Label", true, false):
 		if String(l.text) == want_count: count_ok = true; break
 	_check(count_ok, "the gallery count label shows the formatted count (%s expected)" % want_count)
+	# Thumbnails decode off the build path, a few per frame: after a short wait
+	# the first card's own TextureRect must hold a texture, otherwise the queue
+	# stalled. Other TextureRects under the panel carry style textures and are
+	# not witnesses here.
+	for i in 8: await get_tree().process_frame
+	var card_tr: TextureRect = null
+	if grids.size() == 1 and cards > 0:
+		var card: Node = (grids[0] as GridContainer).get_child(0)
+		for c in card.get_children():
+			if c is TextureRect: card_tr = c; break
+	_check(card_tr != null and card_tr.texture != null,
+		"the gallery thumbnail decoded within a few frames")
 	DirAccess.remove_absolute("user://photos/photo_0001.png")
 	mm.queue_free()
 	await get_tree().process_frame

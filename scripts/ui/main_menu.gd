@@ -194,6 +194,13 @@ func _clear_showcase(root: Node3D) -> void:
 			c.queue_free()
 
 func _process(dt: float) -> void:
+	# decoded queue disabled by mutation
+	# остаётся в бюджете, а полная лента дорисовывается за долю секунды
+	for i in 2:
+		if _thumbs_todo.is_empty(): break
+		var job: Array = _thumbs_todo.pop_front()
+		var tr: TextureRect = job[0]
+		if is_instance_valid(tr): tr.texture = PhotoGallery.thumbnail(job[1])
 	# медленный кинематографичный облёт: курс вокруг машины + лёгкое «дыхание» высоты.
 	# цель взгляда сдвинута ВПРАВО на 2.6 м: look_at ставит цель в центр экрана,
 	# поэтому именно сдвиг цели (а не позиции) укладывает машину в левую треть,
@@ -372,7 +379,13 @@ func _build_footer(host: Control) -> void:
 	host.add_child(v)
 
 # ---- переключение разделов -------------------------------------------------
+# Очередь миниатюр галереи: PNG на несколько мегабайт декодируется не все
+# разом (до двух за кадр), иначе открытие раздела с 24 снимками вешало меню
+# на полсекунды и больше.
+var _thumbs_todo: Array = []
+
 func _show_section(sec: int) -> void:
+	_thumbs_todo.clear()   # раздел пересобран: старые задания указывают на мёртвые узлы
 	if _section == Section.GARAGE and sec != Section.GARAGE:
 		_profiles.cancel()
 		_preview_garage(_profiles.draft_params())
@@ -448,7 +461,8 @@ func _panel_gallery() -> void:
 		tr.offset_top = UiTheme.fx(10); tr.offset_bottom = UiTheme.fx(-10)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tr.texture = PhotoGallery.thumbnail(path)
+		# декод уходит в очередь — см. _process
+		_thumbs_todo.append([tr, path])
 		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(tr)
 		grid.add_child(card)

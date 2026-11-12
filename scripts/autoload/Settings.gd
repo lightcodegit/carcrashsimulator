@@ -279,8 +279,9 @@ func set_value(key: String, v: Variant, persist := true) -> void:
 		else:
 			val = clampf(float(v), float(NUMS[key][0]), float(NUMS[key][1]))
 	if key == "language":
-		if not (v is String and (v == "ru" or v == "en")): return
-		val = v
+		# Валидируем приведённое значение: у строкового ключа приведение не меняет
+		# тип, и проверка на сыром v была эквивалентна — единый стиль с ветками выше.
+		if not (val is String and (val == "ru" or val == "en")): return
 	set(key, val)
 	if key == "language": I18n.set_locale(language)
 	if key != "preset" and key != "tier_extended":

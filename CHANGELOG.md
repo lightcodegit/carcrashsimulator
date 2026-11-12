@@ -17,6 +17,13 @@ workflow refuses to publish a tag that does not match it.
 ## [v0.1.4] - 2026-11-12
 
 ### Fixed
+- The main menu section panel no longer outgrows the window: in the editor's
+  embedded panel (745x253 in the report) the panel was cut by the window edge
+  with no scroll. The panel height is now capped to the window height, and
+  content past the cap is reached by scrolling.
+- The UI step no longer doubles inside the editor's embedded panel: the panel
+  is measured by its own window height, while a standalone launch still
+  measures the screen (a 4K player keeps the large step).
 
 - The game window keeps its frame on Windows 11 machines where it previously
   started borderless (reported in the wild, same window path as issue #9):

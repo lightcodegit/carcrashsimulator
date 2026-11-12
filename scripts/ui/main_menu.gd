@@ -706,15 +706,21 @@ func _scroller() -> VBoxContainer:
 
 # Панель высотой ровно по контенту (пол: 220, потолок 640 — дальше скролл).
 func _fit_panel() -> void:
+	# The panel never outgrows the window: in the editor's embedded panel (and
+	# any small window) there is no 640 of height, and cards used to be cut by
+	# the window edge. Content past the cap is reached by scrolling.
+	var cap := maxf(float(get_window().size.y) - _panel.offset_top - UiTheme.fx(24.0), UiTheme.fx(160.0))
+	var bottom := _panel.offset_top + clampf(UiTheme.fx(640.0), UiTheme.fx(220.0), minf(UiTheme.fx(640.0), cap))
 	if _section == Section.GARAGE:
 		# Прокручиваются настройки, но действия с черновиком всегда видны.
-		_panel.offset_bottom = _panel.offset_top + UiTheme.fx(640)
+		_panel.offset_bottom = bottom
 		return
 	if _cur_sc == null: return
 	var box := _cur_sc.get_child(0) as VBoxContainer
 	if box == null: return
 	var need := box.get_combined_minimum_size().y + UiTheme.fx(44.0)
-	_panel.offset_bottom = _panel.offset_top + clampf(need, UiTheme.fx(220.0), UiTheme.fx(640.0))
+	bottom = _panel.offset_top + clampf(need, UiTheme.fx(220.0), minf(UiTheme.fx(640.0), cap))
+	_panel.offset_bottom = bottom
 
 func _kv(parent: Node, k: String, v: String) -> void:
 	var row := HBoxContainer.new()

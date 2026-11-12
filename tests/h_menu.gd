@@ -110,6 +110,27 @@ func _process(_d: float) -> void:
 	var br: Rect2 = startb.get_global_rect()
 	check(br.position.x > 0 and br.position.y > 0 and br.position.x + br.size.x < vp.x and br.position.y + br.size.y < vp.y,
 		"the launch button is inside the frame (%s)" % str(br))
+	# The section panel never outgrows the window: in the editor's embedded
+	# panel (745x253 in the report) the panel used to be cut by the window edge
+	# with no scroll. The live min_size clamps the request to 800x450, and
+	# _fit_panel caps the panel to the window height; both are measured here.
+	get_window().size = Vector2i(745, 253)
+	UiTheme.force_step(1)
+	mm._show_section(0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var pr: Rect2 = Rect2(mm._panel.position, mm._panel.size)
+	check(pr.end.y <= get_window().size.y,
+		"the section panel stays inside a tiny window (%s vs %s)" % [str(pr), str(get_window().size)])
+	check(pr.end.x <= get_window().size.x, "the section panel stays inside in width (%s)" % str(pr))
+	get_window().size = Vector2i(1600, 900)
+	UiTheme.force_step(0)
+	# the rebuild above freed the old launch button (_show_section tears the
+	# panel down and builds a fresh one) — re-capture before pressing
+	var btns5: Array = []; _buttons(mm, btns5)
+	for b in btns5:
+		if b.text == I18n.t("ЗАПУСТИТЬ СИМУЛЯЦИЮ"): startb = b
+	check(is_instance_valid(startb), "the launch button survived the section rebuild")
 	# the transition: the harness scene must not be current_scene, otherwise a scene change tears it down
 	get_tree().current_scene = null
 	startb.emit_signal("pressed")

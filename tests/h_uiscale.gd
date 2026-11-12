@@ -56,6 +56,11 @@ func _ready() -> void:
 	# the auto step must be computed from the screen, not the window: a 4K player
 	# starts in a 1600×900 window and would never see the second step from window size
 	var want := 2 if DisplayServer.screen_get_size().y >= 1700 else 1
+	# the pure height table: the embedded editor panel feeds its WINDOW height
+	# into the same threshold, so a 745x253 panel never gets the large step
+	check(UiTheme.step_for_height(253) == 1, "a tiny panel height stays on step 1")
+	check(UiTheme.step_for_height(1699) == 1 and UiTheme.step_for_height(1700) == 2,
+		"the step flips exactly at the 1700 design boundary")
 	check(UiTheme.step() == want,
 		"auto step from screen %s wants %d, got %d" % [
 			str(DisplayServer.screen_get_size()), want, UiTheme.step()])

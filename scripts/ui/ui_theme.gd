@@ -36,11 +36,22 @@ const RHYTHM := 8.0          # базовый шаг вертикальных о
 # посреди сессии не должен оставить часть панелей в одном масштабе.
 static var _step := 0
 
+# Pure step-from-height table: testable without a live screen.
+static func step_for_height(h: int) -> int:
+	return 2 if h >= 1700 else 1
+
+# The height the UI step is measured from. A standalone launch measures the
+# SCREEN, not the window: a 4K player starts in a 1600×900 window and would
+# stay on step 1 forever. The editor's embedded panel is owned by the editor
+# itself, so its size is the window: measuring by the window there keeps the
+# tiny 745x253 panel on step 1 instead of a doubled interface cut by the edge
+# (player screenshot).
+static func step_source_height() -> int:
+	return DisplayServer.window_get_size().y if Engine.is_embedded_in_editor() 		else DisplayServer.screen_get_size().y
+
 static func step() -> int:
 	if _step == 0:
-		# высота ЭКРАНА, а не окна: игрок с 4K-монитором стартует в окне 1600×900
-		# и по размеру окна получил бы первую ступень навсегда
-		_step = 2 if DisplayServer.screen_get_size().y >= 1700 else 1
+		_step = step_for_height(step_source_height())
 	return _step
 
 static func force_step(v: int) -> void:

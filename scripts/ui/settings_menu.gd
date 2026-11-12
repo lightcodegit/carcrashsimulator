@@ -605,6 +605,12 @@ func _take(event: InputEvent) -> void:
 		if code == KEY_ESCAPE:
 			_end_capture()
 			return
+		# Код 0 физически нельзя нажать: некоторые медиа-клавиши отдают событие
+		# без кода. Такой бинд переживал бы сессию, а после перезапуска молча
+		# исчезал — декодер отвергает код 0 (InputRouter._decode). Фолбэк на
+		# виртуальный код, и если нет ни того, ни другого — нажатие игнорируется.
+		if code == 0: code = ev.keycode
+		if code == 0: return
 		var k := InputEventKey.new()
 		k.physical_keycode = code
 		# Модификаторы — часть назначения: без них «Ctrl+F» превращался в простую

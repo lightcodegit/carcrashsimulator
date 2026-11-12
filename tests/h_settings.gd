@@ -310,6 +310,19 @@ func _build_menu() -> void:   # called from _ready, so await is not needed here
 	check("W" in InputRouter.describe("brake"), "5: the conflicting binding was recorded (%s)" % InputRouter.describe("brake"))
 	check(not InputRouter.describe("brake").contains("CTRL"), "5: only W was taken")
 	InputRouter.clear_binding("brake")
+	# A key event with no code (some media keys emit one) cannot be represented
+	# in the config: k0 is rejected by the decoder, so the binding would die on
+	# restart. The capture refuses it and keeps waiting for a real key.
+	menu._begin_capture("respawn")
+	var phantom := InputEventKey.new()
+	phantom.pressed = true
+	menu._input(phantom)
+	var ghost := false
+	for e in InputRouter._custom.get("respawn", []):
+		if e is InputEventKey and (e as InputEventKey).physical_keycode == 0: ghost = true
+	check(not ghost, "a codeless key leaves no phantom binding (%s)" % str(InputRouter._custom.get("respawn", [])))
+	check(menu.capturing(), "the capture keeps waiting for a representable key")
+	menu._end_capture()
 	# outside capture Esc closes the screen, handled by _unhandled_input already
 	var esc2 := InputEventKey.new()
 	esc2.physical_keycode = KEY_ESCAPE

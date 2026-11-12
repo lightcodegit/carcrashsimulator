@@ -15,6 +15,10 @@ workflow refuses to publish a tag that does not match it.
 - Opening the gallery no longer stalls the menu while it decodes thumbnails:
   snapshots are decoded a few per frame instead of all at once, so a folder
   with two dozen shots builds the section in the regular frame budget.
+- Capturing a key event without a key code (some media keys emit one) no
+  longer sticks: the binding could not survive a restart (the config decoder
+  rejects a zero code), so it disappeared silently — the capture now falls
+  back to the virtual code and refuses events that have neither.
 - Shot files whose name carries no number (a hand-renamed
   `photo_readme.png`) no longer enter the gallery listing: a name without
   `photo_NNNN` parsed as index 0 and jumped to the front as the newest shot.

@@ -10,28 +10,30 @@ workflow refuses to publish a tag that does not match it.
 ### Fixed
 
 - The game window keeps its frame on Windows 11 machines where it previously
-  started borderless: the restore path called `window_set_mode(WINDOWED)`
-  unconditionally — including on an already-windowed or OS-maximized window —
-  and that redundant restyle is the transition where some setups lost the
-  non-client frame. The mode is now touched only when it is actually
-  different, an OS-maximized window is left alone, and the borderless /
-  resize-disabled flags are explicitly cleared; the decision table is pinned
-  by `d_first_launch`.
-- The first launch centers the window on the monitor again (issue #9): the
+  started borderless (reported in the wild, same window path as issue #9):
+  the restore path called `window_set_mode(WINDOWED)` unconditionally —
+  including on an already-windowed or OS-maximized window — and that
+  redundant restyle is the transition where some setups lost the non-client
+  frame. The mode is now touched only when it is actually different, an
+  OS-maximized window is left alone, and the borderless / resize-disabled
+  flags are explicitly cleared; the decision table is pinned by
+  `d_first_launch`.
+- The window no longer jumps into the corner on the first launch (issue #9,
+  "Смещение окна при первом запуске", Windows 11, two monitors): the
   centering flag was only set when a settings file existed without a window
   section (an upgrade), so a truly fresh profile took the regular path and
   moved the window that Godot had just centered into the top-left corner.
   The flag is now set whenever there is no settings file at all; the live
   window checks stay in h_fullscreen, and d_first_launch pins the flag in
   all three profile states (fresh, upgraded, saved).
-- The HUD reads correctly on the large UI step again (4K screens, issue #10):
-  panels doubled with the step, but the labels inside stayed in raw pixels —
-  text was squashed against the panel edge and the accent rules crossed it.
-  Every inner position, the scale bars and the debug overlay now scale with
-  the UI step, and `h_hud_layout` runs its geometry checks on a 3200×1800
-  second pass asserting each panel child lands at exactly 2× its step-1
-  offset, so an unscaled element cannot slip through again.
-
+- The HUD reads correctly on the large UI step again (issue #10,
+  "Скорректировать блоки с информацией", Windows 11): panels doubled with
+  the step, but the labels inside stayed in raw pixels — text was squashed
+  against the panel edge and the accent rules crossed it. Every inner
+  position, the scale bars and the debug overlay now scale with the UI step,
+  and `h_hud_layout` runs its geometry checks on a 3200×1800 second pass
+  asserting each panel child lands at exactly 2× its step-1 offset, so an
+  unscaled element cannot slip through again.
 - The OPEN FOLDER action in the gallery stays disabled while `user://photos`
   does not exist: on a fresh profile (no shot ever taken) the action used to
   silently fail.

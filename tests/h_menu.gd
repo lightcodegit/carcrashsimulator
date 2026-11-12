@@ -69,7 +69,7 @@ func _process(_d: float) -> void:
 		nav_texts.append(b.text)
 		check(btns.has(b), "navigation item is visible: " + b.text)
 	var nav_expected: Array[String] = []
-	for k in ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"]:
+	for k in ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "ГАЛЕРЕЯ", "СТАТИСТИКА", "НАСТРОЙКИ", "ВЫХОД"]:
 		nav_expected.append(I18n.t(k))
 	check(nav_texts == nav_expected, "navigation content and order (%s)" % str(nav_texts))
 	# the default selection is the first car and the first map

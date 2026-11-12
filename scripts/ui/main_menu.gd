@@ -30,7 +30,7 @@ const MAPS := [
 	["БОЛЬШОЙ ГОРОД", "bigcity", "Километр на километр: периметр, сетка улиц и районы —\nцентр, жилые кварталы, промзона, парк и стадион. Трамплин на бульваре."],
 ]
 
-enum Section { PLAY, VEHICLES, GARAGE, MAPS, SETTINGS, EXIT }
+enum Section { PLAY, VEHICLES, GARAGE, MAPS, GALLERY, STATS, SETTINGS, EXIT }
 
 var _profiles := GarageProfiles.new()
 var _garage: GaragePanel
@@ -74,6 +74,29 @@ func _ready() -> void:
 	_show_section(Section.PLAY)
 	_load_car(_car_i)
 	_nav[0].grab_focus()
+	# «Больше интерфейс» применяем до постройки: ступень растёт целыми шагами, и
+	# пересобранное меню строится уже в новой. Перезагрузка сцены нужна только
+	# когда настройку тронули в живом меню (см. _apply_ui_rebuild).
+	_apply_ui_rebuild(true)
+	Settings.changed.connect(_apply_ui_rebuild)
+
+# Ступень интерфейса — применяемая настройка. Якорь в статике отделяет «настройку
+# тронули» от «ступень выставил чужой force_step» (тесты ступени): иначе слушатель
+# возвращал бы принудительно заданную ступень к заводской на каждой пересборке.
+# В заезде слушателя нет: HUD живёт в старой ступени до возврата в меню — подпись
+# на вкладке доступности предупреждает об этом честно.
+static var _applied_big := false
+
+func _apply_ui_rebuild(initial := false) -> void:
+	if Settings.ui_big == _applied_big: return
+	_applied_big = Settings.ui_big
+	var want := clampi(UiTheme.base_step() + (1 if Settings.ui_big else 0), 1, 3)
+	if UiTheme.step() == want: return
+	UiTheme.force_step(want)
+	# На старте меню ещё не построено — перестраивать нечего. В живом меню
+	# пересборка целиком, иначе часть панелей осталась бы в старой ступени.
+	if initial or get_tree().current_scene == null: return
+	get_tree().reload_current_scene()
 
 func _on_settings_changed() -> void:
 	var w := get_window()
@@ -328,7 +351,7 @@ func _build_nav(host: Control) -> void:
 	box.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
 	box.add_theme_constant_override("separation", UiTheme.px(6))
 	host.add_child(box)
-	var items := ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "НАСТРОЙКИ", "ВЫХОД"]
+	var items := ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "ГАЛЕРЕЯ", "СТАТИСТИКА", "НАСТРОЙКИ", "ВЫХОД"]
 	for idx in items.size():
 		var b := UiTheme.nav_item(items[idx], idx == 0)
 		b.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
@@ -400,8 +423,87 @@ func _show_section(sec: int) -> void:
 		Section.VEHICLES: _panel_vehicles()
 		Section.GARAGE: _panel_garage()
 		Section.MAPS: _panel_maps()
+		Section.GALLERY: _panel_gallery()
+		Section.STATS: _panel_stats()
 		Section.EXIT: _panel_exit()
 	_fit_panel()
+
+# Галерея снимков: пользователь уже умеет делать фото в фотомоде и из реплея,
+# но смотреть их мог только проводником. Сетка миниатюр, удаление и открытие
+# папки — самый короткий путь к снимкам, не покидая игру.
+var _gallery_sel := ""
+
+func _panel_gallery() -> void:
+	_gallery_sel = ""
+	var s := _scroller()
+	s.add_child(UiTheme.label("ГАЛЕРЕЯ", 30, Color.WHITE, 800))
+	s.add_child(_sep())
+	var photos := PhotoGallery.list_photos()
+	if photos.is_empty():
+		s.add_child(UiTheme.label("НЕТ СНИМКОВ", 16, UiTheme.DIM))
+		_hint_gallery(s, false)
+		return
+	s.add_child(UiTheme.label("СНИМКОВ", 13, UiTheme.FAINT, 500, true, [photos.size()]))
+	_hint_gallery(s, true)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", UiTheme.px(12))
+	grid.add_theme_constant_override("v_separation", UiTheme.px(12))
+	s.add_child(grid)
+	for path in photos:
+		var card := Button.new()
+		card.custom_minimum_size = Vector2(UiTheme.fx(PhotoGallery.THUMB_W + 24), UiTheme.fx(PhotoGallery.THUMB_H + 24))
+		card.focus_mode = Control.FOCUS_ALL
+		card.add_theme_stylebox_override("normal", UiTheme.card_style(false))
+		card.add_theme_stylebox_override("hover", UiTheme.card_style(true))
+		card.add_theme_stylebox_override("pressed", UiTheme.card_style(true))
+		card.add_theme_stylebox_override("focus", UiTheme.card_style(true))
+		card.tooltip_text = path.get_file()
+		card.set_meta("photo_path", path)
+		card.pressed.connect(_select_photo.bind(path))
+		var tr := TextureRect.new()
+		tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tr.offset_left = UiTheme.fx(10); tr.offset_right = UiTheme.fx(-10)
+		tr.offset_top = UiTheme.fx(10); tr.offset_bottom = UiTheme.fx(-10)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.texture = PhotoGallery.thumbnail(path)
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(tr)
+		grid.add_child(card)
+	var del := _gallery_btn_del
+	if del != null: del.disabled = true
+	_select_photo(photos[0])   # первый (самый свежий) выделен сразу
+
+# Кнопки действий живут ВНЕ скролла: удалять и открывать папку нужно при любой
+# прокрутке, и без выделенного снимка удаление должно быть явно неактивно.
+var _gallery_btn_del: Button = null
+var _gallery_btn_open: Button = null
+
+func _hint_gallery(s: VBoxContainer, has_photos: bool) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", UiTheme.px(14))
+	s.add_child(row)
+	_gallery_btn_open = UiTheme.ghost_button("ОТКРЫТЬ ПАПКУ", 16)
+	_gallery_btn_open.custom_minimum_size = Vector2(UiTheme.fx(200), UiTheme.fx(44))
+	_gallery_btn_open.pressed.connect(func() -> void: OS.shell_open(ProjectSettings.globalize_path(PhotoGallery.DIR)))
+	row.add_child(_gallery_btn_open)
+	_gallery_btn_del = UiTheme.ghost_button("УДАЛИТЬ", 16)
+	_gallery_btn_del.custom_minimum_size = Vector2(UiTheme.fx(160), UiTheme.fx(44))
+	_gallery_btn_del.disabled = not has_photos
+	_gallery_btn_del.pressed.connect(func() -> void:
+		if _gallery_sel != "" and PhotoGallery.delete_photo(_gallery_sel): _show_section(Section.GALLERY))
+	row.add_child(_gallery_btn_del)
+
+func _select_photo(path: String) -> void:
+	_gallery_sel = path
+	var grid: GridContainer = _cur_sc.get_child(0).get_child(_cur_sc.get_child(0).get_child_count() - 1) if _cur_sc != null else null
+	for card in grid.get_children():
+		var b := card as Button
+		if b == null: continue
+		var on: bool = b.get_meta("photo_path", "") == path
+		b.add_theme_stylebox_override("normal", UiTheme.card_style(on))
+	if _gallery_btn_del != null: _gallery_btn_del.disabled = false
 
 func _panel_play() -> void:
 	var s := _scroller()
@@ -575,6 +677,21 @@ func start_game() -> void:
 	get_tree().paused = false
 	GameContext.loading_show()
 	get_tree().change_scene_to_file("res://scenes/game.tscn")
+
+# Статистика за всю историю: числа копит автозагрузка Stats, здесь они только
+# читаются — панель не обязана ничего считать сама.
+func _panel_stats() -> void:
+	var s := _scroller()
+	s.add_child(UiTheme.label("СТАТИСТИКА", 30, Color.WHITE, 800))
+	s.add_child(_sep())
+	var secs := int(Stats.seconds)
+	_kv(s, "ЗАЕЗДОВ", str(Stats.runs))
+	_kv(s, "УДАРОВ", str(Stats.crashes))
+	_kv(s, "ЛУЧШИЙ УДАР", I18n.fmt("%d км/ч", [int(Stats.best_impact)]))
+	_kv(s, "МАКС. СКОРОСТЬ", I18n.fmt("%d км/ч", [int(Stats.top_speed)]))
+	_kv(s, "ПРОЙДЕНО", I18n.fmt("%d км", [int(Stats.distance / 1000.0)]))
+	_kv(s, "ВРЕМЯ В ЗАЕЗДАХ", I18n.fmt("%d:%02d:%02d", [secs / 3600, (secs / 60) % 60, secs % 60]))
+	_kv(s, "СНИМКОВ", str(Stats.shots))
 
 # ---- мелкие строительные помощники -----------------------------------------
 var _cur_sc: ScrollContainer = null

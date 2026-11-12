@@ -5,6 +5,19 @@ versions follow [semantic versioning](https://semver.org/). The version number
 lives in `project.godot` (`application/config/version`), and the release
 workflow refuses to publish a tag that does not match it.
 
+## [Unreleased]
+
+### Added
+
+- Lifetime statistics on a new STATISTICS section in the main menu: runs,
+  impacts, best impact, top speed, distance, time in runs and photos taken.
+  The numbers accumulate live during every run and are stored in
+  `user://stats_v1.json` with the same atomic write as the garage file, so
+  they survive restarts.
+- A GALLERY section in the main menu: photo-mode and replay snapshots as a
+  thumbnail grid (newest first) with delete and open-folder actions — no more
+  digging for PNGs in the file manager to see what you shot.
+
 ## [v0.1.3] - 2026-11-11
 
 ### Fixed

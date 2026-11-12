@@ -21,7 +21,7 @@ func _ready() -> void:
 	if garage_button == null:
 		get_tree().quit(1)
 		return
-	check(menu._nav.size() == 6, "six navigation sections")
+	check(menu._nav.size() == 8, "eight navigation sections (gallery and statistics included)")
 	garage_button.grab_focus()
 	check(garage_button.has_focus(), "garage entry keyboard focus")
 	garage_button.pressed.emit()

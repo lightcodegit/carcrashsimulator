@@ -9,6 +9,9 @@ workflow refuses to publish a tag that does not match it.
 
 ### Fixed
 
+- The OPEN FOLDER action in the gallery stays disabled while `user://photos`
+  does not exist: on a fresh profile (no shot ever taken) the action used to
+  silently fail.
 - Opening the gallery no longer stalls the menu while it decodes thumbnails:
   snapshots are decoded a few per frame instead of all at once, so a folder
   with two dozen shots builds the section in the regular frame budget.

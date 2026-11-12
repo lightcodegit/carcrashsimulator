@@ -34,6 +34,11 @@ static func list_photos() -> Array[String]:
 	for k in keys: out.append(DIR + "/" + String(by_index[k]))
 	return out
 
+# user://photos does not exist on a fresh profile until the first shot is
+# taken: the open-folder action must know when it has nothing to open.
+static func folder_exists() -> bool:
+	return DirAccess.dir_exists_absolute(DIR)
+
 static func delete_photo(path: String) -> bool:
 	if not path.begins_with(DIR + "/"): return false
 	return DirAccess.remove_absolute(path) == OK

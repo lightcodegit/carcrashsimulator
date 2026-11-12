@@ -20,8 +20,11 @@ func _make_shot(idx: int) -> void:
 
 func _initialize() -> void:
 	DirAccess.remove_absolute("user://photos")
+	check(not PhotoGallery.folder_exists(), "no folder on a fresh profile means nothing to open")
 	# save_png does not create the parent dir — same trap the photo mode hit
 	var d := DirAccess.open("user://")
+	d.make_dir("photos")
+	check(PhotoGallery.folder_exists(), "the folder exists once created")
 	d.make_dir("photos")
 	for idx in [3, 1, 12, 2]: _make_shot(idx)
 

@@ -482,6 +482,7 @@ func _hint_gallery(s: VBoxContainer, has_photos: bool) -> void:
 	_gallery_btn_open = UiTheme.ghost_button("ОТКРЫТЬ ПАПКУ", 16)
 	_gallery_btn_open.custom_minimum_size = Vector2(UiTheme.fx(200), UiTheme.fx(44))
 	_gallery_btn_open.pressed.connect(func() -> void: OS.shell_open(ProjectSettings.globalize_path(PhotoGallery.DIR)))
+	_gallery_btn_open.disabled = not PhotoGallery.folder_exists()
 	row.add_child(_gallery_btn_open)
 	_gallery_btn_del = UiTheme.ghost_button("УДАЛИТЬ", 16)
 	_gallery_btn_del.custom_minimum_size = Vector2(UiTheme.fx(160), UiTheme.fx(44))

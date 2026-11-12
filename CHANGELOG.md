@@ -7,6 +7,18 @@ workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
+### Fixed
+
+- Shot files whose name carries no number (a hand-renamed
+  `photo_readme.png`) no longer enter the gallery listing: a name without
+  `photo_NNNN` parsed as index 0 and jumped to the front as the newest shot.
+  Previously shipped but unrecorded here: the gallery count label was
+  formatted against a placeholder-less key and silently rendered empty
+  (`СНИМКОВ: %d` now carries the argument; `h_i18n` builds the section with
+  a photo on disk to catch this class), and the lifetime-stats debounce
+  deadline slid on every physics tick, so the periodic save never fired
+  during continuous driving — it now arms once.
+
 ### Added
 
 - Lifetime statistics on a new STATISTICS section in the main menu: runs,

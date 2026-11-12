@@ -8,6 +8,11 @@ func check(ok: bool, msg: String) -> void:
 		fails += 1
 		print("FAIL: " + msg)
 
+func _write_file(path: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("x")
+	f.close()
+
 func _make_shot(idx: int) -> void:
 	var img := Image.create(160, 90, false, Image.FORMAT_RGB8)
 	img.fill(Color(idx % 2, 0.5, 0.3))
@@ -27,11 +32,13 @@ func _initialize() -> void:
 
 	# A foreign file in the folder is not a gallery shot and does not break the
 	# numbering or the order.
-	var f := FileAccess.open("user://photos/stray.png", FileAccess.WRITE)
-	f.store_string("x")
-	f.close()
+	# Files renamed by hand parse as index 0 and would jump to the front of the
+	# list; the gallery recognizes only well-formed photo_NNNN.png names.
+	_write_file("user://photos/photo_readme.png")
+	_write_file("user://photos/photo_.png")
 	list = PhotoGallery.list_photos()
 	check(list.size() == 4, "a stray file is not listed (%d)" % list.size())
+	check(list[0].ends_with("photo_0012.png"), "a hand-renamed file does not jump to the front (%s)" % list[0].get_file())
 
 	# Thumbnail: decoded, downscaled into the gallery box, and never null.
 	var tex := PhotoGallery.thumbnail(list[0])

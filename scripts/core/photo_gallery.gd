@@ -22,8 +22,11 @@ static func list_photos() -> Array[String]:
 	var by_index := {}
 	for f in d.get_files():
 		if not (f.begins_with("photo_") and f.ends_with(".png")): continue
-		var idx := int(f.trim_prefix("photo_").trim_suffix(".png"))
-		by_index[idx] = f
+		var num := f.trim_prefix("photo_").trim_suffix(".png")
+		# A hand-renamed file (photo_readme.png) parses as 0 and would jump to the
+		# front of the list; an unnumbered name is not a gallery shot.
+		if not num.is_valid_int(): continue
+		by_index[int(num)] = f
 	var keys := by_index.keys()
 	keys.sort()
 	keys.reverse()

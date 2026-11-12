@@ -52,6 +52,15 @@ func _process(_dt: float) -> bool:
 					[DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN, true]]:
 				check(ss._window_mode_needs_restyle(pair[0]) == pair[1],
 					"restyle table for mode %d expects %s" % [pair[0], str(pair[1])])
+			# The live minimum: the OS frame and the restored geometry obey it.
+			var mn: Vector2i = cfg.min_window_size()
+			check(mn == Vector2i(800, 450), "the design minimum is 800x450 (%s)" % str(mn))
+			var wmin: Vector2i = root.get_window().min_size
+			check(wmin == mn, "the window enforces the minimum (min_size %s)" % str(wmin))
+			# A saved rect smaller than the minimum clamps up on restore.
+			var clamped: Rect2i = Rect2i(10, 10, 400, 300)
+			clamped.size = clamped.size.max(mn)
+			check(clamped.size == mn, "a small saved rect clamps to the minimum (%s)" % str(clamped.size))
 			DirAccess.remove_absolute("user://settings.cfg")
 			if fails == 0: print("ALL PASS")
 			else: print("FAILS %d" % fails)

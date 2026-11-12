@@ -170,6 +170,15 @@ static func owns_window() -> bool:
 # не окно, а осколок: Windows не даёт рамке сжаться, а Godot сжимает клиентскую
 # область, и интерфейс пропадает (серое окно с полоской).
 const WIN_MIN := Vector2i(320, 240)
+# Живой минимум окна в дизайн-пикселях (умножается на ступень): 800×450 — самый
+# малый кадр, в котором читаются меню (панель раздела + навигация) и HUD
+# (телеметрия не наезжает на журнал ударов). Рамке Windows его навязывает
+# min_size, сохранённой геометрии — clamp при восстановлении.
+const MIN_WINDOW := Vector2i(800, 450)
+
+# Живой минимум в пикселях текущей ступени.
+static func min_window_size() -> Vector2i:
+	return Vector2i(int(UiTheme.fx(MIN_WINDOW.x)), int(UiTheme.fx(MIN_WINDOW.y)))
 const WIN_MAX := Vector2i(16384, 16384)
 const WIN_DEFAULT := Vector2i(1600, 900)
 
@@ -213,6 +222,10 @@ func restore_window_geometry() -> void:
 		DisplayServer.window_set_position(scr.position + Vector2i(maxi(off.x, 0), maxi(off.y, 0)))
 		return
 	var r := _win_rect
+	# Прежняя версия могла сохранить окно мельче живого минимума: ОС всё равно
+	# отдает min_size, поэтому приводим геометрию к нему заранее.
+	var mn := min_window_size()
+	r.size = r.size.max(mn)
 	if not _win_ok(r):
 		# Ноль мог остаться в файле от прошлой версии. Если и живое окно сжалось
 		# в ноль, игроку показывается серое поле с тонкой полоской интерфейса:
@@ -345,6 +358,10 @@ func apply_window() -> void:
 	# запоминается и срабатывает на отдельном окне — об этом игроку говорит
 	# подпись на вкладке «ГРАФИКА», а не молчаливый отказ.
 	if owns_window():
+		# Минимум навязываем рамке постоянно: apply_window зовётся и на старте,
+		# и на каждую смену настроек — идемпотентно, а в панели редактора окно
+		# не наше и минимум ему не навязываем.
+		get_window().min_size = min_window_size()
 		if fullscreen:
 			if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
 				# Снимаем прямоугольник В МОМЕНТ входа. Опрос кадров отстаёт: ресайз

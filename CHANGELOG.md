@@ -5,6 +5,15 @@ versions follow [semantic versioning](https://semver.org/). The version number
 lives in `project.godot` (`application/config/version`), and the release
 workflow refuses to publish a tag that does not match it.
 
+## [Unreleased]
+
+### Changed
+
+- The window has a minimum size of 800×450 design pixels (doubled on the large
+  UI step): below it the menu panel and the HUD panels read as garbage — the
+  OS frame now refuses to shrink past the minimum, and a saved window
+  rect smaller than it is clamped up on restore.
+
 ## [v0.1.4] - 2026-11-12
 
 ### Fixed

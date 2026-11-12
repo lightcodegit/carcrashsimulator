@@ -17,12 +17,9 @@ workflow refuses to publish a tag that does not match it.
 - A GALLERY section in the main menu: photo-mode and replay snapshots as a
   thumbnail grid (newest first) with delete and open-folder actions — no more
   digging for PNGs in the file manager to see what you shot.
-- Accessibility settings on the GENERAL tab of the settings screen. FLASH
+- An accessibility setting on the GENERAL tab of the settings screen. FLASH
   REDUCTION extinguishes the sudden bright bursts (impact and wall-scrape
-  sparks) while non-flashing effects like dust and smoke stay on. LARGER
-  INTERFACE grows the UI by one whole step (never a fractional scale — the
-  engine renders those blurry); it applies when a screen is built: in the menu
-  at once, in a run after returning to the menu, which the label says plainly.
+  sparks) while non-flashing effects like dust and smoke stay on.
 
 ## [v0.1.3] - 2026-11-11
 

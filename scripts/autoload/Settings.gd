@@ -129,11 +129,8 @@ var vibration_enabled := true
 var vibration_strength := 1.0
 var particles_enabled := true
 # Доступность: яркие внезапные вспышки (искры удара и скребка) — самый частый
-# триггер дискомфорта; дым и пыль оставляем, они не мигают. И увеличенная ступень
-# интерфейса: применяется пересборкой меню (см. main_menu._apply_ui_rebuild),
-# поэтому на заезде она догоняет только к возврату в меню.
+# триггер дискомфорта; дым и пыль оставляем, они не мигают.
 var flash_reduction := false
-var ui_big := false
 var last_car := "sedan"   # последний выбор машины: переживает выход в меню и из игры
 var last_map := "arena"
 var language := "en"
@@ -264,7 +261,7 @@ func values() -> Dictionary:
 		"audio_enabled": audio_enabled, "audio_volume": audio_volume,
 		"vibration_enabled": vibration_enabled, "vibration_strength": vibration_strength,
 		"particles_enabled": particles_enabled, "flash_reduction": flash_reduction,
-		"ui_big": ui_big, "language": language,
+		"language": language,
 		"last_car": last_car, "last_map": last_map,
 		"tier_extended": tier_extended, "preset": preset, "fullscreen": fullscreen,
 	}

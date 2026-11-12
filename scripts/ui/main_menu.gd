@@ -74,29 +74,6 @@ func _ready() -> void:
 	_show_section(Section.PLAY)
 	_load_car(_car_i)
 	_nav[0].grab_focus()
-	# «Больше интерфейс» применяем до постройки: ступень растёт целыми шагами, и
-	# пересобранное меню строится уже в новой. Перезагрузка сцены нужна только
-	# когда настройку тронули в живом меню (см. _apply_ui_rebuild).
-	_apply_ui_rebuild(true)
-	Settings.changed.connect(_apply_ui_rebuild)
-
-# Ступень интерфейса — применяемая настройка. Якорь в статике отделяет «настройку
-# тронули» от «ступень выставил чужой force_step» (тесты ступени): иначе слушатель
-# возвращал бы принудительно заданную ступень к заводской на каждой пересборке.
-# В заезде слушателя нет: HUD живёт в старой ступени до возврата в меню — подпись
-# на вкладке доступности предупреждает об этом честно.
-static var _applied_big := false
-
-func _apply_ui_rebuild(initial := false) -> void:
-	if Settings.ui_big == _applied_big: return
-	_applied_big = Settings.ui_big
-	var want := clampi(UiTheme.base_step() + (1 if Settings.ui_big else 0), 1, 3)
-	if UiTheme.step() == want: return
-	UiTheme.force_step(want)
-	# На старте меню ещё не построено — перестраивать нечего. В живом меню
-	# пересборка целиком, иначе часть панелей осталась бы в старой ступени.
-	if initial or get_tree().current_scene == null: return
-	get_tree().reload_current_scene()
 
 func _on_settings_changed() -> void:
 	var w := get_window()

@@ -226,9 +226,6 @@ const EN := {
 	"УДАЛИТЬ": "DELETE",
 	"ДОСТУПНОСТЬ": "ACCESSIBILITY",
 	"МЕНЬШЕ ВСПЫШЕК (ИСКРЫ)": "FLASH REDUCTION (SPARKS)",
-	"БОЛЬШОЙ ИНТЕРФЕЙС": "LARGER INTERFACE",
-	"Ступень интерфейса применяется при построении экрана: в меню — сразу, в заезде — после возврата в меню":
-		"The interface step applies when a screen is built: in the menu at once, in a run after returning to the menu",
 	"УПРАВЛЕНИЕ": "CONTROLS",
 	"ФИЛЬМ": "FILM",
 	"ФОТОМОД · FOV %.0f° · снимков %d%s": "PHOTO MODE · FOV %.0f° · shots %d%s",

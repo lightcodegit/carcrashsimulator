@@ -420,7 +420,11 @@ func _panel_gallery() -> void:
 		s.add_child(UiTheme.label("НЕТ СНИМКОВ", 16, UiTheme.DIM))
 		_hint_gallery(s, false)
 		return
-	s.add_child(UiTheme.label("СНИМКОВ", 13, UiTheme.FAINT, 500, true, [photos.size()]))
+	# Ключ обязан нести %d: форматирование ключа без плейсхолдера с аргументом —
+	# ошибка времени выполнения (проверено на 4.7.2: «not all arguments converted»),
+	# и раздел галереи с фотографиями не строился вовсе. h_i18n теперь гоняет
+	# раздел с фото на диске, потому что с пустой папкой эта ветка не выполнялась.
+	s.add_child(UiTheme.label("СНИМКОВ: %d", 13, UiTheme.FAINT, 500, true, [photos.size()]))
 	_hint_gallery(s, true)
 	var grid := GridContainer.new()
 	grid.columns = 3

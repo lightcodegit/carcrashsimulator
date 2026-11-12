@@ -42,8 +42,11 @@ func _exit_tree() -> void:
 	if _dirty: save()
 
 func _touch() -> void:
+	# Счётчик меняется каждый физический тик (скорость, путь): дедлайн должен
+	# назначаться один раз, иначе живая езда вечно двигала бы запись вперёд, и
+	# дебаунс срабатывал бы только после остановки.
 	_dirty = true
-	_next_save = Time.get_ticks_msec() + SAVE_DEBOUNCE_MS
+	if _next_save == 0: _next_save = Time.get_ticks_msec() + SAVE_DEBOUNCE_MS
 
 func add_run() -> void: runs += 1; _touch()
 func add_impact(kmh: float) -> void: crashes += 1; best_impact = maxf(best_impact, maxf(kmh, 0.0)); _touch()

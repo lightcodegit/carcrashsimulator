@@ -36,6 +36,13 @@ func _initialize() -> void:
 	check(is_equal_approx(s1.distance, 1500.0), "distance only grows (%.1f)" % s1.distance)
 	check(is_equal_approx(s1.seconds, 90.0), "time accumulates (%.1f)" % s1.seconds)
 	check(s1.shots == 1, "shots accumulate (%d)" % s1.shots)
+	# The debounce deadline is armed once: live driving touches the counters
+	# every tick and must not push the write forward indefinitely.
+	s1._touch()
+	var deadline: int = s1._next_save
+	s1._touch()
+	s1.add_speed(10.0)
+	check(s1._next_save == deadline, "changes do not slide the debounce deadline")
 	s1._dirty = true               # save() is normally driven by the debounce
 	s1.save()
 	check(FileAccess.file_exists(PATH), "save writes the file")

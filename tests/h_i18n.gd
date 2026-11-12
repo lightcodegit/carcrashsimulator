@@ -50,6 +50,14 @@ func _ready() -> void:
 	get_window().size = Vector2i(1600, 900)
 	Settings.language = "en"
 	I18n.set_locale("en")
+	# A photo on disk so the gallery section builds with content: the count
+	# label formats an argument and the thumbnail path runs — both were
+	# invisible to this sweep while the folder stayed empty.
+	var pd := DirAccess.open("user://")
+	if pd != null and not pd.dir_exists("photos"): pd.make_dir("photos")
+	var img := Image.create(64, 36, false, Image.FORMAT_RGB8)
+	img.fill(Color(0.3, 0.5, 0.7))
+	img.save_png("user://photos/photo_0001.png")
 	# 1) main menu: every section
 	var mm = load("res://scenes/main_menu.tscn").instantiate()
 	add_child(mm)
@@ -65,6 +73,27 @@ func _ready() -> void:
 			(nav[i] as Button).emit_signal("pressed")
 			await get_tree().process_frame
 			await get_tree().process_frame
+	# The gallery with a photo on disk must be fully built: a label that formats
+	# an argument against a key without a placeholder raised a formatting error
+	# that aborted the section silently, below any text sweep — the grid is the
+	# witness. This is why the photo is seeded before the walk.
+	(mm._nav[4] as Button).emit_signal("pressed")   # Section.GALLERY
+	await get_tree().process_frame
+	await get_tree().process_frame
+	# the settings preset grid lives on its own layer — search the section panel
+	var grids: Array = mm._panel.find_children("*", "GridContainer", true, false)
+	var cards: int = (grids[0] as GridContainer).get_child_count() if grids.size() == 1 else -1
+	_check(grids.size() == 1 and cards == 1,
+		"the gallery builds fully with a photo on disk (%d grids, %s cards)" % [grids.size(), str(cards)])
+	# A label with format args against a key without a placeholder does NOT abort:
+	# the engine logs a formatting error and returns an empty string, so the count
+	# label would show nothing while the section looks alive. The text is the proof.
+	var want_count: String = I18n.t("СНИМКОВ: %d") % [1]
+	var count_ok := false
+	for l in mm._panel.find_children("*", "Label", true, false):
+		if String(l.text) == want_count: count_ok = true; break
+	_check(count_ok, "the gallery count label shows the formatted count (%s expected)" % want_count)
+	DirAccess.remove_absolute("user://photos/photo_0001.png")
 	mm.queue_free()
 	await get_tree().process_frame
 	# 2) the run screen: HUD, pause

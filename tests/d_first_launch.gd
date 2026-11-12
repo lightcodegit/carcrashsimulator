@@ -41,6 +41,17 @@ func _process(_dt: float) -> bool:
 			check(not cfg._first_launch,
 				"a saved window section is not a first launch (flag %s)" % str(cfg._first_launch))
 		3:
+			# The restyle truth table: a window that already looks windowed
+			# (windowed or maximized) is not restyled — that redundant WINDOWED
+			# call is the transition where some Windows 11 setups lost the frame.
+			var ss = load("res://scripts/autoload/Settings.gd")
+			for pair in [[DisplayServer.WINDOW_MODE_WINDOWED, false],
+					[DisplayServer.WINDOW_MODE_MAXIMIZED, false],
+					[DisplayServer.WINDOW_MODE_MINIMIZED, true],
+					[DisplayServer.WINDOW_MODE_FULLSCREEN, true],
+					[DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN, true]]:
+				check(ss._window_mode_needs_restyle(pair[0]) == pair[1],
+					"restyle table for mode %d expects %s" % [pair[0], str(pair[1])])
 			DirAccess.remove_absolute("user://settings.cfg")
 			if fails == 0: print("ALL PASS")
 			else: print("FAILS %d" % fails)

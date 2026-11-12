@@ -9,6 +9,14 @@ workflow refuses to publish a tag that does not match it.
 
 ### Fixed
 
+- The game window keeps its frame on Windows 11 machines where it previously
+  started borderless: the restore path called `window_set_mode(WINDOWED)`
+  unconditionally — including on an already-windowed or OS-maximized window —
+  and that redundant restyle is the transition where some setups lost the
+  non-client frame. The mode is now touched only when it is actually
+  different, an OS-maximized window is left alone, and the borderless /
+  resize-disabled flags are explicitly cleared; the decision table is pinned
+  by `d_first_launch`.
 - The first launch centers the window on the monitor again (issue #9): the
   centering flag was only set when a settings file existed without a window
   section (an upgrade), so a truly fresh profile took the regular path and

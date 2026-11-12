@@ -221,12 +221,33 @@ func restore_window_geometry() -> void:
 		if not _win_ok(live): DisplayServer.window_set_size(WIN_DEFAULT)
 		return
 	if _win_max:
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
 		return
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_MAXIMIZED:
+		# Windows сам развернул окно к старту (свойство ярлыка, память оконного
+		# менеджера): развёрнутое окно уже с рамкой, и перекладка режима WINDOWED
+		# на нём — как раз тот переход, на котором рамка терялась. Не спорим.
+		return
+	# Вызов mode на УЖЕ оконном окне трогает стили: на части машин с Windows 11
+	# после такой перезаписи окно стартовало без рамки (WS_POPUP). Касаемся
+	# режима только когда он действительно иной, и рамку возвращаем явно —
+	# два пояса защиты вместо одного.
+	if _window_mode_needs_restyle(mode):
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_RESIZE_DISABLED, false)
 	DisplayServer.window_set_size(r.size)
 	# сохранённая позиция могла остаться от отключённого монитора: возвращаем на экран
 	DisplayServer.window_set_position(_onscreen(r.position, r.size))
+
+# Окна в этих режимах уже выглядят как оконные с рамкой: перезапись режима
+# WINDOWED на них ничего не исправляет и только трогает стили. Правда вся —
+# для MINIMIZED/FULLSCREEN режим надо вернуть явно.
+static func _window_mode_needs_restyle(mode: int) -> bool:
+	return not (mode == DisplayServer.WINDOW_MODE_WINDOWED
+			or mode == DisplayServer.WINDOW_MODE_MAXIMIZED)
 
 # Запоминаем только оконный режим: в maximized/fullscreen размер — это весь экран,
 # и запись затёрла бы настоящую геометрию. У Window нет сигнала о перемещении,
@@ -342,6 +363,9 @@ func apply_window() -> void:
 			# выход из полноэкранного возвращает на запомненную геометрию, а не на 1600×900
 			DisplayServer.window_set_mode(
 				DisplayServer.WINDOW_MODE_MAXIMIZED if _win_max else DisplayServer.WINDOW_MODE_WINDOWED)
+			# Выход из полноэкранного тоже проходит через хрупкий переход: рамку
+			# возвращаем явно вместе с геометрией.
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 			if not _win_max and _win_ok(_win_rect):
 				DisplayServer.window_set_size(_win_rect.size)
 				DisplayServer.window_set_position(_onscreen(_win_rect.position, _win_rect.size))

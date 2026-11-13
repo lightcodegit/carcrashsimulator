@@ -85,7 +85,10 @@ func _process(_dt: float) -> bool:
 			ghost.setup(load("res://scripts/core/vehicle_db.gd").get_params("sedan"))
 			root.add_child(ghost)
 			check(ghost._body_node != null, "the ghost model is built")
-			check(not ghost.visible, "the ghost is hidden without a recording")
+			# the ghost warms up its shader (visible for a few frames, then
+			# hidden if not playing) — a hidden check here would race the warmup
+			check(ghost._warmup > 0 and ghost.visible,
+				"the ghost warms up its shader on setup (warmup %d)" % ghost._warmup)
 			var play_frames: Array = [
 				{"t": 0.0, "p": PackedFloat32Array([0, 1, 0]),
 				 "b": PackedFloat32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),

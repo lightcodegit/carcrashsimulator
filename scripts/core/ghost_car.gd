@@ -24,6 +24,7 @@ var _frames: Array = []
 var _total := 0.0
 var _t := 0.0
 var _playing := false
+var _warmup := 0
 
 func setup(p: VehicleParams) -> void:
 	name = "GhostCar"
@@ -52,6 +53,11 @@ func playing() -> bool:
 	return _playing
 
 func _process(dt: float) -> void:
+	if _warmup > 0:
+		_warmup -= 1
+		if _warmup == 0 and not _playing:
+			visible = false
+		return
 	if not _playing or _frames.is_empty(): return
 	if get_tree().paused: return
 	_t += dt
@@ -104,7 +110,14 @@ func _set_wheel(i: int, drop: float, steer: float, roll: float) -> void:
 # the deformable mesh, collision and paint. One measurement code = one size.
 
 func _build(p: VehicleParams) -> void:
-	visible = false   # no recording yet: the ghost is hidden until play()
+	# Shader warm-up: the ghost material combines transparency + emission +
+	# double-sided rendering — no other surface in the game uses that variant.
+	# The first draw compiles the shader, stalling the render for hundreds of
+	# milliseconds on some GPUs. Behind the loading screen the stall is
+	# invisible; at a lap crossing it is the reported lag. Show for a few
+	# frames, then hide unless playing.
+	visible = true
+	_warmup = 3
 	var ps: PackedScene = load(p.model)
 	if ps == null:
 		push_warning("GhostCar: model not found " + p.model)

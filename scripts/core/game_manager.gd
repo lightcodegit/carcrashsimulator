@@ -15,6 +15,7 @@ var photo: PhotoMode
 var _racer: LapTracker
 var _ghost: GhostCar
 var _has_laps := false
+var _save_thread: Thread = null
 var _env: Environment
 var _sun: DirectionalLight3D
 var _spawn := Transform3D.IDENTITY
@@ -311,6 +312,10 @@ func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
 	hud.set_crash_stats(_crashes, _top_crash)
 	camera.add_trauma(clampf(speed_kmh / 160.0, 0.12, 0.55))
 
+func _exit_tree() -> void:
+	if _save_thread != null and _save_thread.is_alive():
+		_save_thread.wait_to_finish()
+
 func _physics_process(dt: float) -> void:
 	if _paused: return
 	# Lifetime statistics: only the live world feeds it — pause, replay and photo
@@ -483,9 +488,22 @@ func _on_replay_stopped() -> void:
 	if hud != null: hud.set_replay_info(0.0, 0.0, 1.0, false, 0)
 
 # Круг замкнут: обновляем рекорд и синхронизируем призрака с новым кругом.
+# The best-lap file is ~100 KB; a synchronous FileAccess write during the
+# physics tick stalls the frame on the disk latency (player report: ~2 s at
+# the lap line). The write goes to a background thread; the tracker's
+# recording is not modified between laps, so the thread reads stable data.
+func _save_best_bg(time_s: float) -> void:
+	if _save_thread != null and _save_thread.is_alive():
+		_save_thread.wait_to_finish()
+	var frames: Array = _racer.last_recording
+	var map := GameContext.map_id
+	var car := GameContext.car_id
+	_save_thread = Thread.new()
+	_save_thread.start(func() -> void: LapTracker.save_best(map, car, time_s, frames))
+
 func _on_lap(time_s: float, lap_n: int, is_best: bool) -> void:
 	if is_best and _racer != null and not _racer.last_recording.is_empty():
-		LapTracker.save_best(GameContext.map_id, GameContext.car_id, time_s, _racer.last_recording)
+		_save_best_bg(time_s)
 		if _ghost != null: _ghost.play(_racer.last_recording)
 	elif _ghost != null:
 		_ghost.restart()

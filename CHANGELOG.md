@@ -17,6 +17,13 @@ workflow refuses to publish a tag that does not match it.
 ## [v0.1.4] - 2026-11-12
 
 ### Fixed
+- Crossing the lap line no longer stalls the frame for ~2 s (player report).
+  Two operations ran synchronously in the physics tick: the best-lap save
+  (~100 KB through FileAccess) and the ghost's first appearance, whose
+  material combines transparency + emission + double-sided rendering — a
+  shader variant no other surface uses, so the first draw compiles it on the
+  fly. The save now runs on a background thread, and the ghost renders a few
+  frames behind the loading screen to warm up its shader before gameplay.
 - The main menu section panel no longer outgrows the window: in the editor's
   embedded panel (745x253 in the report) the panel was cut by the window edge
   with no scroll. The panel height is now capped to the window height, and

@@ -30,7 +30,7 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
 	# Позиция и размер — в дизайн-пикселях через ступень: иначе на второй ступени
 	# оверлей оставался полуметровым окном в углу и наезжал на панели HUD (issue #10).
-	position = Vector2(UiTheme.fx(24), UiTheme.fx(196))
+	position = Vector2(UiTheme.fx(24), UiTheme.fx(276))
 	custom_minimum_size = Vector2(UiTheme.fx(372), UiTheme.fx(236))
 	size = Vector2(UiTheme.fx(372), UiTheme.fx(236))
 	var panel := Panel.new()

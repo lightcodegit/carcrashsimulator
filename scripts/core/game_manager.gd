@@ -12,6 +12,9 @@ var vibration: VibrationFeed
 var replay: ReplayRecorder
 var replay_player: ReplayPlayer
 var photo: PhotoMode
+var _racer: LapTracker
+var _ghost: GhostCar
+var _has_laps := false
 var _env: Environment
 var _sun: DirectionalLight3D
 var _spawn := Transform3D.IDENTITY
@@ -47,6 +50,20 @@ func _ready() -> void:
 		params = VehicleDB.get_params(VehicleDB.ids()[0])
 	car.build(params, get_world_3d())
 	car.respawn(_spawn)
+	# Круги и призрак: на картах с линией старт/финиш (lap_line в info).
+	_has_laps = m.info.has("lap_line")
+	if _has_laps:
+		_racer = LapTracker.new()
+		add_child(_racer)
+		_racer.setup(car, m.info["lap_line"])
+		_racer.lap_finished.connect(_on_lap)
+		_ghost = GhostCar.new()
+		add_child(_ghost)
+		_ghost.setup(params)
+		var best: Dictionary = LapTracker.load_best(GameContext.map_id, GameContext.car_id)
+		if not best.is_empty():
+			_racer.best = float(best["time"])
+			_ghost.play(best["frames"])
 	# после car в дереве: свой _physics_process получает уже посчитанное за этот тик скольжение
 	skid = SkidMarks.new()
 	skid.name = "SkidMarks"
@@ -84,6 +101,9 @@ func _ready() -> void:
 	settings.closed.connect(_close_settings)
 	Settings.changed.connect(_apply_render)
 	hud.bind(car)
+	if _has_laps:
+		hud.set_lap_visible(true)
+		hud.set_lap_best(_racer.best)
 	hud.menu_requested.connect(_to_menu)
 	hud.resume_requested.connect(func() -> void: _set_paused(false))
 	hud.restart_requested.connect(_restart_map)
@@ -305,6 +325,8 @@ func _physics_process(dt: float) -> void:
 		MapDB.recycle(_map_root, car.chassis.global_position.x, 20.0)
 		MapDB.floor_follow(_map_root, car.chassis.global_position.x, car.chassis.global_position.z)
 	TimeScale.set_hold(Input.is_action_pressed("slowmo"))
+	if _has_laps and _racer != null:
+		hud.set_lap_info(_racer.time, _racer.best, _racer.lap)
 	var pos := car.chassis.global_position
 	# Верхнюю границу не проверяем: над картой ничего не держит, и прыгнуть высоко —
 	# это фича песочницы, а не вылет. Проверка только по горизонтали (y = 0 заведомо
@@ -357,6 +379,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _respawn_now() -> void:
 	_flip = 0.0
+	if _racer != null: _racer.reset()
+	if _ghost != null: _ghost.restart()
 	# рестарт во время повтора или фотомода возможен (R работает на паузе), а
 	# живой мир после респауна другой: проигрывание обязано закрыться до того,
 	# как мы очистим кольцо, — иначе машина осталась бы с replaying=true поверх
@@ -457,6 +481,16 @@ func _on_replay_cursor(t: float, total: float) -> void:
 # вмятины и пик по настоящему кузову, а не по проигранному.
 func _on_replay_stopped() -> void:
 	if hud != null: hud.set_replay_info(0.0, 0.0, 1.0, false, 0)
+
+# Круг замкнут: обновляем рекорд и синхронизируем призрака с новым кругом.
+func _on_lap(time_s: float, lap_n: int, is_best: bool) -> void:
+	if is_best and _racer != null and not _racer.last_recording.is_empty():
+		LapTracker.save_best(GameContext.map_id, GameContext.car_id, time_s, _racer.last_recording)
+		if _ghost != null: _ghost.play(_racer.last_recording)
+	elif _ghost != null:
+		_ghost.restart()
+	hud.show_tip(I18n.fmt("КРУГ %d — %s", [lap_n, LapTracker.fmt_time(time_s)]) if not is_best
+		else I18n.fmt("НОВЫЙ ЛУЧШИЙ КРУГ — %s", [LapTracker.fmt_time(time_s)]))
 
 # Единственный признак для всех, кто должен молчать на паузе и на повторе:
 # recorder пишет только когда мир жив. И пауза, и повтор, и фотомод держат

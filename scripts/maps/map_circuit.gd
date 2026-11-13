@@ -338,7 +338,9 @@ static func circuit() -> Dictionary:
 		"bounds": AABB(f.position - Vector3(40, 40, 40), f.size + Vector3(80, 100, 80)),
 		# closure — незамыкание в метрах, line — ось полосы: по ним h_newmaps проверяет кольцо
 		"info": {"colliders": root.get_child_count(), "has_ramp": true,
-			"closure": t.pos.distance_to(t.line[0]), "line": t.line}}
+			"closure": t.pos.distance_to(t.line[0]), "line": t.line,
+			# Старт/финиш для таймера круга и машины-призрака: спавн и есть линия.
+			"lap_line": t.spawn.origin}}
 
 # Мелкий пояс (отбойники, газоны, мачты, щиты, тенты) теней не бросает: на новых картах
 # таких узлов сотни, и каждый стоил места в проходе теней — живьём кадр на кольце вышел

@@ -162,6 +162,7 @@ func _ready() -> void:
 	_root = root
 	_build_speedo(root)
 	_build_telemetry(root)
+	_build_lap(root)
 	_build_crash_log(root)
 	_build_fps(root)
 	_build_banners(root)
@@ -183,6 +184,47 @@ func _style(sb_corner := 10) -> StyleBoxFlat:
 	sb.content_margin_left = 14; sb.content_margin_right = 14
 	sb.content_margin_top = 10; sb.content_margin_bottom = 10
 	return sb
+
+# Круги: панель появляется только на картах с линией старт/финиш.
+var _lap_panel: Panel
+var _lap_time: Label
+var _lap_best: Label
+
+func _build_lap(root: Control) -> void:
+	_lap_panel = Panel.new()
+	_lap_panel.name = "LapPanel"
+	_lap_panel.position = Vector2(UiTheme.fx(24), UiTheme.fx(196))
+	_lap_panel.size = Vector2(UiTheme.fx(300), UiTheme.fx(72))
+	_lap_panel.add_theme_stylebox_override("panel", _style())
+	_lap_panel.visible = false
+	root.add_child(_lap_panel)
+	_gameplay.append(_lap_panel)
+	var title := _label(Vector2(14, 8), 12, ACCENT, 700)
+	I18n.bind(title, "КРУГИ")
+	_lap_panel.add_child(title)
+	_rule(_lap_panel, ACCENT)
+	_lap_time = _label(Vector2(14, 42), 18, Color.WHITE, 700)
+	_lap_time.size = Vector2(UiTheme.fx(272), UiTheme.fx(24))
+	_lap_panel.add_child(_lap_time)
+	_lap_best = _label(Vector2(14, 60), 12, DIM, 500)
+	_lap_best.size = Vector2(UiTheme.fx(272), UiTheme.fx(18))
+	_lap_panel.add_child(_lap_best)
+
+func set_lap_visible(v: bool) -> void:
+	if _lap_panel != null: _lap_panel.visible = v
+
+func set_lap_info(cur: float, best: float, lap_n: int) -> void:
+	if _lap_time == null: return
+	_lap_time.text = I18n.t("КРУГ %d") % lap_n + "  " + LapTracker.fmt_time(cur) if is_finite(cur) else "—"
+	if is_finite(best) and best > 0.0:
+		_lap_best.text = I18n.t("ЛУЧШИЙ") + "  " + LapTracker.fmt_time(best)
+	else:
+		_lap_best.text = ""
+
+func set_lap_best(best: float) -> void:
+	if _lap_best == null: return
+	if is_finite(best) and best > 0.0:
+		_lap_best.text = I18n.t("ЛУЧШИЙ") + "  " + LapTracker.fmt_time(best)
 
 func _label(pos: Vector2, size_px: int, color: Color = Color.WHITE, weight := 500) -> Label:
 	var l := Label.new()

@@ -36,6 +36,7 @@ func _ready() -> void:
 	var hits := 0
 	for p in hud._gameplay:
 		if p == overlay: continue
+		if not p.is_visible_in_tree(): continue
 		if rect.intersects(p.get_global_rect()): hits += 1
 	check(hits == 0, "overlay does not overlap HUD panels (%d)" % hits)
 

@@ -71,6 +71,14 @@ workflow refuses to publish a tag that does not match it.
   during continuous driving — it now arms once.
 
 ### Added
+- A best-lap timer and a ghost car on the RACE map. The start/finish line is
+  detected by proximity to the spawn point after 600+ m of driving; each lap's
+  transform-and-wheel recording at 20 Hz is saved to
+  `user://bestlap_<map>_<car>.lap` when it beats the previous best. On the
+  next run (and every restart), a translucent blue ghost of the same car
+  replays the best lap in real time, synced to the player's lap starts —
+  pull ahead of it to beat your time. A compact LAP panel under the
+  telemetry shows the live and best times on the circuit only.
 
 - Lifetime statistics on a new STATISTICS section in the main menu: runs,
   impacts, best impact, top speed, distance, time in runs and photos taken.

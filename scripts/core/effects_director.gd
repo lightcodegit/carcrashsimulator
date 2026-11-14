@@ -178,7 +178,10 @@ func reset_transient() -> void:
 # освобождении родителя оборвал процесс (access violation без единого принта).
 func _exit_tree() -> void:
 	for p in all_emitters():
-		p.emitting = false
+		# Гонка teardown: узел мог покинуть дерево до того, как attach() достроил
+		# все эммитеры (или вовсе без attach) — на null-члене эта строка падала
+		# script error'ом на священном пути освобождения.
+		if p != null: p.emitting = false
 
 func smoke_emitters() -> Array[CPUParticles3D]:
 	return _smoke

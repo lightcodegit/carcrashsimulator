@@ -48,7 +48,10 @@ func attach(car: CarRig) -> void:
 		_start_playback()
 	else:
 		playback_missing = true
-	car.impact.connect(_on_impact)
+	# attach может быть вызван повторно (тесты переклеивают машину): двойное
+	# соединение удваивает удары — пики перегрузки, всплески микшера и вибрацию.
+	# Тот же гвард, что у EffectsDirector.attach.
+	if not car.impact.is_connected(_on_impact): car.impact.connect(_on_impact)
 	apply_settings()
 
 func _make_stream() -> AudioStreamGenerator:

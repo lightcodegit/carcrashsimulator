@@ -33,7 +33,9 @@ func attach(c: CarRig) -> void:
 	if not rumble_fn.is_valid(): rumble_fn = _default_rumble
 	if not impulse_fn.is_valid(): impulse_fn = _default_impulse
 	if not device_fn.is_valid(): device_fn = _default_device
-	c.impact.connect(_on_impact)
+	# тот же гвард от двойного attach, что у EffectsDirector и AudioDriver:
+	# повторное соединение удваивает импульсы вибрации
+	if not c.impact.is_connected(_on_impact): c.impact.connect(_on_impact)
 
 # Пауза/рестарт: непрерывная вибрация выключается, и на нулевой амплитуде
 # остаётся один нулевой вызов; обратно включает её снятие с паузы.

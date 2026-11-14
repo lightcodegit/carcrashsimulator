@@ -8,6 +8,10 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Wiring the car's impact signal twice (audio, vibration, tape recorder) no
+  longer double-fires impacts; the effects director shuts its particle
+  emitters down safely even when it leaves the tree before being fully
+  attached.
 - The engine sound no longer stutters while slow-mo is held: the audio
   generator was fed by the time-scaled delta, draining the buffer ~3×
   faster than it was refilled at the 0.3× factor. Samples are now

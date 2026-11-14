@@ -67,10 +67,14 @@ jobs:
           platform: ${{ matrix.platform }}
 
       - name: Package the build
+        env:
+          # platform приходит из статичной матрицы, но держим то же правило,
+          # что и во всём workflow: значение — через env, а не в теле скрипта.
+          PLATFORM: ${{ matrix.platform }}
         run: |
-          $dir = Join-Path 'artifacts/build' '${{ matrix.platform }}'
-          Compress-Archive -Path (Join-Path $dir '*') -DestinationPath "car-crash-simulator-${{ matrix.platform }}.zip" -Force
-          Get-Item "car-crash-simulator-${{ matrix.platform }}.zip" | Select-Object Name, Length
+          $dir = Join-Path 'artifacts/build' $env:PLATFORM
+          Compress-Archive -Path (Join-Path $dir '*') -DestinationPath "car-crash-simulator-$env:PLATFORM.zip" -Force
+          Get-Item "car-crash-simulator-$env:PLATFORM.zip" | Select-Object Name, Length
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
@@ -102,8 +106,10 @@ jobs:
         run: |
           # Значения — через env, а не интерполяцией в команду: тег из dispatch —
           # произвольная строка, и в shell она не должна попадать до кавычки.
+          # Переводы строк вычищаются: перенесённый вход дописал бы лишние
+          # ключи в $GITHUB_OUTPUT, а не в значение name.
           if [ "$EVENT" = "workflow_dispatch" ]; then
-            echo "name=$TAG_IN" >> "$GITHUB_OUTPUT"
+            printf 'name=%s\n' "$(printf '%s' "$TAG_IN" | tr -d '\n\r')" >> "$GITHUB_OUTPUT"
           else
             echo "name=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
           fi

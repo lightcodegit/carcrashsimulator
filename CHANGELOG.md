@@ -8,6 +8,11 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- The CI composite smoke action and the release packaging step take the
+  platform through an environment variable instead of interpolating it
+  into the script body, matching the repository's own rule for
+  workflow-dispatch values; the dispatch tag is stripped of newlines
+  before it is written to a step output.
 - Photo deletion accepts only numbered gallery shots inside the photos
   directory: the prefix-only path check would have permitted a
   `photos/../settings.cfg`-style traversal for any future caller.

@@ -16,9 +16,14 @@ runs:
   steps:
     - name: Boot the exported build
       shell: pwsh
+      env:
+        # Значения идут через env, а не интерполяцией в скрипт: вход композитного
+        # действия — произвольная строка, и в pwsh-теле она не должна попадать до
+        # кавычки (правило release.yml: тег из dispatch — тот же класс значения).
+        PLATFORM: ${{ inputs.platform }}
       run: |
         $ErrorActionPreference = 'Stop'
-        $platform = '${{ inputs.platform }}'
+        $platform = $env:PLATFORM
         $dir = Join-Path 'artifacts/build' $platform
         if (-not (Test-Path -LiteralPath $dir)) { throw "No build directory $dir." }
         # The .pck is embedded into the executable, so the directory holds one

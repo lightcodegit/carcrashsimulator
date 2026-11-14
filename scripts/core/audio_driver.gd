@@ -143,8 +143,13 @@ func _process(dt: float) -> void:
 	mixer.set_nitro(_car != null and _car.nitro_active)
 	last_engine_hz = mixer.firing_hz()
 	# просим ровно столько, сколько нужно на кадр (с запасом на джиттер), и не
-	# больше, чем вмещает буфер: недомер — тише, перемер — щелчок и потеря кадра
-	var want := clampi(int(AudioMixer.SAMPLE_RATE * clampf(dt * 1.1, 0.0, MAX_PUSH_S)), 0, AudioMixer.MAX_BLOCK)
+	# больше, чем вмещает буфер: недомер — тише, перемер — щелчок и потеря кадра.
+	# dt приходит масштабированным Engine.time_scale: в слоу-мо (0.3) запрос
+	# ужимался втрое, буфер генератора высыхал, и мотор рвался на звуковые
+	# дыры, пока зажат Ctrl. Делим обратно на time_scale — это реальное время
+	# кадра; гард не даёт вырожденному масштабу взорвать деление.
+	var real_dt := dt / maxf(Engine.time_scale, 0.05)
+	var want := clampi(int(AudioMixer.SAMPLE_RATE * clampf(real_dt * 1.1, 0.0, MAX_PUSH_S)), 0, AudioMixer.MAX_BLOCK)
 	if _pb != null: want = mini(want, int(_pb.get_frames_available()))
 	else: want = mini(want, 2048)   # без playback микшер всё равно считается — иначе пиков не измерить
 	if want <= 0: return

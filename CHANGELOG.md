@@ -8,6 +8,10 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- The engine sound no longer stutters while slow-mo is held: the audio
+  generator was fed by the time-scaled delta, draining the buffer ~3×
+  faster than it was refilled at the 0.3× factor. Samples are now
+  requested by real time.
 - A best-lap file can be loaded again after being saved: the load cap
   (256 KB) was smaller than what a long honest lap (>~75 s, up to ~430 KB)
   writes, so the record silently vanished on the next session. The cap is

@@ -8,6 +8,8 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Scrubbing the replay backward no longer over-reports the HUD body gauge:
+  the dent shift is restored together with the stashed geometry.
 - Wiring the car's impact signal twice (audio, vibration, tape recorder) no
   longer double-fires impacts; the effects director shuts its particle
   emitters down safely even when it leaves the tree before being fully

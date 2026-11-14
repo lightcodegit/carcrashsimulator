@@ -292,13 +292,17 @@ func apply_impact_local(local_pos: Vector3, local_dir: Vector3, speed_kmh: float
 # сейчас, и на выходе обязан вернуться ровно в него, даже если игрок вышел на середине.
 func stash() -> Dictionary:
 	return {"v": _verts.duplicate(), "c": _colors.duplicate(),
-		"n": dent_count, "md": max_depth, "td": total_depth}
+		"n": dent_count, "md": max_depth, "td": total_depth, "sh": _shift}
 
 func unstash(s: Dictionary) -> void:
 	if s.is_empty() or not _pristine_ok(): return
 	_verts = (s.v as PackedVector3Array).duplicate()
 	_colors = (s.c as PackedColorArray).duplicate()
 	dent_count = int(s.n); max_depth = float(s.md); total_depth = float(s.td)
+	# _shift — накопленный максимум за сессию; без отката при возврате геометрии
+	# реплея к более раннему состоянию он оставался от поздних вмятин, и шкала
+	# «КУЗОВ» по maxf(_shift, ...) перещёптывала честную глубину при скраббинге.
+	_shift = float(s.get("sh", 0.0))
 	_rebuild()
 
 # Мятая точка и направление в пространстве меша — ровно то, что записывает

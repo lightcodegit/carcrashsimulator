@@ -8,6 +8,9 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Loading a saved tape from inside the replay ("ПРОШЛЫЙ") no longer renders
+  a mix of two tapes' dents: the player's applied-dent counter now resets
+  when a tape is adopted mid-play.
 - Respawn no longer feeds the lap tracker a phantom distance: the tracker
   snapshot was taken before the respawn teleport, so the jump from the crash
   site to the spawn point was counted as driven distance. On the circuit the

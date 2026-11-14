@@ -414,6 +414,11 @@ func _respawn_now() -> void:
 func _replay_load_tape() -> void:
 	if replay == null or not replay.adopt_tape(ReplayRecorder.tape_at(ReplayRecorder.replay_path(GameContext.map_id))):
 		return
+	# adopt_tape заменил вмятины, но плеер мог уже стоять в середине прежнего
+	# окна: его счётчик применённых событий остался от старой ленты, и «вперёд»
+	# накатил бы новые удары поверх геометрии, построенной по старой. Сбрасываем
+	# ДО перемотки — seek/_apply пересоберёт кузов ровно по новой ленте.
+	replay_player.invalidate_dents()
 	replay_player.seek(replay.window_start())
 	hud.show_tip(I18n.fmt("РЕПЛЕЙ ПРОШЛОГО ЗАЕЗДА: кадров %d", [replay.count()]))
 

@@ -129,11 +129,17 @@ static func best_path(map_id: String, car_id: String) -> String:
 
 static func save_best(map_id: String, car_id: String, time_s: float, frames: Array) -> bool:
 	if frames.is_empty(): return false
-	var f := FileAccess.open(best_path(map_id, car_id), FileAccess.WRITE)
+	var path := best_path(map_id, car_id)
+	# Атомарная запись, как у settings.cfg: tmp + rename. Падение посреди прямой
+	# записи оставило бы усечённый файл, и «лучший круг» тихо исчез бы.
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null: return false
 	f.store_var({"version": LAP_VERSION, "time": time_s, "frames": frames})
 	var ok := f.get_error() == OK
 	f.close()   # the file must be on disk before the ghost reads it back
+	if ok: ok = DirAccess.rename_absolute(tmp, path) == OK
+	if not ok: DirAccess.remove_absolute(tmp)
 	return ok
 
 static func load_best(map_id: String, car_id: String) -> Dictionary:

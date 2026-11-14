@@ -8,6 +8,9 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Tapes and best-lap records are written atomically (temp file + rename),
+  like `settings.cfg` and the garage profile: an interrupted write no
+  longer truncates the file in place.
 - Adopting a saved tape now rejects tapes recorded by a different car (the
   speed and nitro display used to follow the recorded car, not the current
   one), and the tape validation no longer requires the dead `slip` frame

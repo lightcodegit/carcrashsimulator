@@ -250,7 +250,11 @@ func save_to(path: String) -> bool:
 	if frames.is_empty(): return false
 	var d := DirAccess.open("user://")
 	if d != null and not d.dir_exists("replays") and d.make_dir("replays") != OK: return false
-	var f := FileAccess.open(path, FileAccess.WRITE)
+	# Как у settings.cfg и гаража: пишем во временный файл и переименовываем.
+	# Прямая запись в целевой файл при падении/нехватке места посреди store_var
+	# оставляла бы усечённую ленту — и проигрыш был бы молчаливым.
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null: return false
 	f.store_var({
 		"version": 1, "car": GameContext.car_id, "map": GameContext.map_id,
@@ -258,6 +262,10 @@ func save_to(path: String) -> bool:
 	})
 	var ok := f.get_error() == OK
 	f.close()   # не дожидаясь сборщика: файл мог понадобиться сразу после записи
+	# rename_absolute переименовывает существующий файл в существующий каталог:
+	# оба пути заведомо абсолютны в смысле user://
+	if ok: ok = DirAccess.rename_absolute(tmp, path) == OK
+	if not ok: DirAccess.remove_absolute(tmp)
 	return ok
 
 # Принимает сохранённую ленту В ЖИВОЙ рекордер той же карты: окно и вмятины

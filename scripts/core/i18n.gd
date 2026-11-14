@@ -333,6 +333,7 @@ const EN := {
 	"СНИМОК РЕПЛЕЯ: %s": "REPLAY SHOT: %s",
 	"РЕПЛЕЙ СОХРАНЁН: %s": "REPLAY SAVED: %s",
 	"РЕПЛЕЙ ПРОШЛОГО ЗАЕЗДА: кадров %d": "LAST RUN REPLAY: %d frames",
+	"СОХРАНЁННЫЙ ПОВТОР НЕ ПОДХОДИТ ДЛЯ ЭТОГО ЗАЕЗДА": "THE SAVED TAPE DOES NOT MATCH THIS RUN",
 	"◀ ШАГ": "◀ STEP",
 	"ЯЗЫК": "LANGUAGE",
 	"Русский": "Russian",

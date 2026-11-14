@@ -412,7 +412,14 @@ func _respawn_now() -> void:
 # Мир ставится на ту же паузу, что и меню: физика не считает ни шага, а плеер
 # только перекладывает записанные кадры. Поэтому «повтор» — не пересимуляция.
 func _replay_load_tape() -> void:
-	if replay == null or not replay.adopt_tape(ReplayRecorder.tape_at(ReplayRecorder.replay_path(GameContext.map_id))):
+	var tape := ReplayRecorder.tape_at(ReplayRecorder.replay_path(GameContext.map_id)) \
+		if replay != null else {}
+	if replay == null or not replay.adopt_tape(tape):
+		# Файл на диске есть (кнопка «ПРОШЛЫЙ» видна по has_tape), но лента не
+		# принята: другая карта, другая машина или побитый файл. Молчаливое
+		# «нажал — и ничего» недопустимо: игрок не поймёт, сломался ли реплей.
+		if ReplayRecorder.has_tape(GameContext.map_id):
+			hud.show_tip(I18n.t("СОХРАНЁННЫЙ ПОВТОР НЕ ПОДХОДИТ ДЛЯ ЭТОГО ЗАЕЗДА"))
 		return
 	# adopt_tape заменил вмятины, но плеер мог уже стоять в середине прежнего
 	# окна: его счётчик применённых событий остался от старой ленты, и «вперёд»

@@ -8,6 +8,9 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Pressing "ПРОШЛЫЙ" in the replay with a tape that does not adopt
+  (recorded by another car, or a corrupt file) now tells the player so,
+  instead of silently doing nothing while the button is visible.
 - The Godot executable is no longer resolved as a .cmd/.bat file on
   Windows: current Node refuses to spawn them without a shell
   (CVE-2024-27980), so a picked .cmd turned into a confusing EINVAL

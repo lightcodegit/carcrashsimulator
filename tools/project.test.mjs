@@ -260,7 +260,9 @@ test('executable is resolved through PATH and never from the working directory',
   const real = await temp(t);
   const planted = await temp(t);
   const name = 'zzgodotzz';
-  const ext = process.platform === 'win32' ? '.cmd' : '';
+  // .exe, не .cmd: раннер отказывается подбирать .cmd/.bat (spawn без shell на
+  // них закончится EINVAL), и такое имя ничего бы не нашло на Windows.
+  const ext = process.platform === 'win32' ? '.exe' : '';
   await writeFile(path.join(real, name + ext), '@echo off\r\n'.repeat(1));
   chmodSync(path.join(real, name + ext), 0o755);
   await writeFile(path.join(planted, name + ext), '@echo off\r\n'.repeat(1));

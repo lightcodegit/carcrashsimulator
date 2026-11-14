@@ -8,6 +8,10 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- The Godot executable is no longer resolved as a .cmd/.bat file on
+  Windows: current Node refuses to spawn them without a shell
+  (CVE-2024-27980), so a picked .cmd turned into a confusing EINVAL
+  instead of launching the editor. Only .exe/.com candidates count now.
 - The CI composite smoke action and the release packaging step take the
   platform through an environment variable instead of interpolating it
   into the script body, matching the repository's own rule for

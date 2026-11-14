@@ -172,8 +172,13 @@ export function resolveExecutable(nameOrPath, {
     }
     return abs;
   }
+  // .cmd/.bat исключены: Node ≥ 22 сам отказывается их спавнить без shell
+  // (CVE-2024-27980), так что их подбор превратил бы запуск в загадочный
+  // EINVAL вместо исполнения редактора. Остаются .exe и .com — то, что
+  // Godot и правда использует.
   const exts = platform === 'win32'
     ? (env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';').map(x => x.toLowerCase())
+        .filter(x => x !== '.cmd' && x !== '.bat')
     : [''];
   const dirs = String(env.PATH || '').split(path.delimiter).filter(Boolean);
   for (const dir of dirs) {

@@ -660,7 +660,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 
 func log_impact(kmh: float) -> void:
 	var secs := (Time.get_ticks_msec() - _start_ms) / 1000
-	_log.push_front("%02d:%02d   %3d км/ч" % [secs / 60, secs % 60, int(kmh)])
+	_log.push_front(I18n.fmt("%02d:%02d   %3d КМ/Ч", [secs / 60, secs % 60, int(kmh)]))
 	if _log.size() > 4: _log.resize(4)
 	for i in _log_lines.size():
 		_log_lines[i].text = _log[i] if i < _log.size() else ""

@@ -8,6 +8,9 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- The impact log in the crash panel is localized again: it hard-coded
+  "км/ч" regardless of the UI language, while the rest of the HUD follows
+  the catalog.
 - Pressing "ПРОШЛЫЙ" in the replay with a tape that does not adopt
   (recorded by another car, or a corrupt file) now tells the player so,
   instead of silently doing nothing while the button is visible.

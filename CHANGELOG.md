@@ -8,6 +8,9 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Toggling replay play/pause no longer rebuilds the dent mesh when nothing
+  changed (a full rebuild cost ~284 ms at 64 dents); the rebuild now happens
+  only after a rewind to the window start.
 - Loading a saved tape from inside the replay ("ПРОШЛЫЙ") no longer renders
   a mix of two tapes' dents: the player's applied-dent counter now resets
   when a tape is adopted mid-play.

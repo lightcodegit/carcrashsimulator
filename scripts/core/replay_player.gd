@@ -123,7 +123,10 @@ func toggle_play() -> void:
 	if playing and cursor >= rec.window_end() - 1e-3:
 		cursor = rec.window_start()      # «повтор» после конца окна
 		_i = _find(cursor)
-	_apply_dents(true)
+	# Полная пересборка нужна только после перемотки в начало: там счётчик откатывается,
+	# и обычная ветка «назад» сама построит кузов с нуля. Безусловный force на каждый
+	# старт/паузу перестраивал меш зря (комментарий в _apply_dents: 64 вмятины = 284 мс).
+	_apply_dents(cursor <= rec.window_start() + 1e-3)
 
 func _process(dt: float) -> void:
 	if not active or not playing: return

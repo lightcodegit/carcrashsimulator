@@ -384,8 +384,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _respawn_now() -> void:
 	_flip = 0.0
-	if _racer != null: _racer.reset()
-	if _ghost != null: _ghost.restart()
 	# рестарт во время повтора или фотомода возможен (R работает на паузе), а
 	# живой мир после респауна другой: проигрывание обязано закрыться до того,
 	# как мы очистим кольцо, — иначе машина осталась бы с replaying=true поверх
@@ -398,6 +396,12 @@ func _respawn_now() -> void:
 	for n in get_tree().get_nodes_in_group(LooseProp.GROUP):
 		if is_instance_valid(n): n.restore()
 	car.respawn(_spawn)
+	# Трекер кругов и призрак снимают свою точку отсчёта с текущего кузова, поэтому
+	# перезапускаются только ПОСЛЕ телепорта: reset() до него запоминал место
+	# аварии, и скачок «авария → спаун» (на кольце ~300 м) засчитывался в _dist —
+	# дотяжка до финиша шла за круг с почти нулевым временем и писалась как рекорд.
+	if _racer != null: _racer.reset()
+	if _ghost != null: _ghost.restart()
 	skid.respawn()
 	if audio != null: audio.reset_state()
 	if vibration != null: vibration.stop()

@@ -7,6 +7,15 @@ workflow refuses to publish a tag that does not match it.
 
 ## [Unreleased]
 
+### Fixed
+- Respawn no longer feeds the lap tracker a phantom distance: the tracker
+  snapshot was taken before the respawn teleport, so the jump from the crash
+  site to the spawn point was counted as driven distance. On the circuit the
+  drive back to the line then completed a "lap" with an artificially small
+  time, which was saved as the new best-lap record — poisoning the saved
+  ghost permanently. The tracker and the ghost now restart after the
+  teleport (regression-tested by the new `h_lap_respawn` harness).
+
 ### Changed
 
 - The window has a minimum size of 800×450 design pixels (doubled on the large

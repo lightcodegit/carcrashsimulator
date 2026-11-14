@@ -40,8 +40,16 @@ static func folder_exists() -> bool:
 	return DirAccess.dir_exists_absolute(DIR)
 
 static func delete_photo(path: String) -> bool:
-	if not path.begins_with(DIR + "/"): return false
-	return DirAccess.remove_absolute(path) == OK
+	# Гард обхода: принимаем только имя конкретного снимка галереи внутри DIR.
+	# Прежняя проверка префиксом пропускала "user://photos/../settings.cfg" —
+	# из текущего меню это недостижимо (имена приходят из list_photos), но любой
+	# будущий вызов с редактируемым путём превратился бы в удаление произвольного
+	# файла профиля. Канонизируем путь и требуем честное имя photo_NNNN.png.
+	var name := path.get_file()
+	if path.simplify_path() != DIR + "/" + name: return false
+	if not (name.begins_with("photo_") and name.ends_with(".png")): return false
+	if not name.trim_prefix("photo_").trim_suffix(".png").is_valid_int(): return false
+	return DirAccess.remove_absolute(DIR + "/" + name) == OK
 
 # A decoded and downscaled snapshot: the menu never shows a full 4 MB texture.
 static func thumbnail(path: String) -> Texture2D:

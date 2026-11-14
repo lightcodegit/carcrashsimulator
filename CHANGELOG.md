@@ -8,6 +8,9 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Photo deletion accepts only numbered gallery shots inside the photos
+  directory: the prefix-only path check would have permitted a
+  `photos/../settings.cfg`-style traversal for any future caller.
 - Resizing the window while the game is paused is persisted again: the
   Settings autoload now keeps its geometry debounce running during pause,
   same as Stats and TimeScale.

@@ -152,6 +152,10 @@ func _init() -> void:
 	_defaults = values()
 
 func _ready() -> void:
+	# Окно и звук должны жить на паузе: Settings служит и из меню паузы, и
+	# debounce геометрии окна обязан тикать, пока физика стоит. У Stats и
+	# TimeScale тот же ALWAYS — асимметрия была случайностью, а не решением.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	load_values()
 	restore_window_geometry()
 	apply_window()

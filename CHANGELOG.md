@@ -8,6 +8,9 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Resizing the window while the game is paused is persisted again: the
+  Settings autoload now keeps its geometry debounce running during pause,
+  same as Stats and TimeScale.
 - Scrubbing the replay backward no longer over-reports the HUD body gauge:
   the dent shift is restored together with the stashed geometry.
 - Wiring the car's impact signal twice (audio, vibration, tape recorder) no

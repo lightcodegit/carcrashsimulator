@@ -72,9 +72,10 @@ func _process(_dt: float) -> bool:
 			f.store_string("{broken")
 			f.close()
 			check(lt2.load_best("circuit", "sedan").is_empty(), "a corrupt file is rejected")
-			# oversized file is rejected
+			# oversized file is rejected (the cap covers the largest honest save,
+			# MAX_FRAMES ≈ 400–500 KB, so this garbage has to be past it)
 			f = FileAccess.open(path, FileAccess.WRITE)
-			f.store_string("x".repeat(300000))
+			f.store_string("x".repeat(900000))
 			f.close()
 			check(lt2.load_best("circuit", "sedan").is_empty(), "an oversized file is rejected")
 			DirAccess.remove_absolute(path)

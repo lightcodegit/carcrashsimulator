@@ -20,7 +20,12 @@ const RATE := 20.0                       # ghost samples per second (same as Rep
 const MIN_LAP_M := 600.0                 # a closer return to the line is not a lap
 const LINE_RADIUS := 15.0                # distance to the line that counts as "at the line"
 const MIN_FORWARD_MS := 1.0              # velocity along the heading to count as a crossing
-const MAX_SAVED_BYTES := 262144          # same guard as the settings file
+# Потолок загрузки должен покрывать то, что save_best вправе записать: MAX_FRAMES
+# кадров ленты (до 2400) весит на диске ~270–430 КБ. Прежний 256 КБ молча
+# отбрасывал честно сохранённый круг длиннее ~75 с: рекорд исчезал при следующем
+# запуске, а следующий круг снова «становился рекордом». Один источник правды:
+# потолок = запись, помноженная на запас формата.
+const MAX_SAVED_BYTES := 768 * 1024          # same guard as the settings file
 const LAP_VERSION := 1
 const MAX_FRAMES := 2400                 # 2 minutes at RATE; a sane lap is ~600 frames
 

@@ -8,6 +8,10 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- A best-lap file can be loaded again after being saved: the load cap
+  (256 KB) was smaller than what a long honest lap (>~75 s, up to ~430 KB)
+  writes, so the record silently vanished on the next session. The cap is
+  derived from the recording limit instead.
 - Tapes and best-lap records are written atomically (temp file + rename),
   like `settings.cfg` and the garage profile: an interrupted write no
   longer truncates the file in place.

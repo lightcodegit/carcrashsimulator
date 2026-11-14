@@ -8,6 +8,10 @@ workflow refuses to publish a tag that does not match it.
 ## [Unreleased]
 
 ### Fixed
+- Adopting a saved tape now rejects tapes recorded by a different car (the
+  speed and nitro display used to follow the recorded car, not the current
+  one), and the tape validation no longer requires the dead `slip` frame
+  key.
 - Toggling replay play/pause no longer rebuilds the dent mesh when nothing
   changed (a full rebuild cost ~284 ms at 64 dents); the rebuild now happens
   only after a rewind to the window start.

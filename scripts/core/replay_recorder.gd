@@ -206,7 +206,7 @@ static func tape_at(path: String) -> Dictionary:
 static func _frames_valid(list: Array) -> bool:
 	for f in list:
 		if not (f is Dictionary): return false
-		if not f.has("t") or not f.has("kmh") or not f.has("slip") or not f.has("nitro") or not f.has("hot"): return false
+		if not f.has("t") or not f.has("kmh") or not f.has("nitro") or not f.has("hot"): return false
 		if not (f.get("p", []) is PackedFloat32Array) or (f["p"] as PackedFloat32Array).size() != 3: return false
 		if not (f.get("b", []) is PackedFloat32Array) or (f["b"] as PackedFloat32Array).size() != 9: return false
 		if not (f.get("w", []) is PackedFloat32Array) or (f["w"] as PackedFloat32Array).size() % 4 != 0: return false
@@ -266,6 +266,9 @@ func save_to(path: String) -> bool:
 func adopt_tape(tape: Dictionary) -> bool:
 	if int(tape.get("version", 0)) != 1: return false
 	if tape.get("map", "") != GameContext.map_id: return false
+	# Машина тоже своя: лента другой модели показывала бы чужие скорость и нитро
+	# (записываем id, чтобы отображение совпадало с записью — проверяем его здесь же).
+	if tape.get("car", "") != GameContext.car_id: return false
 	if not (tape.get("frames", []) is Array) or (tape["frames"] as Array).is_empty(): return false
 	if (tape["frames"] as Array).size() > MAX_SAVED_FRAMES: return false
 	if not _frames_valid(tape["frames"]): return false

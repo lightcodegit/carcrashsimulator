@@ -53,6 +53,106 @@ func _initialize() -> void:
 	check(s2.crashes == 3 and s2.shots == 1, "counters survive the reload")
 	check(is_equal_approx(s2.best_impact, 112.5) and is_equal_approx(s2.top_speed, 213.0), "records survive the reload")
 
+	# ---- v2: per-map and per-car records -------------------------------------
+	# A run feeds two independent buckets (its map and its car). Switching the
+	# run must not leak the previous map/car into the new one.
+	var sv = script.new()
+	sv.begin_run("arena", "sedan")
+	sv.add_run()
+	sv.add_run()
+	sv.add_impact(120.0)
+	sv.add_speed(200.0)
+	sv.add_distance(1000.0)
+	sv.add_time(60.0)
+	sv.add_best_lap(70.0)
+	sv.add_best_lap(65.5)
+	sv.add_best_lap(80.0)          # slower: the best stays
+	sv.add_best_lap(0.0)           # "no lap yet" is not a lap
+	sv.begin_run("town", "pickup")
+	sv.add_run()
+	sv.add_impact(50.0)
+	sv.add_speed(80.0)
+	sv.add_distance(100.0)
+	sv.add_time(5.0)
+	sv.add_best_lap(90.0)
+	var arena: Dictionary = sv.map_record("arena")
+	var town: Dictionary = sv.map_record("town")
+	var sedan: Dictionary = sv.car_record("sedan")
+	var pickup: Dictionary = sv.car_record("pickup")
+	check(int(arena["runs"]) == 2 and int(arena["crashes"]) == 1,
+		"the map bucket counts its own runs and impacts (%s)" % str(arena))
+	check(is_equal_approx(float(arena["best_impact"]), 120.0)
+			and is_equal_approx(float(arena["top_speed"]), 200.0),
+		"the map bucket keeps its own records")
+	check(is_equal_approx(float(arena["distance"]), 1000.0)
+			and is_equal_approx(float(arena["seconds"]), 60.0),
+		"the map bucket accumulates distance and time")
+	check(is_equal_approx(float(arena["best_lap"]), 65.5),
+		"the map bucket keeps the fastest lap (%.2f)" % float(arena["best_lap"]))
+	check(int(town["runs"]) == 1 and int(town["crashes"]) == 1,
+		"a second map starts from zero and counts only its own run (%s)" % str(town))
+	check(is_equal_approx(float(sedan["best_lap"]), 65.5)
+			and is_equal_approx(float(pickup["best_lap"]), 90.0),
+		"car buckets keep separate best laps")
+	check(int(sedan["runs"]) == 2 and int(pickup["runs"]) == 1,
+		"car buckets count runs independently of maps")
+	check(sv.map_record("missing").is_empty() and sv.car_record("missing").is_empty(),
+		"unknown ids have no record instead of an empty-looking zero row")
+	# The accessor returns a copy: a UI accidentally editing it must not change
+	# the lifetime record.
+	arena["runs"] = 999
+	check(int(sv.map_record("arena")["runs"]) == 2, "map_record returns a defensive copy")
+	# Empty/oversized ids never become file keys.
+	sv.begin_run("", "x".repeat(200))
+	sv.add_run()
+	check(not sv.maps.has("") and not sv.cars.has("x".repeat(200)),
+		"invalid map/car ids are ignored, not stored as junk keys")
+	check(sv.maps.size() == 2 and sv.cars.size() == 2,
+		"ignored ids did not create extra buckets (%d/%d)" % [sv.maps.size(), sv.cars.size()])
+	sv.save()
+	var reloaded = script.new()
+	reloaded.load_values()
+	var arena2: Dictionary = reloaded.map_record("arena")
+	check(int(arena2["runs"]) == 2 and is_equal_approx(float(arena2["best_lap"]), 65.5),
+		"per-map records survive a reload (%s)" % str(arena2))
+	check(int(reloaded.car_record("pickup")["runs"]) == 1,
+		"per-car records survive a reload")
+	var saved_json: Variant = JSON.parse_string(FileAccess.get_file_as_string(PATH))
+	check(saved_json is Dictionary and int(saved_json.get("version", 0)) == 2,
+		"the file is written with the current version")
+	# Hostile buckets: wrong container types, junk records and non-string keys
+	# are dropped one by one; one broken map must not wipe the other.
+	put('{"version":2,"runs":7,"maps":{"arena":{"runs":3,"crashes":"bad","best_impact":1e30,"top_speed":-5,"distance":100,"seconds":2,"best_lap":-1},"bad":[],"": {"runs":9}},"cars":[]}')
+	var hostile = script.new()
+	hostile.load_values()
+	var hrec: Dictionary = hostile.map_record("arena")
+	check(hostile.runs == 7, "v2 keeps the lifetime totals")
+	check(int(hrec.get("runs", 0)) == 3, "a valid map record reads back")
+	check(int(hrec.get("crashes", -1)) == 0, "a string counter falls back to zero")
+	check(is_equal_approx(float(hrec.get("best_impact", 0.0)), 1e12),
+		"a hostile magnitude still clamps in a bucket (%.1g)" % float(hrec.get("best_impact", 0.0)))
+	check(is_equal_approx(float(hrec.get("top_speed", -1.0)), 0.0),
+		"a negative bucket record clamps to zero")
+	check(is_equal_approx(float(hrec.get("best_lap", -1.0)), 0.0),
+		"a negative lap is not a record")
+	check(not hostile.maps.has("bad") and not hostile.maps.has(""),
+		"junk bucket keys are dropped")
+	check(hostile.cars.is_empty(), "a non-dictionary bucket store is dropped")
+	# The cap is enforced before the file can grow into thousands of keys.
+	var many := {}
+	for i in 70:
+		many["map_%d" % i] = {"runs": i + 1}
+	check(script._records(many).size() == 64, "at most 64 map/car buckets are kept")
+	check(script._records({1: {"runs": 2}}).is_empty(), "non-string bucket ids are dropped")
+	# A v1 file has no buckets at all and must still load its global counters.
+	put('{"version":1,"runs":5,"crashes":4,"best_impact":88.0,"top_speed":140.0,"distance":300.0,"seconds":12.0,"shots":2}')
+	var v1 = script.new()
+	v1.load_values()
+	check(v1.runs == 5 and v1.crashes == 4 and v1.shots == 2,
+		"a v1 file still loads its lifetime counters")
+	check(v1.maps.is_empty() and v1.cars.is_empty(),
+		"a v1 file starts with no per-map/per-car buckets")
+
 	# A hostile file: wrong types must not poison the counters or abort the load
 	# — one broken field falls back, the rest still read.
 	put("{\"version\":1,\"runs\":\"oops\",\"crashes\":[1,2],\"shots\":-4,\"top_speed\":5}")

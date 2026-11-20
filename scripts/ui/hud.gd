@@ -15,6 +15,7 @@ signal replay_play_requested
 signal replay_rate_requested(dir: int)
 signal replay_shot_requested
 signal replay_load_requested
+signal replay_export_requested
 signal replay_exit_requested
 signal photo_requested
 signal photo_shot_requested
@@ -483,6 +484,16 @@ func _build_replay(root: Control) -> void:
 	_replay_fill.position = bg.position
 	_replay_fill.size = Vector2(0, bg.size.y)
 	panel.add_child(_replay_fill)
+	# Видео живёт в строке заголовка: девять кнопок в нижнем ряду не влезают в
+	# 868-пиксельную панель, а переносить ряд ломает и фокус, и замер раскладки.
+	var video := Button.new()
+	I18n.bind(video, "ВИДЕО")
+	video.position = Vector2(UiTheme.fx(756), UiTheme.fx(2))
+	video.size = Vector2(UiTheme.fx(100), UiTheme.fx(26))
+	video.focus_mode = Control.FOCUS_ALL
+	video.add_theme_font_size_override("font_size", UiTheme.px(12))
+	(video.pressed as Signal).connect(func() -> void: replay_export_requested.emit())
+	panel.add_child(video)
 	var rows := [
 		["◀ ШАГ", func() -> void: replay_step_requested.emit(-1)],
 		["ПАУЗА/ПУСК", _replay_play_cb],
@@ -506,6 +517,9 @@ func _build_replay(root: Control) -> void:
 		# «ПРОШЛЫЙ» виден только когда на диске лежит сохранённый повтор этой карты:
 		# кнопка есть всегда, чтобы порядок биндов и фокуса не переезжал
 		if String(rows[i][0]) == "ПРОШЛЫЙ": _replay_load_btn = b
+	# «ВИДЕО» добавляется последней: set_replay_ui ставит фокус на индекс 1
+	# («ПАУЗА/ПУСК»), и этот индекс не должен сдвигаться из-за новой кнопки.
+	_replay_buttons.append(video)
 
 func set_replay_ui(v: bool) -> void:
 	if _replay_panel == null: return
@@ -658,9 +672,22 @@ func _unhandled_input(ev: InputEvent) -> void:
 		Settings.set_value("debug_mode", not Settings.debug_mode)
 		get_viewport().set_input_as_handled()
 
-func log_impact(kmh: float) -> void:
+# Zone token in the log: a front hit and a side hit at the same speed are
+# different crashes, and the player asked to see that difference without
+# opening the replay. The zone comes from CarRig, which classifies the impact
+# point it already reports; no extra physics query is made here.
+func impact_zone_label(zone: String) -> String:
+	match zone:
+		CarRig.ZONE_REAR: return "ХВОСТ"
+		CarRig.ZONE_SIDE: return "БОРТ"
+		CarRig.ZONE_ROOF: return "КРЫША"
+		CarRig.ZONE_UNDER: return "ДНО"
+		_: return "ЛОБ"
+
+func log_impact(kmh: float, zone := "front") -> void:
 	var secs := (Time.get_ticks_msec() - _start_ms) / 1000
-	_log.push_front(I18n.fmt("%02d:%02d   %3d КМ/Ч", [secs / 60, secs % 60, int(kmh)]))
+	_log.push_front(I18n.fmt("%02d:%02d   %s   %3d КМ/Ч", [
+		secs / 60, secs % 60, I18n.t(impact_zone_label(zone)), int(kmh)]))
 	if _log.size() > 4: _log.resize(4)
 	for i in _log_lines.size():
 		_log_lines[i].text = _log[i] if i < _log.size() else ""

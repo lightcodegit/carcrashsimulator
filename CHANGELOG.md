@@ -5,6 +5,54 @@ versions follow [semantic versioning](https://semver.org/). The version number
 lives in `project.godot` (`application/config/version`), and the release
 workflow refuses to publish a tag that does not match it.
 
+## [Unreleased]
+
+### Added
+
+## [v0.1.6] - 2026-11-20
+
+### Added
+- The crash log now names the impact zone — front, rear, side, roof, or
+  underbody — next to the speed, so two hits at the same speed no longer look
+  identical in the panel. The zone is classified from the point and normal the
+  car already reports; no second physics query is made.
+- A replay can be exported to AVI from the replay bar. Movie Maker cannot be
+  enabled in a running game, so the parent saves the tape and launches a second
+  instance of the same executable with `--write-movie`; the child autoplays the
+  tape with the HUD hidden and quits on the last frame. The child skips Stats
+  and never rewrites the player's settings or last map/car selection.
+- Lifetime statistics now keep per-map and per-car buckets (runs, impacts,
+  best impact, top speed, distance, time, best lap) and the STATS section shows
+  two record tables. Existing v1 files load unchanged and gain buckets as new
+  runs happen.
+- Car mods: a pack in `user://mods/<folder>/mod.json` adds a car based on a
+  shipped body with whitelisted physics overrides and an accent color. The MODS
+  section lists loaded packs and rejected files, and a RELOAD button rescans
+  without restarting. The loader validates ids, bases, types and size, and
+  clamps every number, so a hand-written file cannot inject a resource or a
+  property the physics does not expect. See `MODDING.md` for the schema.
+- A launcher ships beside the game (`Car Crash Launcher` in the same archive)
+  and doubles as a version manager. Its data folder lives in the OS user
+  location (`%APPDATA%\Car Crash Launcher` on Windows,
+  `~/.local/share/car-crash-launcher` on Linux) — never next to the
+  executable — and installed game versions live there under `versions/`. The
+  launcher lists the GitHub releases, downloads and unpacks any of them
+  (with a per-row progress bar; an offline start degrades to the refresh
+  button), removes installed versions from the same list, runs the selected
+  version, still starts a game placed next to it or picked
+  manually, and opens the shared mods folder. Its settings (language, the
+  startup version check, and closing — or not closing — after the game
+  starts) persist in the same folder. GAME FOLDER opens the
+  launcher's data folder with the installed versions. The launcher is its
+  own Godot project (`launcher/`) with its version kept in sync with the game
+  by a test; `build` exports both executables into one folder, and the game
+  still runs directly without it. New in this release: native Windows file
+  and folder dialogs, hotkeys (Enter/Space to play, F5 to refresh, Ctrl+1..4
+  for sections, Esc to close), window geometry memory, launch arguments,
+  more settings (always-on-top, download notifications, auto-select latest),
+  fade-in animations, game-process tracking (status resets when the game
+  exits), and a sidebar-based UI matching the game's visual style.
+
 ## [v0.1.5] - 2026-11-14
 
 ### Fixed

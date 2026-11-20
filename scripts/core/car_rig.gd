@@ -8,6 +8,15 @@ extends Node3D
 signal impact(speed_kmh: float, point: Vector3, normal: Vector3)
 signal nitro_changed(active: bool)
 
+# Impact zones for the HUD log. They are deliberately coarse: the point already
+# lies on the body's surface along the lost-velocity direction, so the sign of
+# the local z answers "front or rear" without a second physics query.
+const ZONE_FRONT := "front"
+const ZONE_REAR := "rear"
+const ZONE_SIDE := "side"
+const ZONE_ROOF := "roof"
+const ZONE_UNDER := "under"
+
 const IMPACT_DECEL := 210.0        # км/ч за секунду (~6 g): резкое торможение, которое считаем ударом
 const IMPACT_MIN_KMH := 28.0
 const IMPACT_WINDOW := 4           # тиков, за которые меряем потерю скорости
@@ -582,6 +591,22 @@ func _detect_impact(dt: float) -> void:
 
 func _speed(v: Vector3) -> float:
 	return v.length() * 3.6
+
+# Which part of the body took the hit, in the chassis frame: +Z is the nose
+# (VehicleBody3D drives nose-first, and the visual body is turned to match),
+# +Y is the roof. The point and the normal come straight from the impact
+# signal; no extra raycast is made, so the log cannot disagree with the dent.
+# A mostly vertical normal wins over the point: a rollover's contact point can
+# be anywhere, but the roof/underbody answer is what the player expects.
+func impact_zone(point: Vector3, normal: Vector3) -> String:
+	if chassis == null: return ZONE_FRONT
+	var lp := chassis.to_local(point)
+	var ln := chassis.global_basis.inverse() * normal
+	if absf(ln.y) > 0.6:
+		return ZONE_ROOF if ln.y < 0.0 else ZONE_UNDER
+	if absf(lp.z) >= absf(lp.x):
+		return ZONE_FRONT if lp.z >= 0.0 else ZONE_REAR
+	return ZONE_SIDE
 
 # Визуальные колёса ассета следят за физическими: ход подвески, угол поворота, качение.
 func _pose_wheels(dt: float) -> void:

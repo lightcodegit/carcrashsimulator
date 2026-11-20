@@ -4,10 +4,26 @@ extends RefCounted
 # Список машин. От него зависит проверка «нитро есть у всех» (h_nitro): новый пресет,
 # добавленный в match ниже, обязан появиться и здесь — иначе он останется невидимым
 # для теста и для игрока.
-static func ids() -> Array[String]:
+#
+# Player mods add ids after the built-ins: ModDB reads user://mods and keeps the
+# physics whitelist, so ids()/get_params() are the only surfaces the rest of the
+# game needs to know about.
+static func base_ids() -> Array[String]:
 	return ["sedan", "pickup", "limousine", "infinity", "sport"]
 
+static func ids() -> Array[String]:
+	var out := base_ids()
+	for id in ModDB.car_ids():
+		if not out.has(id): out.append(id)
+	return out
+
 static func get_params(id: String) -> VehicleParams:
+	var p := _base_params(id)
+	if p != null: return p
+	var mod := ModDB.car(id)
+	return _mod_params(mod) if not mod.is_empty() else null
+
+static func _base_params(id: String) -> VehicleParams:
 	var p := VehicleParams.new()
 	p.car_id = id
 	match id:
@@ -53,11 +69,32 @@ static func get_params(id: String) -> VehicleParams:
 		_:
 			return null
 	# габариты берём из модели: единый равномерный масштаб под целевую ширину
+	_derive_dims(p)
+	p.paint_color = Materials.stock_paint_color(p.model)
+	return p
+
+# Length, height and wheel radius come from the model, so a mod that changes the
+# target width or the body stretch must have them re-derived: the collider and
+# wheel placement read these numbers, not the raw model.
+static func _derive_dims(p: VehicleParams) -> void:
 	var m := DentBody.measure(p.model, p.body_stretch)
 	var aabb: AABB = m.aabb
 	var s := p.width / maxf(0.001, aabb.size.x)
 	p.length = aabb.size.z * s
 	p.height = aabb.size.y * s
 	p.wheel_r = float(m.wheel_r) * s
-	p.paint_color = Materials.stock_paint_color(p.model)
+
+# A mod car is the base car plus whitelisted overrides. ModDB already clamped
+# every value; the base is guaranteed to be a built-in by the loader, so this
+# cannot recurse into another mod.
+static func _mod_params(car: Dictionary) -> VehicleParams:
+	var p := _base_params(String(car.get("base", "")))
+	if p == null: return null
+	p.car_id = String(car.get("id", ""))
+	var params: Dictionary = car.get("params", {})
+	for key in params:
+		if ModDB.PARAM_RANGES.has(key): p.set(key, params[key])
+	var color: Variant = car.get("color")
+	if color is Color: p.accent_color = color
+	_derive_dims(p)
 	return p

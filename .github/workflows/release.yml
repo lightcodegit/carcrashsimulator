@@ -61,7 +61,7 @@ jobs:
 
       # «Экспортируется» не значит «запускается»: собранный билд стартует
       # headless на несколько кадров и обязан выйти без ошибки и без таймаута.
-      - name: Smoke run the exported build
+      - name: Smoke run the exported builds
         uses: ./.github/actions/smoke-build
         with:
           platform: ${{ matrix.platform }}

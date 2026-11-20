@@ -41,8 +41,11 @@ Everything listed below ships in the current release.
 | **Deformation** | Body vertices shift along the velocity-loss vector: head-on, side, and rear impacts crumple their own panel. Dents accumulate and are cleared on restart. |
 | **5 cars** | From a heavy pickup to the *Endless* car with no speed cap. Each car has its own top speed, mass, acceleration, and nitro with a tank and exhaust flame. |
 | **7 maps** | Test arena, town with parked cars, drag strip with a finish wall, kilometre race loop, endless tile strip, the void infinite plane, and a big city with districts. |
-| **Replay & photo mode** | Replay the last 10 seconds with stepping and playback speed. Free camera with zoom and PNG screenshots. |
+| **Replay & photo mode** | Replay the last 10 seconds with stepping and playback speed. Export the replay to AVI with Godot Movie Maker, or take PNG screenshots from a free camera. |
+| **Records & statistics** | Lifetime totals plus per-map and per-car records: runs, impacts, best impact, top speed, and best lap. Shown in the STATS section of the main menu. |
 | **Garage** | Suspension stiffness, dampers, thrust, brakes, grip, nitro tank, and body paint in any color. Profiles are stored per car. |
+| **Car mods** | Drop a data-only pack into `user://mods`: a car based on a shipped body with whitelisted physics overrides and an accent color. No scripts, models, or arbitrary resources. See [MODDING.md](MODDING.md). |
+| **Launcher** | A launcher beside the game that doubles as a version manager: installed versions live in its own data folder in the OS user location, any GitHub release can be downloaded, installed, and removed right from the launcher, and PLAY runs the selected version — or a game placed next to it. Opens the shared mods folder; settings cover language, the startup version check and staying open after the game starts. The game binary also runs on its own without it. |
 | **Sound & vibration** | Engine, tire squeal, impact, and nitro are synthesized by a DSP mixer. Gamepads vibrate on impacts and slides. |
 | **Settings & i18n** | Image presets plus individual graphics options, slow-mo, and camera settings. English/Russian UI, switchable on the fly. Every action is rebindable (key/button/axis) — keyboard and gamepad stored separately, modifiers are part of the binding. |
 
@@ -80,12 +83,14 @@ Ready builds are published on the [**Releases**](https://github.com/lightcodegit
 
 If a build for your platform or version is not available there, you can [build from source](#building-from-source) or grab CI artifacts from the [Actions](https://github.com/lightcodegit/carcrashsimulator/actions) tab.
 
-| Platform | File | Requirements |
+| Platform | Game | Launcher |
 | --- | --- | --- |
-| Windows x86_64 | `Car Crash Simulator.exe` | Windows 10/11, GPU with OpenGL 3.3 |
-| Linux x86_64 | `Car Crash Simulator.x86_64` | glibc distribution, X11 or Wayland |
+| Windows x86_64 | `Car Crash Simulator.exe` | `Car Crash Launcher.exe` |
+| Linux x86_64 | `Car Crash Simulator.x86_64` | `Car Crash Launcher.x86_64` |
 
-> Each build is a single file: game data (`.pck`) is embedded into the executable, so there is nothing to keep next to it.
+> Requirements: Windows 10/11 or a glibc Linux distribution with X11/Wayland; any GPU with OpenGL 3.3.
+>
+> Each release archive holds the game and the launcher side by side. Both are single executables with the data (`.pck`) embedded — the launcher finds the game next to itself, so keep the two files in one folder. The launcher can also install other releases from GitHub into its own data folder in the OS user location. It is optional: the game binary runs directly.
 
 ## Controls
 
@@ -118,10 +123,12 @@ node tools/project.mjs import
 # run the game from source
 node tools/project.mjs run
 
-# export release builds
+# export release builds (the game and the launcher together)
 node tools/project.mjs build windows   # -> artifacts/build/windows/
 node tools/project.mjs build linux     # -> artifacts/build/linux/
 ```
+
+- The launcher (`launcher/`) is a second Godot project; `build` imports and exports it into the same output folder, so the two binaries land side by side. From source you can also open `launcher/project.godot` in the editor and press **F5**: the launcher detects the parent project and starts the game through the editor.
 
 - Godot is resolved as `godot` from `PATH`; set `GODOT` or pass `--godot "C:/path with spaces/Godot.exe"` to any command.
 - `help <command>` and `<command> --help` describe available options.
@@ -149,7 +156,7 @@ node tools/project.mjs test --fail-on-skip # strict mode: partial/skip is an err
 - Runs each test with isolated `APPDATA`/`HOME`/`XDG_*` directories in the system temp — player settings and other tests' results never leak into defaults.
 - Success requires an `ALL PASS` line, exit code `0`, and no `SCRIPT ERROR`/`FAIL`. `PARTIAL`/`SKIP` are counted separately and **do not** count as a pass.
 - Tests that need a live GPU, window, or gamepad honestly report `PARTIAL` in headless or are marked skipped. Full coverage for them requires a manual `p_live_probe` run with a live window (audio, smoke, paint, replay, and photo mode — measured in pixels and with real audio output).
-- CI runs on both OSes and **always launches the exported build** headless for a few frames: *"it exported" without "it runs" does not count as a build*.
+- CI runs on both OSes and **always launches the exported builds** (game and launcher) headless for a few frames: *"it exported" without "it runs" does not count as a build*.
 
 ## Contributing
 

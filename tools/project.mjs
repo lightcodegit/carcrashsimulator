@@ -79,7 +79,7 @@ function help(command) {
   const details = {
     import: 'import  Import resources headlessly and exit. Default wall timeout: 300 seconds.',
     test: 'test [--test EXACT_NAME ...] [--jobs N] [--list] [--fail-on-skip]\nRuns discovered d_*.gd / h_*.tscn headlessly at fixed 60 FPS, each with fresh user storage.\nTests run in parallel: default is half the CPU cores capped at 4; --jobs 1 restores serial order.\nWall-clock budget tests (d_bigcity_density, h_crash, h_dents) always run strictly one at a time, first.\nDefault wall timeout: 120 seconds per test. Import first.\nNOTE is informational; PARTIAL/SKIP means partial coverage; unsupported tests are skipped with reasons.\n--fail-on-skip rejects skipped AND partial results. --list does not launch Godot.',
-    build: 'build windows|linux  Import and release-export a temporary staging project.\nRequires matching 4.7.2.stable export templates. Default timeout: 300 seconds per process.\nUses tools/export_presets.cfg, never your local preset. Output: artifacts/build/<platform>/.',
+    build: 'build windows|linux  Import and release-export temporary staging projects: the game and\nthe standalone launcher (launcher/), which ships beside the game and starts it.\nRequires matching 4.7.2.stable export templates. Default timeout: 300 seconds per process.\nUses tools/export_presets.cfg and tools/export_presets_launcher.cfg, never your local presets.\nOutput: artifacts/build/<platform>/.',
     run: 'run  Launch the game GUI using your normal player settings.\nOnly this command opens a window. Default wall timeout: 3600 seconds; close normally to exit.',
   };
   return `Usage: node tools/project.mjs ${command ? details[command] : '<import|test|build|run> [options]\n       node tools/project.mjs help <command>'}\n${common}`;
@@ -245,6 +245,21 @@ export async function stageProject(source, destination) {
   await cp(path.join(source, 'tools', 'export_presets.cfg'), path.join(destination, 'export_presets.cfg'));
 }
 
+// The launcher is a nested Godot project: its res:// root is launcher/, so only
+// that subtree travels into its own staging dir — never the game's resources,
+// which would leak into the launcher .pck the other way around.
+export async function stageLauncher(source, destination) {
+  await mkdir(destination, { recursive: true });
+  for (const entry of ['project.godot', 'scenes', 'scripts', 'assets']) {
+    await cp(path.join(source, 'launcher', entry), path.join(destination, entry), { recursive: true });
+  }
+  for (const entry of STAGE_ROOT_FILES) {
+    const from = path.join(source, entry);
+    if (existsSync(from)) await cp(from, path.join(destination, entry));
+  }
+  await cp(path.join(source, 'tools', 'export_presets_launcher.cfg'), path.join(destination, 'export_presets.cfg'));
+}
+
 function requireSuccess(result, label) {
   const text = stripVTControlCharacters(`${result.stdout}\n${result.stderr}`);
   if (result.error || result.timedOut || result.exitCode !== 0 || result.signal || /^(?:SCRIPT )?ERROR:/m.test(text)) {
@@ -344,20 +359,36 @@ async function main() {
       const temporary = await mkdtemp(path.join(tmpdir(), 'ccs-build-'));
       try {
         const stage = path.join(temporary, 'project');
+        const launcherStage = path.join(temporary, 'launcher');
         const output = path.join(temporary, 'output');
+        const windows = options.platform === 'windows';
         await stageProject(ROOT, stage);
+        await stageLauncher(ROOT, launcherStage);
         await mkdir(output);
         requireSuccess(await execute('build-import', ['--headless', '--path', stage, '--import']), 'Staging import');
-        const windows = options.platform === 'windows';
-        const filename = windows ? 'Car Crash Simulator.exe' : 'Car Crash Simulator.x86_64';
-        const result = await execute('export', ['--headless', '--path', stage, '--export-release', windows ? 'Windows Desktop' : 'Linux', path.join(output, filename)]);
-        try { requireSuccess(result, 'Export'); }
-        catch (error) {
-          throw new Error(`${error.message} Install Godot ${GODOT_VERSION}.stable export templates via Editor > Manage Export Templates (or the official release .tpz). Local export_presets.cfg is not used.`);
+        // Game and launcher are exported as two binaries side by side: the
+        // launcher finds the game next to itself at runtime, so both must land
+        // in the same output folder for the release layout to work.
+        const releases = [
+          ['export', stage, windows ? 'Car Crash Simulator.exe' : 'Car Crash Simulator.x86_64', 'Export'],
+          ['launcher-import', launcherStage, null, 'Launcher staging import'],
+          ['launcher-export', launcherStage, windows ? 'Car Crash Launcher.exe' : 'Car Crash Launcher.x86_64', 'Launcher export'],
+        ];
+        const produced = [];
+        for (const [label, dir, filename, step] of releases) {
+          const args = ['--headless', '--path', dir];
+          if (filename == null) args.push('--import');
+          else args.push('--export-release', windows ? 'Windows Desktop' : 'Linux', path.join(output, filename));
+          const result = await execute(label, args);
+          try { requireSuccess(result, step); }
+          catch (error) {
+            throw new Error(`${error.message} Install Godot ${GODOT_VERSION}.stable export templates via Editor > Manage Export Templates (or the official release .tpz). Local export_presets.cfg is not used.`);
+          }
+          if (filename != null) produced.push(filename);
         }
-        // The .pck is embedded into the executable (export presets), so the
-        // binary is the only artifact and it must carry the whole game.
-        for (const file of [filename]) {
+        // The .pck is embedded into each executable (export presets), so the
+        // binaries are the only artifacts and each must carry its whole project.
+        for (const file of produced) {
           const info = await stat(path.join(output, file));
           if (!info.isFile() || info.size === 0) throw new Error(`Export did not produce a nonempty ${file}.`);
         }

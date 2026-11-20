@@ -5,12 +5,19 @@ var _fails := 0
 var _frame := 0
 var car: CarRig
 var _impacts: Array[float] = []
+var _zones: Array[String] = []
 var _impact_ms := 0.0
 var _def_at_crash := 0.0
 const WALL_X := 60.0
 
 func check(cond: bool, msg: String) -> void:
 	if not cond: _fails += 1; print("FAIL: " + msg)
+
+# World-space point/normal expressed in the chassis frame: the classifier works
+# in local coordinates, so the fixture is written in the same terms.
+func _zone_at(lp: Vector3, ln: Vector3) -> String:
+	var xf := car.chassis.global_transform
+	return car.impact_zone(xf * lp, xf.basis * ln)
 
 func _ready() -> void:
 	var floor_body := StaticBody3D.new()
@@ -25,7 +32,9 @@ func _ready() -> void:
 	car = CarRig.new(); add_child(car)
 	car.build(VehicleDB.get_params("sedan"), get_world_3d())
 	car.respawn(Transform3D(Basis.IDENTITY, Vector3(0, 1.0, 0)))
-	car.impact.connect(func(s: float, _p: Vector3, _n: Vector3) -> void: _impacts.append(s))
+	car.impact.connect(func(s: float, p: Vector3, n: Vector3) -> void:
+		_impacts.append(s)
+		_zones.append(car.impact_zone(p, n)))
 
 func _physics_process(_dt: float) -> void:
 	# the car is built in _ready via await: on a live renderer that lands later
@@ -39,6 +48,20 @@ func _physics_process(_dt: float) -> void:
 		check(_impacts.size() > 0, "impact registered (%s)" % str(_impacts))
 		check(_impacts.size() > 0 and _impacts[0] > 40.0 and _impacts[0] < 170.0,
 			"impact speed plausible (%s)" % str(_impacts))
+		check(_zones.size() > 0 and _zones[0] == CarRig.ZONE_FRONT,
+			"a wall hit on the nose is logged as a front impact (%s)" % str(_zones))
+		# The coarse zone classifier is checked in all directions against the
+		# chassis frame, so a sign flip cannot hide behind one scenario.
+		check(_zone_at(Vector3(0, 0, 2), Vector3(0, 0, -1)) == CarRig.ZONE_FRONT,
+			"front zone from a nose point")
+		check(_zone_at(Vector3(0, 0, -2), Vector3(0, 0, 1)) == CarRig.ZONE_REAR,
+			"rear zone from a tail point")
+		check(_zone_at(Vector3(2, 0, 0), Vector3(-1, 0, 0)) == CarRig.ZONE_SIDE,
+			"side zone from a side point")
+		check(_zone_at(Vector3(0, 1, 0), Vector3(0, -1, 0)) == CarRig.ZONE_ROOF,
+			"roof zone when the contact normal points down in the chassis frame")
+		check(_zone_at(Vector3(0, -1, 0), Vector3(0, 1, 0)) == CarRig.ZONE_UNDER,
+			"under zone when the contact normal points up in the chassis frame")
 		check(car.speed_kmh() < 8.0, "the car came to a stop (%.1f km/h)" % car.speed_kmh())
 		check(car.chassis.global_position.x < WALL_X, "chassis did not enter the wall (%.2f)" % car.chassis.global_position.x)
 		check(b.dent_count > 0, "dents appeared (%d)" % b.dent_count)

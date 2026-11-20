@@ -1,11 +1,13 @@
-name: Smoke run the exported build
+name: Smoke run the exported builds
 
 # Exporting counts as success only when Godot says so? No: when the built game
 # actually starts. A headless boot for a few frames catches an empty or corrupt
 # embedded .pck, a missing main scene and initialization crashes — things the
 # headless source tests cannot see, because they live in a different environment.
+# The launcher is a second exported project with its own main scene, so it gets
+# the same boot check.
 
-description: 'Launch the exported binary headless and fail if it does not boot'
+description: 'Launch the exported binaries headless and fail if they do not boot'
 inputs:
   platform:
     description: 'windows or linux'
@@ -14,7 +16,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Boot the exported build
+    - name: Boot the exported builds
       shell: pwsh
       env:
         # Значения идут через env, а не интерполяцией в скрипт: вход композитного
@@ -26,18 +28,29 @@ runs:
         $platform = $env:PLATFORM
         $dir = Join-Path 'artifacts/build' $platform
         if (-not (Test-Path -LiteralPath $dir)) { throw "No build directory $dir." }
-        # The .pck is embedded into the executable, so the directory holds one
-        # binary per platform. Names come from the export presets: "Car Crash
-        # Simulator.exe" on Windows, "Car Crash Simulator.x86_64" on Linux.
-        $exe = Get-ChildItem -LiteralPath $dir -File |
-          Where-Object { $_.Name -eq 'Car Crash Simulator.exe' -or $_.Name -eq 'Car Crash Simulator.x86_64' } |
-          Select-Object -First 1
-        if (-not $exe) { throw "No exported binary under $dir — the export presets embed the .pck into the executable." }
-        if ($exe.Length -lt 30mb) { throw "Suspiciously small executable: $($exe.Length) bytes — the embedded .pck is missing." }
-        if (-not $IsWindows) {
-          chmod +x $exe.FullName
-          if ($LASTEXITCODE -ne 0) { throw 'Could not mark the exported binary executable.' }
-        }
+        # The .pck is embedded into each executable, so the directory holds two
+        # binaries per platform. Names come from the export presets: "Car Crash
+        # Simulator.exe" + "Car Crash Launcher.exe" on Windows, ".x86_64" on Linux.
+        # The launcher carries a tiny project, so its size floor is the template
+        # binary itself, not the game's embedded-content minimum.
+        $expected = @(
+          @{ Pattern = 'Car Crash Simulator.*'; MinBytes = 30mb },
+          @{ Pattern = 'Car Crash Launcher.*'; MinBytes = 10mb }
+        )
         New-Item -ItemType Directory -Force artifacts/logs | Out-Null
-        & $exe.FullName --headless --quit-after 120 2>&1 | Tee-Object -FilePath "artifacts/logs/smoke-$platform.log"
-        if ($LASTEXITCODE -ne 0) { throw "Exported build exited with $LASTEXITCODE." }
+        foreach ($item in $expected) {
+          $exe = Get-ChildItem -LiteralPath $dir -File |
+            Where-Object { $_.Name -like $item.Pattern } |
+            Select-Object -First 1
+          if (-not $exe) { throw "No exported binary matching $($item.Pattern) under $dir — the export presets embed the .pck into the executable." }
+          if ($exe.Length -lt $item.MinBytes) { throw "Suspiciously small executable $($exe.Name): $($exe.Length) bytes — the embedded .pck is missing." }
+          if (-not $IsWindows) {
+            chmod +x $exe.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Could not mark $($exe.Name) executable." }
+          }
+          # The launcher never auto-starts the game: PLAY waits for a click, so a
+          # boot here cannot spawn a second process in CI.
+          & $exe.FullName --headless --quit-after 120 2>&1 |
+            Tee-Object -FilePath "artifacts/logs/smoke-$($exe.BaseName)-$platform.log"
+          if ($LASTEXITCODE -ne 0) { throw "Exported build $($exe.Name) exited with $LASTEXITCODE." }
+        }

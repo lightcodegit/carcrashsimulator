@@ -27,12 +27,23 @@ var _crashes := 0
 var _paused := false
 var _flip := 0.0
 var _start_ms := 0
+# Video export: the child instance autoplays the tape and quits on the last
+# frame; the parent polls the process it spawned and reports when the file lands.
+var _export_mode := false
+var _export_pid := 0
+var _export_out := ""
+var _export_tape := ""
+var _export_end_frames := 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # Esc и «в меню» должны работать и на паузе
 	GameContext.loading_hide()   # сцена собрана: загрузочный экран больше не нужен
 	TimeScale.set_hold(false)     # слоу-мо не должно переезжать в новый заезд
-	Stats.add_run()
+	# An export child is not a player run: it must not count in Stats or pollute
+	# the per-map/per-car records with a frozen replay.
+	if VideoExport.request.is_empty():
+		Stats.begin_run(GameContext.map_id, GameContext.car_id)
+		Stats.add_run()
 	_setup_env()
 	var m: Dictionary = MapDB.build(GameContext.map_id)
 	_spawn = m.spawn
@@ -130,6 +141,7 @@ func _ready() -> void:
 	hud.replay_rate_requested.connect(func(d: int) -> void: replay_player.bump_rate(d))
 	hud.replay_shot_requested.connect(_replay_shot)
 	hud.replay_load_requested.connect(_replay_load_tape)
+	hud.replay_export_requested.connect(_replay_export_video)
 	Input.joy_connection_changed.connect(_on_joy_changed)
 	replay_player.cursor_changed.connect(_on_replay_cursor)
 	replay_player.stopped.connect(_on_replay_stopped)
@@ -154,6 +166,7 @@ func _ready() -> void:
 	# главное меню держит 3D-масштаб окна в 1.0 (витрина обязана быть резкой) —
 	# на заезд возвращаем игровую настройку
 	Settings.apply_window()
+	if not VideoExport.request.is_empty(): _begin_video_export()
 
 # Состояние действий переживает смену сцены: уход в меню с зажатым W возвращал в игру
 # уже с нажатым газом и ручником, и машина начинала движение сама. Отжимаем всё ПОСЛЕ
@@ -304,17 +317,53 @@ func _setup_env() -> void:
 
 # Никакого баннера «УДАР» и автоматического слоу-мо: игра не должна останавливаться.
 # Удар уходит только в компактный журнал телеметрии и в лёгкий шейк камеры.
-func _on_impact(speed_kmh: float, _point: Vector3, _normal: Vector3) -> void:
+func _on_impact(speed_kmh: float, point: Vector3, normal: Vector3) -> void:
 	_crashes += 1
 	_top_crash = maxf(_top_crash, speed_kmh)
 	Stats.add_impact(speed_kmh)
-	hud.log_impact(speed_kmh)
+	hud.log_impact(speed_kmh, car.impact_zone(point, normal))
 	hud.set_crash_stats(_crashes, _top_crash)
 	camera.add_trauma(clampf(speed_kmh / 160.0, 0.12, 0.55))
 
 func _exit_tree() -> void:
 	if _save_thread != null and _save_thread.is_alive():
 		_save_thread.wait_to_finish()
+
+func _process(_dt: float) -> void:
+	# The export child is a recording process, not a game session: it ends by
+	# itself as soon as the recorded window has been played to the end.
+	if _export_mode:
+		_export_end_guard()
+		return
+	if _export_pid <= 0: return
+	if OS.is_process_running(_export_pid): return
+	_export_pid = 0
+	# The tape is an intermediate file: the player asked for a video, not for a
+	# second copy of the replay that the «ПРОШЛЫЙ» button cannot even see. The
+	# child has already exited, so nothing is reading it any more.
+	_drop_export_tape()
+	if hud == null: return
+	if FileAccess.file_exists(_export_out):
+		hud.show_tip(I18n.fmt("ВИДЕО ГОТОВО: %s", [_export_out.replace("user://", "")]))
+	else:
+		hud.show_tip("ЭКСПОРТ ВИДЕО НЕ УДАЛСЯ")
+
+func _drop_export_tape() -> void:
+	if _export_tape == "": return
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(_export_tape))
+	_export_tape = ""
+
+# One rendered frame after the last replay frame is deliberate: Movie Maker
+# captures the frame that is drawn after this _process, and stopping on the
+# very same tick would risk dropping the final pose from the file.
+func _export_end_guard() -> void:
+	if replay_player == null or replay == null: return
+	if replay_player.playing: return
+	if replay_player.cursor < replay.window_end() - 1e-3: return
+	_export_end_frames += 1
+	if _export_end_frames < 2: return
+	print("VIDEO EXPORT DONE frames=%d" % replay.count())
+	get_tree().quit(0)
 
 func _physics_process(dt: float) -> void:
 	if _paused: return
@@ -429,6 +478,71 @@ func _replay_load_tape() -> void:
 	replay_player.seek(replay.window_start())
 	hud.show_tip(I18n.fmt("РЕПЛЕЙ ПРОШЛОГО ЗАЕЗДА: кадров %d", [replay.count()]))
 
+# Exports the replay that is already in the ring. Movie Maker cannot be enabled
+# from a running game, so the tape is saved and a second instance of the same
+# executable records it with --write-movie. The parent stays playable and polls
+# the child; the child hides the HUD and quits on the last frame.
+func _replay_export_video() -> void:
+	if _export_pid > 0:
+		hud.show_tip("ЭКСПОРТ ВИДЕО УЖЕ ИДЁТ")
+		return
+	if DisplayServer.get_name() == "headless":
+		hud.show_tip("ЭКСПОРТ ВИДЕО: НУЖНО ОКНО")
+		return
+	if replay == null or replay.count() == 0:
+		hud.show_tip("окно реплея пусто — разгонитесь и ударьтесь")
+		return
+	if not VideoExport.ensure_dir():
+		hud.show_tip("ЭКСПОРТ ВИДЕО НЕ УДАЛСЯ")
+		return
+	var stamp := int(Time.get_unix_time_from_system())
+	var tape := VideoExport.tape_path(GameContext.map_id, GameContext.car_id, stamp)
+	if not replay.save_to(tape):
+		hud.show_tip("ЭКСПОРТ ВИДЕО НЕ УДАЛСЯ")
+		return
+	_export_tape = tape
+	var out := VideoExport.output_path(GameContext.map_id, GameContext.car_id, stamp)
+	var plan := VideoExport.plan(tape, out, OS.has_feature("editor"))
+	if plan.is_empty():
+		_drop_export_tape()
+		hud.show_tip("ЭКСПОРТ ВИДЕО НЕ УДАЛСЯ")
+		return
+	var pid := OS.create_process(OS.get_executable_path(), plan["args"])
+	if pid <= 0:
+		_drop_export_tape()
+		hud.show_tip("ЭКСПОРТ ВИДЕО НЕ УДАЛСЯ")
+		return
+	_export_pid = pid
+	_export_out = out
+	hud.show_tip(I18n.fmt("ЭКСПОРТ ВИДЕО ЗАПУЩЕН: %s", [out.replace("user://", "")]))
+
+# Child side: the tape already names its map and car (MainMenu put those into
+# GameContext). The world is built normally and then frozen; only ReplayPlayer
+# moves, exactly like a live replay.
+func _begin_video_export() -> void:
+	var req := VideoExport.request
+	VideoExport.request = {}
+	var tape := VideoExport.load_tape(req)
+	if tape.is_empty() or replay == null or not replay.adopt_tape(tape):
+		push_error("video export: tape rejected, nothing recorded")
+		get_tree().quit(1)
+		return
+	_set_paused(true)
+	hud.set_paused(false)
+	hud.set_panels_hidden(true)
+	replay_player.invalidate_dents()
+	if not replay_player.begin_at(replay.window_start()):
+		push_error("video export: replay window is empty")
+		get_tree().quit(2)
+		return
+	replay_player.set_rate_index(2)      # ×1.0: RATES[2]
+	# The tape pose is already applied; place the chase camera before the first
+	# Movie Maker frame instead of letting it render from the default origin.
+	camera.snap()
+	_export_mode = true
+	_export_end_frames = 0
+	print("VIDEO EXPORT START frames=%d" % replay.count())
+
 # Кадр из повтора на диск: тот же вьюпорт, что видит игрок. Отдельная серия
 # файлов — фотомодные снимки не должны перезаписываться повторами.
 var _replay_shot_i := -1
@@ -518,9 +632,13 @@ func _save_best_bg(time_s: float) -> void:
 	_save_thread.start(func() -> void: LapTracker.save_best(map, car, time_s, frames))
 
 func _on_lap(time_s: float, lap_n: int, is_best: bool) -> void:
-	if is_best and _racer != null and not _racer.last_recording.is_empty():
-		_save_best_bg(time_s)
-		if _ghost != null: _ghost.play(_racer.last_recording)
+	if is_best:
+		# The record is a lifetime fact and does not depend on the ghost file: a
+		# best lap whose recording came out empty still beat the player's time.
+		Stats.add_best_lap(time_s)
+		if _racer != null and not _racer.last_recording.is_empty():
+			_save_best_bg(time_s)
+			if _ghost != null: _ghost.play(_racer.last_recording)
 	elif _ghost != null:
 		_ghost.restart()
 	hud.show_tip(I18n.fmt("КРУГ %d — %s", [lap_n, LapTracker.fmt_time(time_s)]) if not is_best

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   ROOT, parseArgs, classifyTest, summarize, discoverTests, selectTests,
-  isolatedEnvironment, withIsolation, resolveExecutable, runProcess, stageProject,
+  isolatedEnvironment, withIsolation, resolveExecutable, runProcess, stageProject, stageLauncher,
 } from './project.mjs';
 
 const ok = { stdout: 'ALL PASS\n', stderr: '', exitCode: 0, signal: null, error: null, timedOut: false };
@@ -251,6 +251,39 @@ test('staging uses only runtime sources and portable presets; local config stays
   await writeFile(path.join(source, 'LICENSE'), 'MIT License\n');
   await stageProject(source, dest);
   assert.equal(await readFile(path.join(dest, 'LICENSE'), 'utf8'), 'MIT License\n');
+});
+
+test('launcher staging copies only the launcher project and swaps in its own presets', async t => {
+  const source = await temp(t);
+  const dest = path.join(await temp(t), 'launcher-stage');
+  // A fake repository layout: the game at the root, the launcher nested inside.
+  for (const dir of ['assets', 'scenes', 'scripts', 'tools', 'launcher/scenes', 'launcher/scripts', 'launcher/assets']) {
+    await mkdir(path.join(source, dir), { recursive: true });
+  }
+  await writeFile(path.join(source, 'project.godot'), 'config/name="Car Crash Simulator"\n');
+  await writeFile(path.join(source, 'assets', 'car.glb'), 'game asset — must not leak into the launcher');
+  await writeFile(path.join(source, 'launcher', 'project.godot'), 'config/name="Car Crash Launcher"\n');
+  await writeFile(path.join(source, 'launcher', 'scenes', 'launcher.tscn'), 'scene');
+  await writeFile(path.join(source, 'launcher', 'scripts', 'launcher.gd'), 'extends Control');
+  await writeFile(path.join(source, 'launcher', 'assets', 'logo.svg'), 'logo');
+  await writeFile(path.join(source, 'launcher', 'export_presets.cfg'), 'LOCAL LAUNCHER SECRET');
+  await copyFile(path.join(ROOT, 'tools', 'export_presets_launcher.cfg'), path.join(source, 'tools', 'export_presets_launcher.cfg'));
+  await copyFile(path.join(ROOT, 'tools', 'export_presets.cfg'), path.join(source, 'tools', 'export_presets.cfg'));
+  await stageLauncher(source, dest);
+  // res:// inside the launcher project maps to launcher/, so the staged root
+  // must contain exactly the launcher's own folders — a game asset in there
+  // would ship inside the launcher binary, and a missing preset would make the
+  // export fall back to whatever Godot finds (or none).
+  assert.deepEqual((await readdir(dest)).sort(), ['assets', 'export_presets.cfg', 'project.godot', 'scenes', 'scripts']);
+  assert.equal(await readFile(path.join(dest, 'project.godot'), 'utf8'), 'config/name="Car Crash Launcher"\n');
+  assert.equal(await readFile(path.join(dest, 'scenes', 'launcher.tscn'), 'utf8'), 'scene');
+  const presets = await readFile(path.join(dest, 'export_presets.cfg'), 'utf8');
+  assert.doesNotMatch(presets, /LOCAL LAUNCHER SECRET/);
+  // The launcher must keep its own preset file, not the game's: the build
+  // exports both projects with the same preset names, so a swapped file builds
+  // the game twice and ships no launcher at all.
+  assert.match(presets, /logo\.ico/);
+  assert.match(await readFile(path.join(ROOT, 'tools', 'export_presets.cfg'), 'utf8'), /logo_emblem\.ico/);
 });
 
 // Исполняемый файл обязан искаться в PATH, а не в текущем каталоге: spawn с

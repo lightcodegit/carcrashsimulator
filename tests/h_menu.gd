@@ -39,8 +39,24 @@ func _ready() -> void:
 	# The grid size is set explicitly.
 	get_window().size = Vector2i(1600, 900)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_seed_mod()
 	mm = load("res://scenes/main_menu.tscn").instantiate()
 	add_child(mm)
+
+# A mod pack on disk before the menu builds its catalog: the car must reach the
+# VEHICLES cards, the MODS panel and VehicleDB without special cases.
+func _seed_mod() -> void:
+	var root := DirAccess.open("user://")
+	if root != null and not root.dir_exists("mods"): root.make_dir("mods")
+	var dir := DirAccess.open("user://mods")
+	if dir != null and not dir.dir_exists("testpack"): dir.make_dir("testpack")
+	var f := FileAccess.open("user://mods/testpack/mod.json", FileAccess.WRITE)
+	if f == null: return
+	f.store_string('{"name":"Test Pack","version":"1","author":"QA","cars":[{"id":"test_car",'
+		+ '"name":"TEST CAR","description":"A modded sedan.","base":"sedan",'
+		+ '"color":[0.2,0.8,0.4],"params":{"mass":1200,"vmax_kmh":240,"accel_max":12}}]}')
+	f.close()
+	ModDB.reload()
 
 func _process(_d: float) -> void:
 	_f += 1
@@ -69,7 +85,7 @@ func _process(_d: float) -> void:
 		nav_texts.append(b.text)
 		check(btns.has(b), "navigation item is visible: " + b.text)
 	var nav_expected: Array[String] = []
-	for k in ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "ГАЛЕРЕЯ", "СТАТИСТИКА", "НАСТРОЙКИ", "ВЫХОД"]:
+	for k in ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "ГАЛЕРЕЯ", "СТАТИСТИКА", "МОДЫ", "НАСТРОЙКИ", "ВЫХОД"]:
 		nav_expected.append(I18n.t(k))
 	check(nav_texts == nav_expected, "navigation content and order (%s)" % str(nav_texts))
 	# the default selection is the first car and the first map
@@ -79,7 +95,14 @@ func _process(_d: float) -> void:
 		if b.text == I18n.t("МАШИНЫ"): b.emit_signal("pressed")
 	var btns2: Array = []; _buttons(mm, btns2)
 	var consts: Dictionary = (mm.get_script() as GDScript).get_script_constant_map()
-	var ncars: int = (consts["CARS"] as Array).size()
+	var ncars: int = mm.CARS.size()
+	check(ncars == (consts["BASE_CARS"] as Array).size() + 1,
+		"the catalog is the shipped roster plus one mod car (%d)" % ncars)
+	check(mm.CARS.any(func(row: Array) -> bool: return String(row[1]) == "test_car"),
+		"the mod car is in the menu catalog")
+	var mod_params := VehicleDB.get_params("test_car")
+	check(mod_params != null and is_equal_approx(mod_params.vmax_kmh, 240.0),
+		"the mod car reaches VehicleDB with its overrides")
 	var cards := 0
 	for b in btns2:
 		if b.has_meta("car_i"): cards += 1
@@ -93,6 +116,59 @@ func _process(_d: float) -> void:
 	for b in btns3:
 		if b.has_meta("map_i"): mcards += 1
 	check(mcards == nmaps, "the MAPS section has one card per map (%d of %d)" % [mcards, nmaps])
+	# The STATS section: lifetime totals plus per-map/per-car record tables.
+	# Seeded here because an empty profile would only prove that the headers fit.
+	Stats.maps = {
+		"arena": {"runs": 3, "crashes": 2, "best_impact": 150.0, "top_speed": 200.0,
+			"distance": 1000.0, "seconds": 30.0, "best_lap": 65.5},
+		"speedway": {"runs": 1, "crashes": 1, "best_impact": 90.0, "top_speed": 180.0,
+			"distance": 600.0, "seconds": 20.0, "best_lap": 0.0},
+	}
+	Stats.cars = {
+		"sedan": {"runs": 4, "crashes": 3, "best_impact": 155.0, "top_speed": 210.0,
+			"distance": 1600.0, "seconds": 50.0, "best_lap": 62.25},
+	}
+	mm._show_section(5)   # Section.STATS
+	var map_grid: GridContainer = mm._panel.find_child("MapRecords", true, false) as GridContainer
+	var car_grid: GridContainer = mm._panel.find_child("CarRecords", true, false) as GridContainer
+	check(map_grid != null and map_grid.columns == 6, "the stats section has a six-column map table")
+	check(car_grid != null and car_grid.columns == 6, "the stats section has a six-column car table")
+	check(map_grid != null and map_grid.get_child_count() == 6 * 3,
+		"the map table has a header and two record rows (%s)" % [str(map_grid.get_child_count()) if map_grid else "null"])
+	check(car_grid != null and car_grid.get_child_count() == 6 * 2,
+		"the car table has a header and one record row (%s)" % [str(car_grid.get_child_count()) if car_grid else "null"])
+	var stat_texts: Array[String] = []
+	for grid in [map_grid, car_grid]:
+		if grid == null: continue
+		for c in grid.get_children():
+			if c is Label: stat_texts.append((c as Label).text)
+	check(I18n.t("ЗАЕЗДОВ") in stat_texts and I18n.t("УДАРОВ") in stat_texts,
+		"record tables carry the runs/impacts headers")
+	check(I18n.t("АРЕНА") in stat_texts and I18n.t("СЕДАН") in stat_texts,
+		"record rows use the map and car display names")
+	check("1:05.50" in stat_texts and "1:02.25" in stat_texts,
+		"best laps are formatted as times (%s)" % str(stat_texts))
+	check(I18n.fmt("%d км/ч", [150]) in stat_texts,
+		"best impact is shown with units (%s)" % str(stat_texts))
+	check("—" in stat_texts, "a map with no lap yet shows a dash, not 0:00.00")
+	# The MODS section reports the installed pack and offers a rescan. The pack
+	# itself was seeded before the menu was built (see _seed_mod).
+	mm._show_section(6)   # Section.MODS
+	var mod_labels: Array = []; _labels(mm._panel, mod_labels)
+	var mod_texts: Array[String] = []
+	for l in mod_labels: mod_texts.append((l as Label).text)
+	check(mod_texts.any(func(t: String) -> bool: return t.begins_with("Test Pack")),
+		"the mods panel names the pack (%s)" % str(mod_texts))
+	check("· TEST CAR (sedan)" in mod_texts, "the mods panel lists the car and its base")
+	check(ModDB.errors().is_empty(), "the valid test pack reports no mod errors")
+	var mod_btns: Array = []; _buttons(mm, mod_btns)
+	var reload_btn: Button = null
+	for b in mod_btns:
+		if b.text == I18n.t("ПЕРЕЗАГРУЗИТЬ"): reload_btn = b
+	check(reload_btn != null, "the mods panel has a reload button")
+	if reload_btn != null:
+		reload_btn.emit_signal("pressed")
+		check(mm.CARS.size() == ncars, "a rescan keeps the mod car in the catalog")
 	# the selection only reaches GameContext when starting: a click alone only sets state
 	mm.select_car(1)
 	mm.select_map(2)

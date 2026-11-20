@@ -59,7 +59,7 @@ jobs:
         run: node tools/project.mjs test --timeout 180
       - name: Export platform release
         run: node tools/project.mjs build ${{ matrix.platform }} --timeout 600
-      - name: Smoke run the exported build
+      - name: Smoke run the exported builds
         uses: ./.github/actions/smoke-build
         with:
           platform: ${{ matrix.platform }}

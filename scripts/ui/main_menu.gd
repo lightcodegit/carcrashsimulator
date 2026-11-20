@@ -8,7 +8,8 @@ extends Node3D
 
 # Витрина VehicleDB: цифры и цвета зеркалят get_params (физика читает свою таблицу).
 # Формат: имя, id, описание, макс. скорость км/ч, масса кг, разгон м/с², акцент кузова.
-const CARS := [
+# BASE_CARS is the shipped roster; CARS is built from it plus mod cars at startup.
+const BASE_CARS := [
 	["СЕДАН", "sedan", "Сбалансированный седан · 160 км/ч · 1300 кг\nСредняя жёсткость кузова — честная классика краш-тестов.",
 		160.0, 1300.0, 7.0, Color(0.78, 0.18, 0.16)],
 	["ПИКАП", "pickup", "Тяжёлый пикап · 140 км/ч · 1900 кг\nКузов держит удар, который ломает остальных.",
@@ -30,7 +31,9 @@ const MAPS := [
 	["БОЛЬШОЙ ГОРОД", "bigcity", "Километр на километр: периметр, сетка улиц и районы —\nцентр, жилые кварталы, промзона, парк и стадион. Трамплин на бульваре."],
 ]
 
-enum Section { PLAY, VEHICLES, GARAGE, MAPS, GALLERY, STATS, SETTINGS, EXIT }
+enum Section { PLAY, VEHICLES, GARAGE, MAPS, GALLERY, STATS, MODS, SETTINGS, EXIT }
+
+var CARS: Array = []
 
 var _profiles := GarageProfiles.new()
 var _garage: GaragePanel
@@ -56,10 +59,22 @@ var _env: Environment
 var _sun: DirectionalLight3D
 
 func _ready() -> void:
+	# Video export child: Movie Maker is recording from the first frame, so the
+	# menu must not build its 3D world or UI at all. The tape names its own map
+	# and car; setting the ids directly avoids rewriting the player's last
+	# selection in settings.cfg.
+	var export_req := VideoExport.parse_user_args(OS.get_cmdline_user_args())
+	if not export_req.is_empty():
+		if String(export_req["car"]) in VehicleDB.ids(): GameContext.car_id = String(export_req["car"])
+		if String(export_req["map"]) in MapDB.ids(): GameContext.map_id = String(export_req["map"])
+		VideoExport.request = export_req
+		get_tree().change_scene_to_file.call_deferred("res://scenes/game.tscn")
+		return
 	# Выбор переживает выход из заезда и из игры: восстанавливаем подсветку
 	# карточек по GameContext до сборки интерфейса, иначе карточки показывали
 	# первые элементы списка при живом другом выборе.
 	GameContext.loading_hide()
+	_build_catalog()
 	_car_i = _index_of_id(CARS, GameContext.car_id)
 	_map_i = _index_of_id(MAPS, GameContext.map_id)
 	_build_world()
@@ -215,6 +230,21 @@ func _process(dt: float) -> void:
 		var right := dir.cross(Vector3.UP).normalized()
 		_cam.look_at(aim + right * 2.6, Vector3.UP)
 
+# The shipped roster plus every loaded mod car. Built after ModDB has scanned
+# user://mods; the rest of the menu keeps using CARS as before.
+func _build_catalog() -> void:
+	CARS = BASE_CARS.duplicate(true)
+	for mod in ModDB.mods():
+		for raw in (mod["cars"] as Array):
+			var def: Dictionary = raw
+			var p := VehicleDB.get_params(String(def["id"]))
+			if p == null: continue
+			var top := "∞" if not is_finite(p.vmax_kmh) else str(int(p.vmax_kmh))
+			var line0 := I18n.fmt("МОД · %s КМ/Ч · %d КГ", [top, int(p.mass)])
+			CARS.append([String(def["name"]).to_upper(), p.car_id,
+				line0 + "\n" + String(def.get("description", "")),
+				p.vmax_kmh, p.mass, p.accel_max, p.accent_color])
+
 # Индекс карточки по id из GameContext: выбор переживает выход из заезда и
 # из игры; незнакомый id (старая версия файла настроек) откатывается на первый.
 func _index_of_id(items: Array, id: String) -> int:
@@ -335,7 +365,7 @@ func _build_nav(host: Control) -> void:
 	box.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
 	box.add_theme_constant_override("separation", UiTheme.px(6))
 	host.add_child(box)
-	var items := ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "ГАЛЕРЕЯ", "СТАТИСТИКА", "НАСТРОЙКИ", "ВЫХОД"]
+	var items := ["НАЧАТЬ", "МАШИНЫ", "ГАРАЖ", "КАРТЫ", "ГАЛЕРЕЯ", "СТАТИСТИКА", "МОДЫ", "НАСТРОЙКИ", "ВЫХОД"]
 	for idx in items.size():
 		var b := UiTheme.nav_item(items[idx], idx == 0)
 		b.custom_minimum_size = Vector2(UiTheme.fx(UiTheme.NAV_W), 0)
@@ -415,6 +445,7 @@ func _show_section(sec: int) -> void:
 		Section.MAPS: _panel_maps()
 		Section.GALLERY: _panel_gallery()
 		Section.STATS: _panel_stats()
+		Section.MODS: _panel_mods()
 		Section.EXIT: _panel_exit()
 	_fit_panel()
 
@@ -639,6 +670,61 @@ func _panel_maps() -> void:
 	for i in MAPS.size():
 		s.add_child(_pick_card(MAPS, i, i == _map_i, "map_i", select_map.bind(i)))
 
+# Mods are folder-based: the player drops a pack into user://mods and restarts
+# (or presses RELOAD). The panel is also the error report: a typo in mod.json
+# must explain itself instead of silently hiding the car.
+func _panel_mods() -> void:
+	var s := _scroller()
+	s.add_child(UiTheme.label("МОДЫ", 30, Color.WHITE, 800))
+	s.add_child(UiTheme.label("Папка: user://mods · каждая папка содержит mod.json", 13, UiTheme.FAINT))
+	s.add_child(_sep())
+	var packs := ModDB.mods()
+	if packs.is_empty():
+		s.add_child(UiTheme.label("МОДОВ НЕТ", 18, UiTheme.DIM))
+		s.add_child(_spacer(8))
+	for mod in packs:
+		var head := String(mod["name"])
+		if String(mod["version"]) != "": head += "  v" + String(mod["version"])
+		s.add_child(UiTheme.label(head, 20, Color.WHITE, 700))
+		var meta := String(mod["author"])
+		var cars: Array = mod["cars"]
+		var line := I18n.fmt("МАШИН: %d", [cars.size()])
+		if meta != "": line = meta + " · " + line
+		s.add_child(UiTheme.label(line, 13, UiTheme.DIM))
+		for raw in cars:
+			var def: Dictionary = raw
+			s.add_child(UiTheme.label("· %s (%s)" % [String(def["name"]), String(def["base"])],
+				15, Color(0.82, 0.86, 0.92)))
+		s.add_child(_spacer(8))
+	var errs := ModDB.errors()
+	if not errs.is_empty():
+		s.add_child(_sep())
+		s.add_child(UiTheme.label("ОШИБКИ МОДОВ", 18, Color(0.95, 0.55, 0.45), 800))
+		for e in errs:
+			var l := UiTheme.label(e, 12, UiTheme.FAINT, 500, true)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			s.add_child(l)
+	# Buttons live below the list: reading the report must not require clicking.
+	s.add_child(_spacer(10))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", UiTheme.px(14))
+	s.add_child(row)
+	var open := UiTheme.ghost_button("ОТКРЫТЬ ПАПКУ МОДОВ", 16)
+	open.custom_minimum_size = Vector2(UiTheme.fx(250), UiTheme.fx(44))
+	open.pressed.connect(func() -> void: OS.shell_open(ProjectSettings.globalize_path(ModDB.DIR)))
+	row.add_child(open)
+	var again := UiTheme.ghost_button("ПЕРЕЗАГРУЗИТЬ", 16)
+	again.custom_minimum_size = Vector2(UiTheme.fx(180), UiTheme.fx(44))
+	again.pressed.connect(_reload_mods)
+	row.add_child(again)
+
+func _reload_mods() -> void:
+	ModDB.reload()
+	_build_catalog()
+	_car_i = _index_of_id(CARS, GameContext.car_id)
+	_load_car(_car_i)
+	_show_section(Section.MODS)
+
 func _panel_exit() -> void:
 	var s := _scroller()
 	s.add_child(UiTheme.label("ВЫХОД", 30, Color.WHITE, 800))
@@ -688,6 +774,57 @@ func _panel_stats() -> void:
 	_kv(s, "ПРОЙДЕНО", I18n.fmt("%d км", [int(Stats.distance / 1000.0)]))
 	_kv(s, "ВРЕМЯ В ЗАЕЗДАХ", I18n.fmt("%d:%02d:%02d", [secs / 3600, (secs / 60) % 60, secs % 60]))
 	_kv(s, "СНИМКОВ", str(Stats.shots))
+	# The lifetime totals above answer "how much"; the tables answer "where and
+	# in what", which is what makes a record worth chasing.
+	_records_block(s, "РЕКОРДЫ ПО КАРТАМ", "MapRecords", Stats.map_record, MAPS, "КАРТА")
+	_records_block(s, "РЕКОРДЫ ПО МАШИНАМ", "CarRecords", Stats.car_record, CARS, "МАШИНА")
+
+func _records_block(parent: Node, title_key: String, node_name: String,
+		lookup: Callable, catalog: Array, name_key: String) -> void:
+	parent.add_child(_sep())
+	parent.add_child(UiTheme.label(title_key, 18, Color.WHITE, 800))
+	var grid := GridContainer.new()
+	grid.name = node_name
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", UiTheme.px(10))
+	grid.add_theme_constant_override("v_separation", UiTheme.px(2))
+	parent.add_child(grid)
+	for i in 6:
+		var h := UiTheme.label([name_key, "ЗАЕЗДОВ", "УДАРОВ", "ЛУЧШИЙ", "МАКС.", "КРУГ"][i],
+			11, UiTheme.FAINT, 700, true)
+		h.custom_minimum_size = Vector2(UiTheme.fx(156 if i == 0 else 78), 0)
+		h.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if i > 0 else HORIZONTAL_ALIGNMENT_LEFT
+		grid.add_child(h)
+	var rows := 0
+	for entry in catalog:
+		var rec: Dictionary = lookup.call(String(entry[1])) as Dictionary
+		if rec.is_empty() or int(rec.get("runs", 0)) <= 0: continue
+		var name_label := UiTheme.label(String(entry[0]), 14, Color.WHITE, 700)
+		name_label.custom_minimum_size = Vector2(UiTheme.fx(156), 0)
+		grid.add_child(name_label)
+		_rec_cell(grid, str(int(rec.get("runs", 0))))
+		_rec_cell(grid, str(int(rec.get("crashes", 0))))
+		_rec_cell(grid, _rec_speed(rec.get("best_impact", 0.0)))
+		_rec_cell(grid, _rec_speed(rec.get("top_speed", 0.0)))
+		var lap := float(rec.get("best_lap", 0.0))
+		_rec_cell(grid, LapTracker.fmt_time(lap) if lap > 0.0 else "—")
+		rows += 1
+	if rows == 0:
+		# An empty table is four translated headers and nothing else; the player
+		# reads that as a broken screen, so say plainly that there is no data.
+		parent.remove_child(grid)
+		grid.queue_free()
+		parent.add_child(UiTheme.label("НЕТ РЕКОРДОВ", 14, UiTheme.FAINT, 600, true))
+
+func _rec_cell(grid: GridContainer, text: String) -> void:
+	var l := UiTheme.label(text, 14, Color(0.82, 0.86, 0.92), 600)
+	l.custom_minimum_size = Vector2(UiTheme.fx(78), 0)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	grid.add_child(l)
+
+func _rec_speed(v: Variant) -> String:
+	var kmh := float(v) if (v is int or v is float) else 0.0
+	return I18n.fmt("%d км/ч", [int(kmh)]) if kmh > 0.0 else "—"
 
 # ---- мелкие строительные помощники -----------------------------------------
 var _cur_sc: ScrollContainer = null

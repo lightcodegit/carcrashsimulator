@@ -143,6 +143,10 @@ var _win_rect := Rect2i(0, 0, 1600, 900)
 var _win_max := false
 var _first_launch := false   # settings.cfg не содержит window/x — первое открытие игры
 var _win_save_at := 0
+# The video-export child is a second instance of the same project. It must not
+# restore, resize, or persist the player's window: the recording window's
+# geometry would otherwise become the next launch geometry in settings.cfg.
+var _export_run := false
 
 # Заводские значения снимаются до чтения файла: _init гарантированно раньше _ready,
 # и это единственный честный источник «как на заводе» для кнопки сброса.
@@ -156,9 +160,11 @@ func _ready() -> void:
 	# debounce геометрии окна обязан тикать, пока физика стоит. У Stats и
 	# TimeScale тот же ALWAYS — асимметрия была случайностью, а не решением.
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_export_run = VideoExport.is_export_run()
 	load_values()
-	restore_window_geometry()
-	apply_window()
+	if not _export_run:
+		restore_window_geometry()
+		apply_window()
 	changed.connect(apply_window)
 
 # Пока игра сидит во встроенной панели редактора, окном владеет редактор: он сам
@@ -270,6 +276,7 @@ static func _window_mode_needs_restyle(mode: int) -> bool:
 # и запись затёрла бы настоящую геометрию. У Window нет сигнала о перемещении,
 # поэтому прямоугольник опрашивается в _process — сравнение двух Rect2i копеечное.
 func _capture_window() -> void:
+	if _export_run: return
 	# В headless окно — фикция нулевого размера, и каждый тестовый прогон записывал
 	# в настоящие настройки игрока w=0 h=0. Свёрнутое окно отдаёт тот же ноль.
 	if DisplayServer.get_name() == "headless": return
@@ -352,6 +359,9 @@ func preset_name() -> String:
 # потолок кадров, сглаживание и внутренний масштаб окна. Освещение и пост-эффекты
 # применяются из GameManager, потому что Environment принадлежит сцене, а не автозагрузке.
 func apply_window() -> void:
+	# The export child owns no window: Movie Maker's --resolution and --fixed-fps
+	# are the authority, and a saved fullscreen flag must not override them.
+	if _export_run: return
 	match vsync:
 		VSync.OFF: DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 		VSync.ADAPTIVE: DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ADAPTIVE)
@@ -435,6 +445,8 @@ func shadow_preset_clamped() -> int:
 	return clampi(shadow_preset, 0, SHADOW_PRESETS.size() - 1)
 
 func save() -> void:
+	# A recording child must leave the player's settings and bindings untouched.
+	if _export_run: return
 	var cf := ConfigFile.new()
 	var d := values()
 	for key in d:

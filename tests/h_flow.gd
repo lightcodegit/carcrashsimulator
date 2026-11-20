@@ -113,8 +113,10 @@ func _ready() -> void:
 	check("ESC" not in overlay, "the pause menu shows no key-binding labels (%s)" % overlay.left(120))
 	# «заново» must clear the impact log and unpause
 	gm._crashes = 3
-	gm.hud.log_impact(120.0)
+	gm.hud.log_impact(120.0, CarRig.ZONE_REAR)
 	check(gm.hud._log_lines[0].text != "", "the log showed the impact as a line")
+	check(gm.hud._log_lines[0].text.contains(I18n.t("ХВОСТ")),
+		"the log names the impact zone (%s)" % gm.hud._log_lines[0].text)
 	gm.hud.pause_button("ЗАПУСТИТЬ ЗАНОВО").emit_signal("pressed")
 	await get_tree().process_frame
 	check(gm._crashes == 0, "pause: «заново» reset the log")

@@ -35,6 +35,13 @@ func apply_settings() -> void:
 
 func mode() -> int: return _mode
 
+# Places the camera on the car immediately instead of waiting for the next
+# processed frame. A Movie Maker child starts recording before any _process has
+# run, and its first frame used to show the camera's default origin; replay
+# autoplay calls this after the tape pose is applied.
+func snap() -> void:
+	_process(0.0)
+
 func cycle_mode() -> int:
 	_mode = (_mode + 1) % 3
 	_fwd_seen = false
